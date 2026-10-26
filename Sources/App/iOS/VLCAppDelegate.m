@@ -43,7 +43,9 @@
 + (void)initialize
 {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    NSDictionary *appDefaults = @{kVLCSettingAppTheme : @(kVLCSettingAppThemeSystem),
+    /* Rajneesh Discourse ships dark-first: the fork palette is dark by default,
+       light remains available from Settings. */
+    NSDictionary *appDefaults = @{kVLCSettingAppTheme : @(kVLCSettingAppThemeDark),
                                   kVLCSettingPasscodeEnableBiometricAuth : @(1),
                                   kVLCSettingContinueAudioInBackgroundKey : @(YES),
                                   kVLCSettingStretchAudio : @(YES),
@@ -106,6 +108,9 @@
                                   kVLCSettingPlaybackSpeedAppliesToAll: @(NO),
                                   kVLCSettingSaveAudioDelay: @(YES),
                                   kVLCSettingAlwaysPlayURLs: @(NO),
+                                  // Fork: the playback-history switch defaults on
+                                  // (AGENTS sections 6.5 and 7).
+                                  @"playback_history": @(YES),
                                   kVLCRestoreLastPlayedMedia: @(NO),
                                   kVLCSettingPlayerControlDuration: kVLCSettingPlayerControlDurationDefaultValue,
                                   kVLCSettingPauseWhenShowingControls: @(NO),
@@ -128,11 +133,6 @@
 - (void)configureShortCutItemsWithApplication:(UIApplication *)application
 {
     /* add our static shortcut items the dynamic way to ease l10n and dynamic elements to be introduced later */
-    UIApplicationShortcutItem *localVideoItem = [[UIApplicationShortcutItem alloc] initWithType:kVLCApplicationShortcutLocalVideo
-                                                                                 localizedTitle:NSLocalizedString(@"VIDEO",nil)
-                                                                              localizedSubtitle:nil
-                                                                                           icon:[UIApplicationShortcutIcon iconWithTemplateImageName:@"Video"]
-                                                                                       userInfo:nil];
     UIApplicationShortcutItem *localAudioItem = [[UIApplicationShortcutItem alloc] initWithType:kVLCApplicationShortcutLocalAudio
                                                                                  localizedTitle:NSLocalizedString(@"AUDIO",nil)
                                                                               localizedSubtitle:nil
@@ -144,8 +144,9 @@
                                                                                               icon:[UIApplicationShortcutIcon iconWithTemplateImageName:@"Playlist"]
                                                                                           userInfo:nil];
     /* iOS shows at most four quick actions and the tab coordinator prepends the dynamic last
-       played item once the media library is up, so there is room for three static ones only */
-    application.shortcutItems = @[localVideoItem, localAudioItem, localplaylistItem];
+       played item once the media library is up. Videos are not a product surface in this fork,
+       so there is no video quick action. */
+    application.shortcutItems = @[localAudioItem, localplaylistItem];
 }
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
@@ -326,6 +327,20 @@
 
 - (void)application:(UIApplication *)application didDiscardSceneSessions:(NSSet<UISceneSession *> *)sceneSessions
 {
+}
+
+#pragma mark - Fork: discourse downloads
+
+/* The discourse download queue uses a background URLSession (AGENTS.md 6.6).
+ * The system wakes the app to hand over the finished downloads and waits for
+ * this completion handler, which DiscourseDownloadManager releases once the
+ * session has delivered every event. */
+- (void)application:(UIApplication *)application
+    handleEventsForBackgroundURLSession:(NSString *)identifier
+                      completionHandler:(void (^)(void))completionHandler
+{
+    [DiscourseDownloadManager handleBackgroundEventsWithIdentifier:identifier
+                                                 completionHandler:completionHandler];
 }
 
 @end

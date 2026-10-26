@@ -583,3 +583,233 @@ let visionPalette = ColorPalette(isDark: true,
 #endif // !os(tvOS)
 
 let defaultFont = Typography(tableHeaderFont: UIFont.systemFont(ofSize: 24, weight: .semibold))
+
+// MARK: - Rajneesh Discourse palette
+
+#if os(iOS)
+
+/// Semantic colours for the fork-only discourse, audio-mixer and mini-player
+/// screens.
+///
+/// The values are the design tokens from the product brief. They mirror the
+/// Android reference (`res/values` and `res/values-night` colour resources) so
+/// both apps look the same, and they are resolved from
+/// `PresentationTheme.current` so light and dark switch with the existing theme
+/// infrastructure and `.VLCThemeDidChangeNotification`.
+///
+/// Upstream screens keep using `ColorPalette`; only fork-only views use this.
+struct DiscourseColors {
+
+    struct Playlist {
+        let screenSurface: UIColor
+        let glowStart: UIColor
+        let glowSecondary: UIColor
+        let glowEnd: UIColor
+        let rowStart: UIColor
+        let rowEnd: UIColor
+        let rowAccent: UIColor
+        let coverStart: UIColor
+        let coverEnd: UIColor
+        let text: UIColor
+        let textSecondary: UIColor
+    }
+
+    struct AudioMixer {
+        let screenStart: UIColor
+        let screenEnd: UIColor
+        let card: UIColor
+        let cardBorder: UIColor
+        let rowStart: UIColor
+        let rowEnd: UIColor
+        let rowActiveStart: UIColor
+        let rowActiveEnd: UIColor
+        let bannerStart: UIColor
+        let bannerEnd: UIColor
+        let bannerIcon: UIColor
+        let separator: UIColor
+        let text: UIColor
+        let textSecondary: UIColor
+        let accent: UIColor
+        let toggleBackgroundDefault: UIColor
+        let toggleBackgroundSelected: UIColor
+        let toggleForegroundDefault: UIColor
+        let toggleForegroundSelected: UIColor
+        let toggleDisabled: UIColor
+        let sliderInactive: UIColor
+    }
+
+    struct MiniPlayer {
+        let surfaceStart: UIColor
+        let surfaceEnd: UIColor
+        let border: UIColor
+        let text: UIColor
+        let textSecondary: UIColor
+        let control: UIColor
+        let accent: UIColor
+        let progressInactive: UIColor
+    }
+
+    let isDark: Bool
+
+    // Catalogue and track surfaces
+    let accent: UIColor
+    let appBackground: UIColor
+    let catalogueBackgroundStart: UIColor
+    let detailBackgroundStart: UIColor
+    let detailBackgroundEnd: UIColor
+    let surfaceStart: UIColor
+    let surfaceEnd: UIColor
+    let border: UIColor
+    let primaryText: UIColor
+    let secondaryText: UIColor
+    let divider: UIColor
+    let searchFieldBackground: UIColor
+    let searchStroke: UIColor
+    let trackSurface: UIColor
+    let trackBorder: UIColor
+    let trackText: UIColor
+    let trackSecondaryText: UIColor
+    let downloadedSurface: UIColor
+    let downloadedBorder: UIColor
+
+    // Liked/unliked hearts are brand constants, not theme dependent.
+    let likedHeart = UIColor(0xFF5269)
+    let unlikedHeart = UIColor(0xBEA8AA)
+    // Downloaded tracks use the reference green in both themes.
+    let downloaded = UIColor(0x50C8A3)
+
+    let playlist: Playlist
+    let audioMixer: AudioMixer
+    let miniPlayer: MiniPlayer
+
+    /// The palette for the theme currently in effect.
+    static var current: DiscourseColors {
+        return PresentationTheme.current.isDark ? .dark : .light
+    }
+
+    static let dark = DiscourseColors(
+        isDark: true,
+        accent: UIColor(0xFF484D),
+        appBackground: UIColor(0x0D0D0D),
+        catalogueBackgroundStart: UIColor(0x1C1110),
+        detailBackgroundStart: UIColor(0x2D1017),
+        detailBackgroundEnd: UIColor(0x09090B),
+        surfaceStart: UIColor(0x321A19),
+        surfaceEnd: UIColor(0x211312),
+        border: UIColor(0x71302E),
+        primaryText: UIColor(0xF5F3F3),
+        secondaryText: UIColor(0xBBB8B8),
+        divider: UIColor(0x302B2B),
+        searchFieldBackground: UIColor(0x281515),
+        searchStroke: UIColor(0x923330),
+        trackSurface: UIColor(0x1B171B),
+        trackBorder: UIColor(0x302329),
+        trackText: UIColor(0xFFFFFF),
+        trackSecondaryText: UIColor(0xBEA8AA),
+        downloadedSurface: UIColor(0x29171D),
+        downloadedBorder: UIColor(0x64303D),
+        playlist: Playlist(screenSurface: UIColor(0x101010),
+                           glowStart: UIColor(0x40201E),
+                           glowSecondary: UIColor(0x351817),
+                           glowEnd: UIColor(0x101010, 0.0),
+                           rowStart: UIColor(0x462120),
+                           rowEnd: UIColor(0x25201F),
+                           rowAccent: UIColor(0xB83339),
+                           coverStart: UIColor(0x592323),
+                           coverEnd: UIColor(0x351B1C),
+                           text: UIColor(0xFFFFFF),
+                           textSecondary: UIColor(0xB7B4B4)),
+        audioMixer: AudioMixer(screenStart: UIColor(0x19110F),
+                               screenEnd: UIColor(0x000000),
+                               card: UIColor(0x241A18),
+                               cardBorder: UIColor(0x652520),
+                               rowStart: UIColor(0x1B1918),
+                               rowEnd: UIColor(0x211917),
+                               rowActiveStart: UIColor(0x49201D),
+                               rowActiveEnd: UIColor(0x351B19),
+                               bannerStart: UIColor(0x601D17),
+                               bannerEnd: UIColor(0x4C1111),
+                               bannerIcon: UIColor(0xD6ABA4),
+                               separator: UIColor(0x38302D),
+                               text: UIColor(0xFFFFFF),
+                               textSecondary: UIColor(0xBDBDBD),
+                               accent: UIColor(0xEB3036),
+                               toggleBackgroundDefault: UIColor(0x241A18),
+                               toggleBackgroundSelected: UIColor(0xA82222),
+                               toggleForegroundDefault: UIColor(0xEB3036),
+                               toggleForegroundSelected: UIColor(0xFFFFFF),
+                               toggleDisabled: UIColor(0x777777),
+                               sliderInactive: UIColor(0x514B49)),
+        miniPlayer: MiniPlayer(surfaceStart: UIColor(0x402020),
+                               surfaceEnd: UIColor(0x241B1C),
+                               border: UIColor(0x813034),
+                               text: UIColor(0xFFFFFF),
+                               textSecondary: UIColor(0xB7B4B4),
+                               control: UIColor(0xFFFFFF),
+                               accent: UIColor(0xEB3036),
+                               progressInactive: UIColor(0x514747)))
+
+    static let light = DiscourseColors(
+        isDark: false,
+        accent: UIColor(0xB3262D),
+        appBackground: UIColor(0xFFFDFC),
+        catalogueBackgroundStart: UIColor(0xFFFDFC),
+        detailBackgroundStart: UIColor(0xFFF8F6),
+        detailBackgroundEnd: UIColor(0xFFFDFC),
+        surfaceStart: UIColor(0xFFF8F6),
+        surfaceEnd: UIColor(0xF8EDEA),
+        border: UIColor(0xE7C9C5),
+        primaryText: UIColor(0x211A19),
+        secondaryText: UIColor(0x685D5B),
+        divider: UIColor(0xE5DAD8),
+        searchFieldBackground: UIColor(0xFFFFFF),
+        searchStroke: UIColor(0xD6B9B5),
+        trackSurface: UIColor(0xFFFDFC),
+        trackBorder: UIColor(0xE7DAD7),
+        trackText: UIColor(0x211A19),
+        trackSecondaryText: UIColor(0x685D5B),
+        downloadedSurface: UIColor(0xF9EDEF),
+        downloadedBorder: UIColor(0xE7C6CF),
+        playlist: Playlist(screenSurface: UIColor(0xFAF7F5),
+                           glowStart: UIColor(0xFFF0EC),
+                           glowSecondary: UIColor(0xF8ECE8),
+                           glowEnd: UIColor(0xFAF7F5, 0.0),
+                           rowStart: UIColor(0xFFFDFC),
+                           rowEnd: UIColor(0xF1E8E5),
+                           rowAccent: UIColor(0xB3262D),
+                           coverStart: UIColor(0xF4DCD6),
+                           coverEnd: UIColor(0xEAD0CB),
+                           text: UIColor(0x211A19),
+                           textSecondary: UIColor(0x685D5B)),
+        audioMixer: AudioMixer(screenStart: UIColor(0xFFF8F5),
+                               screenEnd: UIColor(0xFAF7F5),
+                               card: UIColor(0xFFFDFC),
+                               cardBorder: UIColor(0xE7DAD7),
+                               rowStart: UIColor(0xFFFDFC),
+                               rowEnd: UIColor(0xF1E8E5),
+                               rowActiveStart: UIColor(0xFFF0ED),
+                               rowActiveEnd: UIColor(0xF8E2DE),
+                               bannerStart: UIColor(0xFFF0ED),
+                               bannerEnd: UIColor(0xF8E2DE),
+                               bannerIcon: UIColor(0xB3262D),
+                               separator: UIColor(0xE5DAD8),
+                               text: UIColor(0x211A19),
+                               textSecondary: UIColor(0x685D5B),
+                               accent: UIColor(0xB3262D),
+                               toggleBackgroundDefault: UIColor(0xF8EDEA),
+                               toggleBackgroundSelected: UIColor(0xA82222),
+                               toggleForegroundDefault: UIColor(0xB3262D),
+                               toggleForegroundSelected: UIColor(0xFFFFFF),
+                               toggleDisabled: UIColor(0x9B9290),
+                               sliderInactive: UIColor(0xD6C9C6)),
+        miniPlayer: MiniPlayer(surfaceStart: UIColor(0xFFFDFC),
+                               surfaceEnd: UIColor(0xF3EAE7),
+                               border: UIColor(0xE7DAD7),
+                               text: UIColor(0x211A19),
+                               textSecondary: UIColor(0x685D5B),
+                               control: UIColor(0x211A19),
+                               accent: UIColor(0xB3262D),
+                               progressInactive: UIColor(0xD6C9C6)))
+}
+
+#endif // os(iOS)

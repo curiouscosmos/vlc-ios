@@ -14,6 +14,10 @@ import Foundation
 @objc class VLCAccessibilityIdentifier: NSObject {
     static let video = "video"
     static let audio = "audio"
+    @objc static let home = "home"
+    @objc static let discourses = "discourses"
+    @objc static let search = "search"
+    @objc static let audioMixer = "audioMixer"
     static let songs = "songs"
     static let artists = "artists"
     static let albums = "albums"
@@ -50,4 +54,5 @@ import Foundation
     static let videoPlayerScrubBar = "videoPlayerScrubBar"
     static let moreOptions = "moreOptions"
     static let closePlayback = "closePlayback"
+    static let discourseLike = "discourseLike"
 }

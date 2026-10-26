@@ -16,16 +16,16 @@
                         <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="LaunchCone" translatesAutoresizingMaskIntoConstraints="NO" id="Lid-6c-6Vc">
-                                <rect key="frame" x="143" y="392" width="128" height="140"/>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="LaunchIcon" translatesAutoresizingMaskIntoConstraints="NO" id="Lid-6c-6Vc">
+                                <rect key="frame" x="143" y="384" width="128" height="128"/>
                                 <constraints>
-                                    <constraint firstAttribute="width" secondItem="Lid-6c-6Vc" secondAttribute="height" multiplier="32:35" id="3qJ-DT-gUn"/>
-                                    <constraint firstAttribute="width" secondItem="Lid-6c-6Vc" secondAttribute="height" multiplier="32:35" id="aaw-JY-zJl"/>
+                                    <constraint firstAttribute="width" secondItem="Lid-6c-6Vc" secondAttribute="height" multiplier="1:1" id="3qJ-DT-gUn"/>
+                                    <constraint firstAttribute="width" constant="128" id="aaw-JY-zJl"/>
                                 </constraints>
                             </imageView>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="Bcu-3y-fUS"/>
-                        <color key="backgroundColor" red="0.93351626399999998" green="0.50050908329999999" blue="0.19193831089999999" alpha="1" colorSpace="custom" customColorSpace="displayP3"/>
+                        <color key="backgroundColor" red="0.050980392156862744" green="0.050980392156862744" blue="0.050980392156862744" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
                             <constraint firstItem="Lid-6c-6Vc" firstAttribute="centerY" secondItem="Bcu-3y-fUS" secondAttribute="centerY" id="6bK-MI-OPk"/>
                             <constraint firstItem="Lid-6c-6Vc" firstAttribute="centerX" secondItem="Bcu-3y-fUS" secondAttribute="centerX" id="HkG-kz-6sW"/>
@@ -38,6 +38,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="LaunchCone" width="128" height="140"/>
+        <image name="LaunchIcon" width="160" height="160"/>
     </resources>
 </document>

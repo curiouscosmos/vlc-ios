@@ -19,7 +19,7 @@ class AboutController: UIViewController, MFMailComposeViewControllerDelegate, UI
 
     private let webView = WKWebView()
     private let notificationCenter = NotificationCenter.default
-    private let feedbackEmail = "ios-support@videolan.org"
+    private let feedbackEmail = "support@sandalbar.online"
     private var hasLoadedContent = false
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -210,8 +210,8 @@ class AboutController: UIViewController, MFMailComposeViewControllerDelegate, UI
             "Device": generateDeviceIdentifier(),
             "OS": "\(device.systemName) - \(device.systemVersion)",
             "Locale": "\(locale.languageCode!) (\(locale.regionCode!))",
-            "VLC app version": bundleShortVersionString,
-            "VLC app build number": bundleBuildNumberString,
+            "Rajneesh Discourse app version": bundleShortVersionString,
+            "Rajneesh Discourse app build number": bundleBuildNumberString,
             "libvlc version": VLCLibrary.shared().changeset,
             "hardware decoding": defaults.integer(forKey: kVLCSettingHardwareDecoding),
             "network caching level": defaults.integer(forKey: kVLCSettingNetworkCaching),

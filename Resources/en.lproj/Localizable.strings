@@ -76,14 +76,14 @@
 "BUTTON_OPEN" = "Open";
 "BUTTON_PASTE_AND_OPEN" = "Paste and Open";
 "BUTTON_PASTE_AND_LOAD" = "Paste and Load";
-"BUTTON_CANCEL" = "Cancel";
+"BUTTON_CANCEL" = "Cancel"; /* Cancel a destructive action */
 "BUTTON_CLOSE" = "Close";
 "BUTTON_SAVE" = "Save";
 "BUTTON_DOWNLOAD" = "Download";
 "BUTTON_DELETE" = "Delete";
 "BUTTON_RENAME" = "Rename";
 "BUTTON_COPY" = "Copy";
-"BUTTON_OK" = "OK";
+"BUTTON_OK" = "OK"; /* Acknowledge a message */
 "BUTTON_DISMISS" = "Dismiss";
 "BUTTON_CONTACT" = "Contact us";
 "BUTTON_CONNECT" = "Connect";
@@ -260,10 +260,10 @@
 "EMPTY_LIBRARY_LONG" = "For playback, you can stream media from a server on your local network, from the cloud or synchronize media to your device using the \"Files\" tab in Finder or iTunes, Wi-Fi Upload or cloud services.";
 
 "EMPTY_NO_PLAYLISTS" = "Playlists";
-"EMPTY_NO_PLAYLISTS_DESCRIPTION" = "To create playlists, enter Edit mode in the Video or Audio content tabs and select your favorite media.\nYou can also synchronize existing playlists from your other devices or the internet.";
+"EMPTY_NO_PLAYLISTS_DESCRIPTION" = "To create a playlist, long-press a track in your local library and choose Add to Playlist.\nYou can also synchronize existing playlists from your other devices or the internet.";
 
 "EMPTY_PLAYLIST" = "Empty Playlist";
-"EMPTY_PLAYLIST_DESCRIPTION" = "Add media while editing in the respective categories.";
+"EMPTY_PLAYLIST_DESCRIPTION" = "Add tracks from your local library.";
 
 "EMPTY_HISTORY" = "Empty History";
 "EMPTY_HISTORY_DESCRIPTION" = "No media yet.";
@@ -316,7 +316,7 @@
 
 "FIRST_STEPS_ITUNES" = "File Sync";
 "FIRST_STEPS_ITUNES_TITLE" = "Sync With Your Computer";
-"FIRST_STEPS_ITUNES_DETAILS" = "Connect your %@ to use the Finder or iTunes. In the Finder, select the \"Files\" tab and choose VLC to transfer files.";
+"FIRST_STEPS_ITUNES_DETAILS" = "Connect your %@ to use the Finder or iTunes. In the Finder, select the \"Files\" tab and choose Rajneesh Discourse to transfer files.";
 "FIRST_STEPS_WIFI_TITLE" = "Share via Wi-Fi";
 "FIRST_STEPS_WIFI_DETAILS" = "Enter the generated URL in your favorite web browser while connected to the same network as your %@.";
 "FIRST_STEPS_CLOUDS" = "Clouds";
@@ -410,8 +410,8 @@
 
 "PROTOCOL_NOT_SELECTED" = "Protocol not selected";
 "Settings" = "Settings";
-"SETTINGS_ABOUT" = "About VLC";
-"SETTINGS_DOCUMENTATION" = "Documentation";
+"SETTINGS_ABOUT" = "About Rajneesh Discourse";
+"SETTINGS_DOCUMENTATION" = "Help & Website";
 "SETTINGS_DONATE" = "Donate to VideoLAN";
 "SETTINGS_DONATE_LONG" = "Support free and open source multimedia";
 
@@ -420,8 +420,8 @@
 "SORT_BY" = "Sort by";
 "SORT_NOTIFICATION" = "Using the same option in a row reverses the sorting order";
 /* Noun, not verb: the label of a search field or search button (French: "Recherche", not "Rechercher") */
-"SEARCH" = "Search";
-"SEARCH_NO_RESULTS" = "No results";
+"SEARCH" = "Search"; /* Search tab title */
+"SEARCH_NO_RESULTS" = "No results"; /* Search results heading when nothing matches */
 /* Accessibility description of a video that is part of a media group, %@ is the media group name */
 "IN_MEDIA_GROUP" = "In the group %@";
 "VIDEO" = "Video";
@@ -696,7 +696,7 @@
 "FORCE_RESCAN_TITLE" = "Force media library rescan";
 "FORCE_RESCAN_MESSAGE" = "Do you want to force VLC to rescan your media library?\nIt could take some time.";
 
-"FEEDBACK_EMAIL_TITLE" = "Feedback about VLC on iOS and iPadOS";
+"FEEDBACK_EMAIL_TITLE" = "Rajneesh Discourse feedback";
 "FEEDBACK_EMAIL_NOT_POSSIBLE_TITLE" = "Mail account not configured";
 "FEEDBACK_EMAIL_NOT_POSSIBLE_LONG" = "Contact us through %@ from another device.";
 
@@ -958,3 +958,92 @@
 "MEDIALIBRARY_CORRUPTION_SEND" = "Send Report";
 "MEDIALIBRARY_CORRUPTION_DISMISS" = "Don't Send";
 "MEDIALIBRARY_CORRUPTION_EMAIL_TITLE" = "Damaged media library database";
+
+"DISCOURSE_LANGUAGE_ENGLISH" = "English"; /* English language filter */
+"DISCOURSE_LANGUAGE_HINDI" = "Hindi"; /* Hindi language filter */
+"DISCOURSE_LIKE_ERROR" = "Could not update your like. Tap the heart to try again."; /* Error shown when a like or unlike request fails */
+"DISCOURSE_LIKE_ACCESSIBILITY" = "Like %@. %d likes"; /* Accessibility label of a like button: title, number of likes */
+"DISCOURSE_UNLIKE_ACCESSIBILITY" = "Unlike %@. %d likes"; /* Accessibility label of a like button that removes the like: title, number of likes */
+"DISCOURSE_LIKE_PENDING" = "Updating"; /* Accessibility value while a like request is in flight */
+"DISCOURSE_DOWNLOAD_ACCESSIBILITY" = "Download %@"; /* Accessibility label of a track that can be downloaded: track title */
+"DISCOURSE_DOWNLOAD_CANCEL_ACCESSIBILITY" = "Cancel download of %@"; /* Accessibility label of a track download in progress: track title */
+"DISCOURSE_DOWNLOADED_ACCESSIBILITY" = "Downloaded %@"; /* Accessibility label of a downloaded track: track title */
+"DISCOURSE_DOWNLOAD_FAILED_ACCESSIBILITY" = "Download failed %@. Tap to try again."; /* Accessibility label of a failed track download: track title */
+"DISCOURSE_DOWNLOADS_COUNT_ACCESSIBILITY" = "%1$d of %2$d tracks downloaded"; /* Accessibility label of the card download badge: downloaded tracks, total tracks */
+"DISCOURSE_DOWNLOADS_ACTIVE_ACCESSIBILITY" = "%1$d of %2$d tracks downloading"; /* Accessibility label of the card download badge while tracks download: active tracks, total tracks */
+"DISCOURSE_DOWNLOAD_MENU" = "Download"; /* Download a track */
+"DISCOURSE_DOWNLOAD_CANCEL_MENU" = "Cancel download"; /* Cancel a running track download */
+"DISCOURSE_DOWNLOAD_REMOVE_MENU" = "Remove download"; /* Delete a downloaded track */
+"DISCOURSE_DOWNLOAD_RETRY_MENU" = "Retry download"; /* Retry a failed track download */
+"DISCOURSE_DOWNLOAD_ALL_MENU" = "Download all"; /* Download every track of this discourse */
+"DISCOURSE_DOWNLOAD_CANCEL_ALL_MENU" = "Cancel downloads"; /* Cancel every running download of this discourse */
+"DISCOURSE_DOWNLOAD_REMOVE_ALL_MENU" = "Remove all downloads"; /* Delete every downloaded track of this discourse */
+"DISCOURSE_DOWNLOAD_REMOVE_ALL_CONFIRM" = "Remove all downloaded tracks from this discourse?"; /* Confirmation before deleting every downloaded track of a discourse */
+"DISCOURSE_DOWNLOAD_REMOVE_ALL_ACTION" = "Remove all"; /* Confirm deleting every downloaded track of a discourse */
+"DISCOURSE_DOWNLOADS_MENU" = "Downloads"; /* Accessibility label of the downloads menu in the discourse screen */
+"DISCOURSE_SERVER_ERROR" = "Failed to communicate with the server."; /* Generic error shown when the discourse server cannot be reached */
+
+// MARK: - Rajneesh Discourse shell
+"HOME" = "Home"; /* Home tab title */
+"DISCOURSES" = "Discourses"; /* Discourses tab title */
+"AUDIO_MIXER" = "Audio Mixer"; /* Audio Mixer tab title */
+"HOME_EMPTY_TITLE" = "Nothing here yet"; /* Empty state heading on the Home tab */
+"HOME_EMPTY_MESSAGE" = "Play a discourse or a track and it will show up here."; /* Empty state message on the Home tab */
+"HOME_SECTION_RECENT_DISCOURSES" = "Recently played"; /* Home section: recently played discourses */
+"HOME_SECTION_RECENT_TRACKS" = "Recently played tracks"; /* Home section: recently played tracks */
+"HOME_SECTION_TOP_DISCOURSES" = "Top discourses this week"; /* Home section: top discourses this week */
+"HOME_SECTION_TOP_TRACKS" = "Top tracks this week"; /* Home section: top tracks this week */
+"HOME_ERROR_TITLE" = "Could not load the top lists"; /* Home heading when the top lists cannot be loaded */
+"DISCOURSE_LOCAL_LIBRARY" = "Local library"; /* Title of the device audio library */
+"DISCOURSES_SEGMENT_DISCOURSE" = "Discourse"; /* Remote catalogue segment */
+"DISCOURSES_SEGMENT_LOCAL" = "Local"; /* Device library segment */
+"DISCOURSE_FILTER_TITLE" = "Filter"; /* Catalogue filter button */
+"DISCOURSE_FILTER_LANGUAGE" = "Language"; /* Catalogue filter: language */
+"DISCOURSE_FILTER_SORT" = "Sort"; /* Catalogue filter: sort order */
+"DISCOURSE_FILTER_ALL_LANGUAGES" = "All languages"; /* Catalogue filter: no language filter */
+"DISCOURSE_FILTER_SORT_DEFAULT" = "Default order"; /* Catalogue sort: default order */
+"DISCOURSE_FILTER_SORT_MOST_LIKED" = "Most liked"; /* Catalogue sort: most liked first */
+"DISCOURSE_FILTER_CLEAR" = "Clear filters"; /* Clear the catalogue filters */
+"DISCOURSE_CATALOGUE_EMPTY_TITLE" = "No discourses found"; /* Empty catalogue heading */
+"DISCOURSE_CATALOGUE_EMPTY_MESSAGE" = "Try a different language or reload the catalogue."; /* Empty catalogue message */
+"DISCOURSE_CATALOGUE_RELOAD" = "Reload";
+"DISCOURSE_CATALOGUE_ERROR_TITLE" = "Could not load the catalogue"; /* Failed catalogue heading */
+"DISCOURSE_CATALOGUE_RETRY" = "Try again";
+"DISCOURSE_CARD_TRACK_ONE" = "1 track"; /* Track count of exactly one */
+"DISCOURSE_CARD_TRACKS" = "%d tracks"; /* Track count */
+"DISCOURSE_CARD_LIKE_ONE" = "1 like"; /* Like count of exactly one */
+"DISCOURSE_CARD_LIKES" = "%@ likes"; /* Like count */
+"DISCOURSE_TRACK_FALLBACK_TITLE" = "Track %d"; /* Title shown when a track has no title */
+"DISCOURSE_DETAIL_PLAY_ALL" = "Play all"; /* Play all tracks of a discourse */
+"DISCOURSE_DETAIL_EMPTY_TITLE" = "No tracks yet"; /* Detail screen heading when a discourse has no tracks */
+"DISCOURSE_DETAIL_EMPTY_MESSAGE" = "This discourse has no tracks to play."; /* Detail screen message when a discourse has no tracks */
+"DISCOURSE_DETAIL_ERROR_TITLE" = "Could not load the tracks"; /* Detail screen heading when the tracks fail to load */
+"DISCOURSE_TRACK_PLAY" = "Play"; /* Play a track now */
+"DISCOURSE_TRACK_PLAY_NEXT" = "Play next"; /* Insert a track after the current one */
+"DISCOURSE_TRACK_ADD_TO_QUEUE" = "Add to queue"; /* Append a track to the queue */
+"DISCOURSE_TRACK_PLAYING" = "Playing"; /* Accessibility value of the track being played */
+"DISCOURSE_TRACK_PLAYED" = "Played"; /* Accessibility value of a finished track */
+"SEARCH_EMPTY_TITLE" = "Search Rajneesh Discourse"; /* Empty state heading on the Search tab */
+"SEARCH_EMPTY_MESSAGE" = "Find discourses and tracks in the catalogue."; /* Empty state message on the Search tab */
+"DISCOURSE_SEARCH_PLACEHOLDER" = "Search discourses and tracks"; /* Search field placeholder */
+"DISCOURSE_SEARCH_EMPTY_MESSAGE" = "No discourse or track matches “%@”."; /* Search results message when nothing matches */
+"DISCOURSE_SEARCH_ERROR_TITLE" = "Could not search the catalogue"; /* Search heading when the request fails */
+"DISCOURSE_SEARCH_SECTION_DISCOURSES" = "Discourses"; /* Search results section title */
+"DISCOURSE_SEARCH_SECTION_TRACKS" = "Tracks"; /* Search results section title */
+"MIXER_EMPTY_TITLE" = "The mixer is empty"; /* Empty state heading on the Audio Mixer tab */
+"MIXER_EMPTY_MESSAGE" = "Add audio from your library to play alongside a discourse."; /* Empty state message on the Audio Mixer tab */
+"MIXER_ADD_ACTION" = "Add to Audio Mixer"; /* Add a local audio file to the Audio Mixer */
+"MIXER_ENABLE_TITLE" = "Mixer on"; /* Switch that makes the Audio Mixer follow the main player */
+"MIXER_ENABLE_DETAIL" = "Plays alongside the main player"; /* Explanation under the Audio Mixer switch */
+"MIXER_NOW_PLAYING" = "Now playing"; /* Caption above the track currently in the Audio Mixer */
+"MIXER_NO_TRACK" = "No track selected"; /* Shown in the Audio Mixer panel when no track is selected */
+"MIXER_LOOP_TITLE" = "Loop track"; /* Switch that repeats the Audio Mixer's track */
+"MIXER_VOLUME_TITLE" = "Mixer volume"; /* Accessibility label of the Audio Mixer volume slider */
+"MIXER_PLAY_ACCESSIBILITY" = "Play the mixer"; /* Accessibility label of the Audio Mixer play button */
+"MIXER_PAUSE_ACCESSIBILITY" = "Pause the mixer"; /* Accessibility label of the Audio Mixer pause button */
+"MIXER_ROW_PLAYING" = "Playing in the mixer"; /* Shown on the Audio Mixer track that is playing */
+"MIXER_HINT" = "Long-press a track in your local library and choose Add to Audio Mixer."; /* How to add tracks to the Audio Mixer */
+"MIXER_OPEN_LIBRARY" = "Open local library"; /* Action that opens the local library from the Audio Mixer */
+"MIXER_CLEAR" = "Clear all"; /* Remove every track from the Audio Mixer */
+"MIXER_CLEAR_CONFIRM" = "Remove every track from the Audio Mixer?"; /* Confirmation before removing every Audio Mixer track */
+"MIXER_CLEAR_ACTION" = "Remove all"; /* Confirm removing every Audio Mixer track */

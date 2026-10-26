@@ -35,6 +35,7 @@
 "SETTINGS_CONTINUE_VIDEO_PLAYBACK_INFO" = "This continues playback of video files from the last position.";
 "SETTINGS_CONTINUE_AUDIO_PLAYBACK" = "Continue audio playback";
 "SETTINGS_CONTINUE_AUDIO_PLAYBACK_INFO" = "This continues playback of audio files from the last position that are of a certain length or match the podcast criteria.";
+"SETTINGS_PLAYBACK_HISTORY" = "Playback history";
 "SETTINGS_CONTINUE_PLAYBACK_NEVER" = "Never";
 "SETTINGS_CONTINUE_PLAYBACK_ASK" = "Ask";
 "SETTINGS_CONTINUE_PLAYBACK_ALWAYS" = "Always";
@@ -116,7 +117,7 @@
 "SETTINGS_LOWEST" = "Lowest";
 
 "SETTINGS_MEDIA_LIBRARY" = "Media library";
-"SETTINGS_MEDIA_LIBRARY_RESCAN" = "Force VLC to rescan the media library";
+"SETTINGS_MEDIA_LIBRARY_RESCAN" = "Force Rajneesh Discourse to rescan the media library";
 "SETTINGS_DECRAPIFY" = "Optimize item names for display";
 "SETTINGS_DISABLE_GROUPING" = "Disable automatic media grouping";
 "SETTINGS_SHOW_THUMBNAILS" = "Show video thumbnails";

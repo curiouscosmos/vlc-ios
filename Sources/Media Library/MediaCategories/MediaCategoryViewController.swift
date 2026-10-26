@@ -1856,7 +1856,7 @@ private extension MediaCategoryViewController {
 
         let actions = EditButtonsFactory.generate(buttons: actionList)
 
-        return UIMenu(title: "", image: nil, identifier: nil, children: actions.map {
+        var children: [UIMenuElement] = actions.map {
             switch $0.identifier {
             case .addToPlaylist:
                 return $0.action({
@@ -2092,7 +2092,27 @@ private extension MediaCategoryViewController {
                     #endif
                 })
             }
-        })
+        }
+
+        // Fork (AGENTS section 6.7): local audio files can join the Audio
+        // Mixer, which plays them alongside the main player. The action sits
+        // with the playback actions, before the editing ones.
+        if let media = modelContent as? VLCMLMedia,
+           media.type() == .audio,
+           let mrl = media.mainFile()?.mrl {
+            let mixerAction = UIAction(title: NSLocalizedString("MIXER_ADD_ACTION",
+                                                                comment: "Add a local audio file to the Audio Mixer"),
+                                       image: UIImage(systemName: "slider.horizontal.3")) { _ in
+                DiscourseAudioMixer.shared.add(mrl)
+            }
+            if let index = actions.firstIndex(where: { $0.identifier == .addToPlaylist }) {
+                children.insert(mixerAction, at: min(index, children.count))
+            } else {
+                children.append(mixerAction)
+            }
+        }
+
+        return UIMenu(title: "", image: nil, identifier: nil, children: children)
     }
 }
 

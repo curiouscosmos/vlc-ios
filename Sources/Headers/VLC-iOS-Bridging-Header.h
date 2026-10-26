@@ -1,6 +1,9 @@
 #import <VLCKit/VLCKit.h>
 #import <VLCMediaLibraryKit/VLCMediaLibraryKit.h>
 #import <XKKeychain/XKKeychain.h>
+// Generated at build time by Buildsystem/scripts/check_api_key.sh. Never
+// committed: it carries RD_API_KEY / RD_API_BASE_URL (see AGENTS.md 3.4).
+#import "DiscourseSecrets.h"
 #import "VLCExternalDisplayController.h"
 #import "VLCAppDelegate.h"
 #import "VLCAppCoordinator.h"
@@ -40,6 +43,7 @@
 #import "VLCFavoriteService.h"
 #import "VLCPlaceholderArtwork.h"
 #import "VLCArtworkImageView.h"
+#import "VLCNetworkImageView.h"
 #import "VLCPhotoLibraryController.h"
 #import "VLCDonationViewController.h"
 #import "VLCDonationNavigationController.h"

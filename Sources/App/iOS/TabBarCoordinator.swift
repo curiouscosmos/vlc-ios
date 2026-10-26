@@ -16,59 +16,81 @@ import UIKit
 class TabBarCoordinator: NSObject {
     // MARK: - Properties
 
+    /// The five Rajneesh Discourse destinations, in product order. The raw value
+    /// is the tab bar index and the value persisted under `TabBarIndex`.
+    private enum Destination: Int {
+        case home
+        case discourses
+        case search
+        case playlists
+        case mixer
+    }
+
     private var tabBarController: BottomTabBarController
     private var mediaLibraryService: MediaLibraryService
 
     private var editToolbar: EditToolbar?
     private var sideToolBar: EditToolbar?
 
-    private lazy var videoNavigationController: UINavigationController = {
-        let rootViewController = VideoViewController(mediaLibraryService: mediaLibraryService)
-        return UINavigationController(rootViewController: rootViewController)
+    private lazy var homeNavigationController = makeNavigationController(
+        root: DiscourseHomeViewController(mediaLibrary: mediaLibraryService),
+        title: NSLocalizedString("HOME", comment: "Home tab title"),
+        systemImage: "house",
+        identifier: VLCAccessibilityIdentifier.home)
+
+    private lazy var catalogueViewController = DiscourseCatalogueViewController()
+
+    /// The device audio browser, shown by the Discourses tab's "Local" segment.
+    /// It is the upstream screen, so its bar buttons, edit mode and pager keep
+    /// working; the segment swaps the tab's navigation root instead of embedding
+    /// the browser as a child (a child would lose its navigation-bar actions).
+    private lazy var localLibraryViewController: AudioViewController = {
+        let controller = AudioViewController(mediaLibraryService: mediaLibraryService)
+        controller.title = NSLocalizedString("DISCOURSE_LOCAL_LIBRARY",
+                                             comment: "Title of the device audio library")
+        return controller
     }()
 
-    private lazy var audioNavigationController: UINavigationController = {
-        let rootViewController = AudioViewController(mediaLibraryService: mediaLibraryService)
-        return UINavigationController(rootViewController: rootViewController)
+    /// Discourse / Local switch, shown in the navigation bar of both roots.
+    private lazy var librarySegment: UISegmentedControl = {
+        let control = UISegmentedControl(items: [
+            NSLocalizedString("DISCOURSES_SEGMENT_DISCOURSE", comment: "Remote catalogue segment"),
+            NSLocalizedString("DISCOURSES_SEGMENT_LOCAL", comment: "Device library segment")
+        ])
+        control.selectedSegmentIndex = LibrarySegment.discourses.rawValue
+        control.addTarget(self, action: #selector(librarySegmentChanged(_:)), for: .valueChanged)
+        control.accessibilityIdentifier = "discoursesSegment"
+        return control
     }()
 
-    private lazy var artistsNavigationController: UINavigationController = {
-        let rootViewController = ArtistsViewController(mediaLibraryService: mediaLibraryService)
-        return UINavigationController(rootViewController: rootViewController)
-    }()
+    private enum LibrarySegment: Int {
+        case discourses
+        case local
+    }
 
-    private lazy var albumsNavigationController: UINavigationController = {
-        let rootViewController = AlbumsViewController(mediaLibraryService: mediaLibraryService)
-        return UINavigationController(rootViewController: rootViewController)
-    }()
+    private lazy var discoursesNavigationController = makeNavigationController(
+        root: catalogueViewController,
+        title: NSLocalizedString("DISCOURSES", comment: "Discourses tab title"),
+        systemImage: "book.closed",
+        identifier: VLCAccessibilityIdentifier.discourses)
 
-    private lazy var tracksNavigationController: UINavigationController = {
-        let rootViewController = TracksViewController(mediaLibraryService: mediaLibraryService)
-        return UINavigationController(rootViewController: rootViewController)
-    }()
+    private lazy var searchNavigationController = makeNavigationController(
+        root: DiscourseSearchViewController(),
+        title: NSLocalizedString("SEARCH", comment: "Search tab title"),
+        systemImage: "magnifyingglass",
+        identifier: VLCAccessibilityIdentifier.search)
 
-    private lazy var genresNavigationController: UINavigationController = {
-        let rootViewController = GenresViewController(mediaLibraryService: mediaLibraryService)
-        return UINavigationController(rootViewController: rootViewController)
-    }()
+    private lazy var playlistsNavigationController = makeNavigationController(
+        root: PlaylistViewController(mediaLibraryService: mediaLibraryService),
+        title: NSLocalizedString("PLAYLISTS", comment: ""),
+        systemImage: "music.note.list",
+        identifier: VLCAccessibilityIdentifier.playlist)
 
-    private lazy var playlistsNavigationController: UINavigationController = {
-        let rootViewController = PlaylistViewController(mediaLibraryService: mediaLibraryService)
-        return UINavigationController(rootViewController: rootViewController)
-    }()
-
-    private lazy var onAirNavigationController: UINavigationController = {
-        let rootViewController = VLCOnAirViewController()
-        return UINavigationController(rootViewController: rootViewController)
-    }()
-
-    private lazy var browseNavigationController: UINavigationController? = {
-        guard let rootViewController = VLCServerListViewController(medialibraryService: mediaLibraryService) else {
-            return nil
-        }
-
-        return UINavigationController(rootViewController: rootViewController)
-    }()
+    private lazy var mixerNavigationController = makeNavigationController(
+        root: DiscourseAudioMixerViewController(),
+        title: NSLocalizedString("AUDIO_MIXER", comment: "Audio Mixer tab title"),
+        systemImage: "slider.horizontal.3",
+        identifier: VLCAccessibilityIdentifier.audioMixer)
 
     // MARK: - Init
 
@@ -80,7 +102,24 @@ class TabBarCoordinator: NSObject {
         NotificationCenter.default.addObserver(self, selector: #selector(updateTheme), name: .VLCThemeDidChangeNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleDidEnterBackgroundNotification),
                                                name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(refreshDiscourseLikes),
+                                               name: UIApplication.didBecomeActiveNotification, object: nil)
         mediaLibraryService.observable.addObserver(self)
+    }
+
+    /// The spec refreshes the liked sets from `GET /likes` at most once every
+    /// seven days; the store gates that, so a call on launch and on every
+    /// foreground is cheap.
+    @objc private func refreshDiscourseLikes() {
+        Task {
+            do {
+                _ = try await DiscourseLikesStore.shared.refresh()
+            } catch {
+                DiscourseDiagnostics.log("likes refresh failed",
+                                         level: .info,
+                                         context: "Likes")
+            }
+        }
     }
 
     // MARK: - Setup methods
@@ -88,13 +127,29 @@ class TabBarCoordinator: NSObject {
     private func setup() {
         tabBarController.delegate = self
         setupViewControllers()
+        // Resume points, progress, completion and the 60 s stats/history
+        // qualification are driven from the upstream playback notifications.
+        Task { @MainActor in
+            DiscoursePlaybackTracker.shared.start()
+        }
+        // The mixer follows the main player from launch, not from the first time
+        // its tab is opened, so a previously enabled mixer keeps working.
+        _ = DiscourseAudioMixer.shared
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(revealLocalLibrary),
+                                               name: .discourseShowLocalLibrary,
+                                               object: nil)
+        refreshDiscourseLikes()
         tabBarController.editToolbarSetupHandler = { [weak self] in
             self?.setupEditToolbar()
         }
         updateTheme()
-        tabBarController.title = "VLC  iOS"
+        tabBarController.title = "Rajneesh Discourse"
 #if os(iOS)
-        if #available(iOS 18.0, *) {
+        // The sidebar chrome is an iPad layout. On iPhone the default tab-bar
+        // mode is required, otherwise iOS 26 falls back to the legacy bar
+        // instead of the floating Liquid Glass capsule.
+        if #available(iOS 18.0, *), UIDevice.current.userInterfaceIdiom == .pad {
             tabBarController.mode = .tabSidebar
             let sideBar = tabBarController.sidebar
             sideBar.preferredLayout = .overlap
@@ -102,83 +157,82 @@ class TabBarCoordinator: NSObject {
             sideBar.bottomBarView?.isHidden = true
         }
 #endif
-        tabBarController.selectedIndex = UserDefaults.standard.integer(forKey: kVLCTabBarIndex)
+#if os(iOS)
+        updateTabBarIndexIfNeeded()
+#else
+        tabBarController.selectedIndex = max(UserDefaults.standard.integer(forKey: kVLCTabBarIndex), 0)
+#endif
     }
 
     private func setupViewControllers() {
-        var controllers: [UINavigationController] = [videoNavigationController]
+        // Exactly five destinations: Home, Discourses, Search, Playlists and the
+        // Audio Mixer. Videos, Browse, On Air and the separate Audio library tab
+        // are not part of the product surface; the device library opens from the
+        // Discourses tab.
+        tabBarController.viewControllers = [
+            homeNavigationController,
+            discoursesNavigationController,
+            searchNavigationController,
+            playlistsNavigationController,
+            mixerNavigationController
+        ]
 
-#if os(iOS)
-        if #available(iOS 18.0, *), UIDevice.current.userInterfaceIdiom == .pad,
-           !tabBarController.sidebar.isHidden {
-            controllers.append(artistsNavigationController)
-            controllers.append(albumsNavigationController)
-            controllers.append(tracksNavigationController)
-            controllers.append(genresNavigationController)
-            controllers.append(playlistsNavigationController)
-        } else {
-            controllers.append(audioNavigationController)
-            controllers.append(playlistsNavigationController)
+        installLibraryRoot(.discourses, animated: false)
+    }
+
+    // MARK: - Discourses / Local
+
+    @objc private func librarySegmentChanged(_ sender: UISegmentedControl) {
+        guard let segment = LibrarySegment(rawValue: sender.selectedSegmentIndex) else {
+            return
         }
-#else
-        controllers.append(audioNavigationController)
-        controllers.append(playlistsNavigationController)
-#endif
+        installLibraryRoot(segment, animated: false)
+    }
 
-        if let browseNavigationController = browseNavigationController {
-            controllers.append(browseNavigationController)
+    /// Swaps the Discourses tab between the remote catalogue and the device
+    /// library. Both view controllers are kept alive, so the library keeps its
+    /// pager and scroll position while the catalogue is on screen.
+    private func installLibraryRoot(_ segment: LibrarySegment, animated: Bool) {
+        let root: UIViewController
+        switch segment {
+        case .discourses:
+            root = catalogueViewController
+            localLibraryViewController.navigationItem.titleView = nil
+        case .local:
+            root = localLibraryViewController
+            catalogueViewController.navigationItem.titleView = nil
         }
 
-        controllers.append(onAirNavigationController)
+        root.navigationItem.titleView = librarySegment
+        librarySegment.selectedSegmentIndex = segment.rawValue
 
-        // Settings is reachable from a navigation bar button instead of a
-        // dedicated tab.
-        tabBarController.viewControllers = controllers
+        guard discoursesNavigationController.viewControllers.first !== root else {
+            return
+        }
+        discoursesNavigationController.setViewControllers([root], animated: animated)
+    }
+
+    private func makeNavigationController(root: UIViewController,
+                                          title: String,
+                                          systemImage: String,
+                                          identifier: String) -> UINavigationController {
+        let navigationController = UINavigationController(rootViewController: root)
+        navigationController.navigationBar.accessibilityIdentifier = identifier
+        let image = UIImage(systemName: systemImage)
+        let tabBarItem = UITabBarItem(title: title, image: image, selectedImage: image)
+        tabBarItem.accessibilityIdentifier = identifier
+        navigationController.tabBarItem = tabBarItem
+        return navigationController
     }
 
 #if os(iOS)
     private func updateTabBarIndexIfNeeded() {
         let userDefaults = UserDefaults.standard
-        var tabIndex: Int = userDefaults.integer(forKey: kVLCTabBarIndex)
-
-        if #available(iOS 18.0, *), UIDevice.current.userInterfaceIdiom == .pad,
-           !tabBarController.sidebar.isHidden {
-            switch tabIndex {
-            case 0:
-                break
-            case 1:
-                if let audioViewController = audioNavigationController.topViewController as? AudioViewController {
-                    let currentIndex = audioViewController.currentIndex
-                    if currentIndex < audioViewController.viewControllers.count - 1 {
-                        // Do not update the tabIndex if the folders view is selected.
-                        tabIndex = currentIndex + 1
-                    }
-                }
-                break
-            default:
-                tabIndex += 3
-                break
-            }
-        } else {
-            switch tabIndex {
-            case 0:
-                tabIndex = 0
-                break
-            case 1, 2, 3, 4:
-                if let audioViewController = audioNavigationController.topViewController as? AudioViewController {
-                    audioViewController.currentIndex = tabIndex - 1
-                    audioViewController.reloadPagerTabStripView()
-                }
-                tabIndex = 1
-                break
-            default:
-                tabIndex -= 3
-                break
-            }
-        }
-
-        tabBarController.selectedIndex = tabIndex
-        userDefaults.set(tabIndex, forKey: kVLCTabBarIndex)
+        // Flat tab index: 0 Home, 1 Discourses, 2 Search, 3 Playlists, 4 Audio Mixer.
+        let tabCount = tabBarController.viewControllers?.count ?? 1
+        let index = min(max(userDefaults.integer(forKey: kVLCTabBarIndex), 0), max(tabCount - 1, 0))
+        tabBarController.selectedIndex = index
+        userDefaults.set(index, forKey: kVLCTabBarIndex)
     }
 #endif
 
@@ -227,6 +281,11 @@ class TabBarCoordinator: NSObject {
         bottomBar.isTranslucent = false
 #endif
 
+        // The fork's accent on the capsule (and on the classic bar below iOS 26).
+        let discourseColors = DiscourseColors.current
+        tabBar.tintColor = discourseColors.accent
+        tabBar.unselectedItemTintColor = discourseColors.secondaryText
+
         if #unavailable(iOS 26.0) {
             let tabBarLayer = tabBar.layer
             let bottomBarLayer = bottomBar.layer
@@ -263,42 +322,64 @@ class TabBarCoordinator: NSObject {
             UINavigationBar.appearance().compactAppearance = AppearanceManager.navigationbarAppearance()
             UINavigationBar.appearance().scrollEdgeAppearance = AppearanceManager.navigationbarAppearance()
         }
+
+        applyLibrarySegmentTheme()
+    }
+
+    private func applyLibrarySegmentTheme() {
+        let colors = DiscourseColors.current
+        librarySegment.selectedSegmentTintColor = colors.accent
+        librarySegment.setTitleTextAttributes([.foregroundColor: colors.primaryText], for: .normal)
+        librarySegment.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .selected)
     }
 
     @objc func handleShortcutItem(_ item: UIApplicationShortcutItem) {
         switch item.type {
         case kVLCApplicationShortcutLastPlayed:
             handleLastPlayedShortcut()
-        case kVLCApplicationShortcutLocalVideo:
-            tabBarController.selectedIndex = tabBarController.viewControllers?.firstIndex(where: { vc -> Bool in
-                vc is VideoViewController
-            }) ?? 0
         case kVLCApplicationShortcutLocalAudio:
-            tabBarController.selectedIndex = tabBarController.viewControllers?.firstIndex(where: { vc -> Bool in
-                vc is AudioViewController
-            }) ?? 1
+            showLocalLibrary()
         case kVLCApplicationShortcutPlaylist:
-            tabBarController.selectedIndex = tabBarController.viewControllers?.firstIndex(where: { vc -> Bool in
-                vc is PlaylistViewController
-            }) ?? 2
-        case kVLCApplicationShortcutNetwork:
-            tabBarController.selectedIndex = tabBarController.viewControllers?.firstIndex(where: { vc -> Bool in
-                vc is VLCServerListViewController
-            }) ?? 3
+            selectTab(.playlists)
         default:
             assertionFailure("unhandled shortcut")
         }
     }
 
-    @objc(showTabForMedia:) func showTab(for media: VLCMLMedia) {
-        let isVideo = media.type() == .video
-        if let index = tabBarController.viewControllers?.firstIndex(where: {
-            let rootViewController = ($0 as? UINavigationController)?.viewControllers.first
-            return isVideo ? rootViewController is VideoViewController
-                           : rootViewController is AudioViewController || rootViewController is TracksViewController
-        }) {
-            tabBarController.selectedIndex = index
+    private func selectTab(_ destination: Destination) {
+        tabBarController.selectedIndex = destination.rawValue
+    }
+
+    /// Opens the device audio library in the Discourses tab, optionally
+    /// deep-linked to one album.
+    /// The Audio Mixer's empty state asks for the library; it is the only place
+    /// tracks can be added to the mixer.
+    @objc private func revealLocalLibrary() {
+        showLocalLibrary()
+    }
+
+    private func showLocalLibrary(pushing album: VLCMLAlbum? = nil) {
+        selectTab(.discourses)
+        installLibraryRoot(.local, animated: false)
+        // The shortcut always lands on the library root, not on whatever album
+        // list was open last time.
+        discoursesNavigationController.popToRootViewController(animated: false)
+
+        guard let album else {
+            return
         }
+
+        localLibraryViewController.loadViewIfNeeded()
+        guard let albumCategory = localLibraryViewController.viewControllers
+            .compactMap({ $0 as? AlbumCategoryViewController }).first else {
+            return
+        }
+        albumCategory.pushCollectionViewController(for: album)
+    }
+
+    @objc(showTabForMedia:) func showTab(for media: VLCMLMedia) {
+        // Every local library surface lives under the Discourses tab in this fork.
+        selectTab(.discourses)
     }
 
     private func handleLastPlayedShortcut() {
@@ -325,39 +406,7 @@ class TabBarCoordinator: NSObject {
     }
 
     private func openAlbum(_ album: VLCMLAlbum) {
-        let navigationController: UINavigationController
-        let mediaViewController: MediaViewController
-
-        if let albumsIndex = tabBarController.viewControllers?.firstIndex(where: {
-            ($0 as? UINavigationController)?.viewControllers.first is AlbumsViewController
-        }),
-           let albumsNavigationController = tabBarController.viewControllers?[albumsIndex] as? UINavigationController,
-           let albumsViewController = albumsNavigationController.viewControllers.first as? AlbumsViewController {
-            tabBarController.selectedIndex = albumsIndex
-            navigationController = albumsNavigationController
-            mediaViewController = albumsViewController
-        } else {
-            guard let audioIndex = tabBarController.viewControllers?.firstIndex(where: {
-                ($0 as? UINavigationController)?.viewControllers.first is AudioViewController
-            }),
-                  let audioNavigationController = tabBarController.viewControllers?[audioIndex] as? UINavigationController,
-                  let audioViewController = audioNavigationController.viewControllers.first as? AudioViewController else {
-                return
-            }
-
-            tabBarController.selectedIndex = audioIndex
-            navigationController = audioNavigationController
-            mediaViewController = audioViewController
-        }
-
-        navigationController.popToRootViewController(animated: false)
-        mediaViewController.loadViewIfNeeded()
-        guard let categoryViewController = mediaViewController.viewControllers.first(where: {
-            $0 is AlbumCategoryViewController
-        }) as? MediaCategoryViewController else {
-            return
-        }
-        categoryViewController.pushCollectionViewController(for: album)
+        showLocalLibrary(pushing: album)
     }
 }
 
@@ -423,8 +472,12 @@ extension TabBarCoordinator: UITabBarControllerDelegate {
     }
 
     func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
-        let viewControllerIndex: Int = tabBarController.viewControllers?.firstIndex(of: viewController) ?? 0
-        UserDefaults.standard.set(viewControllerIndex, forKey: kVLCTabBarIndex)
+        guard let index = tabBarController.viewControllers?.firstIndex(of: viewController) else {
+            return
+        }
+
+        // 0 Home, 1 Discourses, 2 Search, 3 Playlists, 4 Audio Mixer.
+        UserDefaults.standard.set(index, forKey: kVLCTabBarIndex)
     }
 }
 
@@ -432,9 +485,8 @@ extension TabBarCoordinator: UITabBarControllerDelegate {
 @available(iOS 18.0, *)
 extension TabBarCoordinator: UITabBarController.Sidebar.Delegate {
     func tabBarController(_ tabBarController: UITabBarController, sidebarVisibilityWillChange sidebar: UITabBarController.Sidebar, animator: any UITabBarController.Sidebar.Animating) {
-        setupViewControllers()
-        updateTabBarIndexIfNeeded()
-
+        // The tab set is fixed now, so only the edit toolbar and the mini player
+        // need to know that the sidebar appeared or disappeared.
         NotificationCenter.default.post(name: NSNotification.Name("sidebarVisibilityChanged"), object: nil)
     }
 }

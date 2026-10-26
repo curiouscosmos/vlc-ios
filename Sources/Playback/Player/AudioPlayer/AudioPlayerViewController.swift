@@ -59,6 +59,22 @@ class AudioPlayerViewController: PlayerViewController {
         return moreOptionsButton
     }()
 
+#if os(iOS)
+    /// Fork-only: the like control of the discourse track being played. Hidden
+    /// unless the current media carries a discourse identity whose payload is
+    /// still in `DiscourseTrackRegistry` (a queue restored from the last-played
+    /// playlist has no payload, so the heart stays away instead of guessing).
+    private lazy var discourseLikeButton: DiscourseLikeControl = {
+        let control = DiscourseLikeControl()
+        control.style = .player
+        control.isHidden = true
+        control.accessibilityIdentifier = VLCAccessibilityIdentifier.discourseLike
+        control.addTarget(self, action: #selector(toggleDiscourseLike), for: .touchUpInside)
+        control.translatesAutoresizingMaskIntoConstraints = false
+        return control
+    }()
+#endif
+
     // MARK: - Init
 
 #if os(iOS)
@@ -72,6 +88,7 @@ class AudioPlayerViewController: PlayerViewController {
 
         self.playerController.delegate = self
         mediaNavigationBar.addMoreOptionsButton(moreOptionsButton)
+        setupDiscourseLikeButton()
         audioPlayerView.setupNavigationBar(with: mediaNavigationBar)
         audioPlayerView.updateThumbnailImageView()
         refreshPlaybackSpeed()
@@ -108,6 +125,61 @@ class AudioPlayerViewController: PlayerViewController {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+
+#if os(iOS)
+    // MARK: - Fork: discourse likes
+
+    private func setupDiscourseLikeButton() {
+        let insertIndex = max(0, mediaNavigationBar.arrangedSubviews.count - 1)
+        mediaNavigationBar.insertArrangedSubview(discourseLikeButton, at: insertIndex)
+        NSLayoutConstraint.activate([
+            discourseLikeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 44)
+        ])
+
+        let center = NotificationCenter.default
+        for name in [VLCPlaybackServicePlaybackDidStart,
+                     VLCPlaybackServicePlaybackDidMoveOnToNextItem,
+                     VLCPlaybackServicePlaybackWillStop,
+                     VLCPlaybackServicePlaybackDidStop,
+                     VLCPlaybackServicePlaybackDidFail] {
+            center.addObserver(self,
+                               selector: #selector(updateDiscourseLike),
+                               name: Notification.Name(name),
+                               object: nil)
+        }
+        center.addObserver(self,
+                           selector: #selector(updateDiscourseLike),
+                           name: .discourseLikesDidChange,
+                           object: nil)
+        updateDiscourseLike()
+    }
+
+    @objc private func updateDiscourseLike() {
+        guard let track = currentDiscourseTrack() else {
+            discourseLikeButton.isHidden = true
+            return
+        }
+        discourseLikeButton.configure(with: DiscourseLikeState.resolve(target: .audio(track.id),
+                                                                        payloadLikes: track.totalLikes),
+                                      title: track.title)
+        discourseLikeButton.isHidden = false
+    }
+
+    @objc private func toggleDiscourseLike() {
+        guard let track = currentDiscourseTrack() else {
+            return
+        }
+        DiscourseLikeActions.toggleAudio(track, from: self)
+    }
+
+    private func currentDiscourseTrack() -> DiscourseAudio? {
+        guard let media = playbackService.currentlyPlayingMedia,
+              let identity = DiscourseMediaFactory.identity(of: media) else {
+            return nil
+        }
+        return DiscourseTrackRegistry.shared.track(id: identity.audioID)
+    }
+#endif
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)

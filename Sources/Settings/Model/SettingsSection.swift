@@ -218,16 +218,11 @@ enum PlaybackOptions {
                      action: .showActionSheet(title: "SETTINGS_CONTINUE_AUDIO_PLAYBACK", preferenceKey: k, hasInfo: true))
     }
 
-    static var playVideoInFullScreen: SettingsItem {
-        .toggle(title: "SETTINGS_VIDEO_FULLSCREEN",
-                preferenceKey: kVLCSettingVideoFullscreenPlayback)
-    }
-
-    static var continueVideoPlayback: SettingsItem {
-        let k = kVLCSettingContinuePlayback
-        return .init(title: "SETTINGS_CONTINUE_VIDEO_PLAYBACK",
-                     subtitle: Localizer.getSubtitle(for: k),
-                     action: .showActionSheet(title: "SETTINGS_CONTINUE_VIDEO_PLAYBACK", preferenceKey: k, hasInfo: true))
+    /// Fork-only: gates the recently played lists, the playback history and
+    /// the `/stats` reports (AGENTS section 6.5).
+    static var playbackHistory: SettingsItem {
+        .toggle(title: "SETTINGS_PLAYBACK_HISTORY",
+                preferenceKey: "playback_history")
     }
 
     static var automaticallyPlayNextItem: SettingsItem {
@@ -264,8 +259,7 @@ enum PlaybackOptions {
             defaultPlaybackSpeed,
             saveAudioDelay,
             continueAudioPlayback,
-            playVideoInFullScreen,
-            continueVideoPlayback,
+            playbackHistory,
             automaticallyPlayNextItem,
             enableTextScrollingInMediaList,
             rememberPlayerState,

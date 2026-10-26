@@ -65,7 +65,7 @@ class AppMenuBarButtonItem: UIBarButtonItem {
     }
 
     private func showDocumentation() {
-        UIApplication.shared.open(URL(string: "https://docs.videolan.me/vlc-user/ios/3.X/en/index.html")!)
+        UIApplication.shared.open(URL(string: "https://sandalbar.online")!)
     }
 
     private func showDonation() {
