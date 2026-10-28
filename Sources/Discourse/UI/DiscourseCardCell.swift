@@ -144,6 +144,9 @@ final class DiscourseCardCell: UICollectionViewCell {
         footer.axis = .horizontal
         footer.alignment = .center
         footer.spacing = 8
+        metadataLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        likeControl.setContentHuggingPriority(.required, for: .horizontal)
+        likeControl.setContentCompressionResistancePriority(.required, for: .horizontal)
         footer.addArrangedSubview(metadataLabel)
         footer.addArrangedSubview(likeControl)
 
@@ -209,9 +212,8 @@ final class DiscourseCardCell: UICollectionViewCell {
             artworkView.topAnchor.constraint(greaterThanOrEqualTo: cardView.topAnchor, constant: 12),
             artworkView.bottomAnchor.constraint(lessThanOrEqualTo: cardView.bottomAnchor, constant: -12),
 
-            contentStack.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
-            contentStack.topAnchor.constraint(greaterThanOrEqualTo: cardView.topAnchor, constant: 12),
-            contentStack.bottomAnchor.constraint(lessThanOrEqualTo: cardView.bottomAnchor, constant: -12),
+            contentStack.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 12),
+            contentStack.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -12),
             contentStack.leadingAnchor.constraint(equalTo: artworkView.trailingAnchor, constant: 12),
             contentStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -14),
 

@@ -726,7 +726,8 @@ cache), so no new image pipeline exists.
 - A request token invalidates stale answers when filters change or a retry races
   an in-flight load.
 
-**Cards today** reserve two title lines for consistent heights and show artwork, title, language, the track count and the like
+**Cards today** reserve two title lines for consistent heights; catalogue titles
+align to the top beside artwork. Cards show artwork, title, language, track count and likes.
 control (heart + compact count) in the footer, and the title's counts are seeded
 from the payload so the heart is correct before the first tap. While a discourse
 has downloads, a small badge counts them (`3/11`: green when finished, accent
