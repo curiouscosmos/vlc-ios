@@ -734,6 +734,30 @@ extension AudioPlayerViewController {
             abRepeatView.bottomAnchor.constraint(equalTo: mediaScrubProgressBar.topAnchor, constant: -10.0),
         ])
     }
+
+    func mediaMoreOptionsActionSheetCanShareCurrentTrack() -> Bool {
+        return shareURLForCurrentTrack() != nil
+    }
+
+    func mediaMoreOptionsActionSheetShareCurrentTrack() {
+        guard let url = shareURLForCurrentTrack() else {
+            return
+        }
+
+        let activityViewController = UIActivityViewController(activityItems: [url],
+                                                              applicationActivities: nil)
+        activityViewController.popoverPresentationController?.sourceView = moreOptionsButton
+        activityViewController.popoverPresentationController?.sourceRect = moreOptionsButton.bounds
+        present(activityViewController, animated: true)
+    }
+
+    private func shareURLForCurrentTrack() -> URL? {
+        guard let identity = DiscoursePlayback.shared.currentIdentity() else {
+            return nil
+        }
+        return DiscourseDeepLink.trackURL(discourseID: identity.discourseID,
+                                          audioID: identity.audioID)
+    }
 }
 
 // MARK: - ZoomTransitionEndpoint

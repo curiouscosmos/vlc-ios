@@ -16,6 +16,7 @@ enum ActionSheetCellIdentifier: String, CustomStringConvertible, CaseIterable {
     case filter
     case playback
     case sleepTimer
+    case share
     case equalizer
     case noiseReduction
     case chapters
@@ -38,6 +39,8 @@ enum ActionSheetCellIdentifier: String, CustomStringConvertible, CaseIterable {
             return NSLocalizedString("EQUALIZER_CELL_TITLE", comment: "")
         case .sleepTimer:
             return NSLocalizedString("BUTTON_SLEEP_TIMER", comment: "")
+        case .share:
+            return NSLocalizedString("SHARE_LABEL", comment: "")
         case .chapters:
             return NSLocalizedString("CHAPTER_SELECTION_TITLE", comment: "")
         case .bookmarks:
@@ -65,6 +68,8 @@ enum ActionSheetCellIdentifier: String, CustomStringConvertible, CaseIterable {
             return NSLocalizedString("PLAYBACK_SPEED_HINT", comment: "")
         case .sleepTimer:
             return NSLocalizedString("SLEEP_TIMER_HINT", comment: "")
+        case .share:
+            return NSLocalizedString("SHARE_HINT", comment: "")
         case .noiseReduction:
             return NSLocalizedString("NOISE_REDUCTION_HINT", comment: "")
         case .equalizer:
@@ -259,7 +264,9 @@ class MediaPlayerActionSheet: ActionSheet {
                       item != actionSheet.mockView else {
                     return
                 }
-                if let abRepeatView = item as? ABRepeatView {
+                if item == actionSheet.sharePlaceholderView {
+                    actionSheet.requestShare()
+                } else if let abRepeatView = item as? ABRepeatView {
                     self.removeActionSheet()
                     actionSheet.moreOptionsDelegate?.mediaMoreOptionsActionSheetPresentABRepeatView(with: abRepeatView)
                 } else if item == actionSheet.playbackSpeedPlaceholderView {
@@ -404,7 +411,7 @@ extension MediaPlayerActionSheet: ActionSheetDelegate {
     }
 
     func actionSheetDidFinishClosingAnimation(_ actionSheet: ActionSheet) {
-        (self as? MediaMoreOptionsActionSheet)?.presentPendingCard()
+        (self as? MediaMoreOptionsActionSheet)?.finishClosing()
     }
 }
 

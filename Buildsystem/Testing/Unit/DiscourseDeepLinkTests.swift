@@ -40,6 +40,16 @@ final class DiscourseDeepLinkTests: XCTestCase {
         XCTAssertEqual(link?.audioID, "audio-id")
     }
 
+    func testTrackURLBuilderMatchesTheWebsiteShape() throws {
+        let url = try XCTUnwrap(DiscourseDeepLink.trackURL(discourseID: "discourse-id",
+                                                          audioID: "audio-id"))
+        XCTAssertEqual(url.absoluteString,
+                       "https://rajneeshdiscourse.com/discourses/discourse-id/tracks/audio-id")
+        let parsed = DiscourseDeepLink(url: url)
+        XCTAssertEqual(parsed?.discourseID, "discourse-id")
+        XCTAssertEqual(parsed?.audioID, "audio-id")
+    }
+
     func testUnrelatedURLsAreRejected() {
         XCTAssertNil(DiscourseDeepLink(url: URL(string: "https://rajneeshdiscourse.com/")!))
         XCTAssertNil(DiscourseDeepLink(url: URL(string: "https://rajneeshdiscourse.com/discourses")!))

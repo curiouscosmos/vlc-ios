@@ -2048,6 +2048,13 @@ Google OAuth handler and URL-scheme registration.
 - Verified `VLC-iOS` and `VLC-iOS-no-watch` build; the built Info.plist contains
   only `NSLocalNetworkUsageDescription`.
 
+### Post-phase polish — share current track — **Done**
+- The audio player's more-options menu shows **Share** only while a discourse
+  track with a known identity is playing. It opens `UIActivityViewController`
+  with `DiscourseDeepLink.trackURL`:
+  `https://rajneeshdiscourse.com/discourses/{discourseID}/tracks/{audioID}`.
+  Local library and unknown media do not show the row.
+
 ### Post-phase polish — stale-while-revalidate — **Done**
 - Catalogue, detail, search and Home now render any cached payload immediately
   and revalidate stale data in place. `DiscourseAPIClient` exposes
@@ -2599,7 +2606,8 @@ behaviour:
    - `Sources/Playback/Player/VideoPlayer-iOS/MediaMoreOptionsActionSheet.swift`,
      its `Subviews/MediaPlayerActionSheet.swift`, and
      `Sources/UI Elements/ActionSheet/ActionSheetCell.swift` — audio-only noise
-     reduction switch, status, availability and accessibility.
+     reduction switch, status, availability and accessibility, plus the
+     audio-player Share row for the current discourse track.
    - `Buildsystem/RNNoise/` — pinned native patches, tests, local binary package
      and artifact build/activation commands. Rebase these patches explicitly
      when upgrading VLCKit/libvlc; do not drop the equalizer preservation change.
@@ -2620,9 +2628,9 @@ behaviour:
      `VLC-iOS-no-watchDebug.entitlements` — Associated Domains
      (`applinks:rajneeshdiscourse.com`).
    - `Sources/Discourse/DeepLink/DiscourseDeepLink.swift` and
-     `Buildsystem/DeepLinks/` — the URL parser, its tests, the deployable AASA
-     and the website deployment note. The detail screen's
-     `highlightedAudioID` scrolls to the linked track.
+     `Buildsystem/DeepLinks/` — the URL parser, the track share URL builder, its
+     tests, the deployable AASA and the website deployment note. The detail
+     screen's `highlightedAudioID` scrolls to the linked track.
    - `Sources/Media Library/MediaViewControllers/PlaylistViewController.swift` —
      the fork accent on the Playlists tab's navigation bar (applied on launch and
      on theme changes).
@@ -2711,7 +2719,8 @@ behaviour:
    - `Sources/Playback/Player/AudioPlayer/AudioPlayerViewController.swift` — the
      fork-only discourse like control in the audio player's `MediaNavigationBar`
      (inserted before the more-options button, hidden unless the current media has
-     a known discourse payload).
+     a known discourse payload), and the share action that presents the current
+     track's public website URL.
    - `Sources/Helpers/VLCAccessibilityIdentifier.swift` — added `home`,
      `discourses`, `search`, `audioMixer` identifiers, plus `discourseLike` for
      the player's heart.

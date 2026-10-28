@@ -36,6 +36,8 @@ protocol MediaMoreOptionsActionSheetDelegate {
     func mediaMoreOptionsActionSheetPresentABRepeatView(with abView: ABRepeatView)
     func mediaMoreOptionsActionSheetDidSelectAMark()
     func mediaMoreOptionsActionSheetDidSelectBMark()
+    @objc optional func mediaMoreOptionsActionSheetCanShareCurrentTrack() -> Bool
+    @objc optional func mediaMoreOptionsActionSheetShareCurrentTrack()
 }
 
 @objc(VLCMediaMoreOptionsActionSheet)
@@ -45,6 +47,7 @@ protocol MediaMoreOptionsActionSheetDelegate {
     weak var moreOptionsDelegate: MediaMoreOptionsActionSheetDelegate?
     var currentMediaHasChapters: Bool = false
     private var pendingCardIdentifier: ActionSheetCellIdentifier?
+    private var pendingShare = false
 
     // To be removed when Designs are done for the Filters, Equalizer etc views are added to Figma
     lazy private(set) var mockView: UIView = {
@@ -76,6 +79,8 @@ protocol MediaMoreOptionsActionSheetDelegate {
     private(set) lazy var sleepTimerPlaceholderView = UIView()
 
     private(set) lazy var equalizerPlaceholderView = UIView()
+
+    private(set) lazy var sharePlaceholderView = UIView()
 
     private lazy var chapterView: ChapterView = {
         let chapterView = ChapterView.init(frame: offScreenFrame)
@@ -270,6 +275,20 @@ extension MediaMoreOptionsActionSheet {
         removeActionSheet()
     }
 
+    func requestShare() {
+        pendingShare = true
+        removeActionSheet()
+    }
+
+    func finishClosing() {
+        if pendingShare {
+            pendingShare = false
+            moreOptionsDelegate?.mediaMoreOptionsActionSheetShareCurrentTrack?()
+            return
+        }
+        presentPendingCard()
+    }
+
     func presentPendingCard() {
         guard let identifier = pendingCardIdentifier else {
             return
@@ -337,6 +356,8 @@ extension MediaMoreOptionsActionSheet: MediaPlayerActionSheetDataSource {
             return playbackSpeedPlaceholderView
         case .sleepTimer:
             return sleepTimerPlaceholderView
+        case .share:
+            return sharePlaceholderView
         case .equalizer:
             return equalizerPlaceholderView
         case .chapters:
@@ -367,6 +388,15 @@ extension MediaMoreOptionsActionSheet: MediaPlayerActionSheetDataSource {
 
             if $0 == .noiseReduction && !isAudioPlayer { return }
 
+            if $0 == .share {
+                // The share action only exists for the audio player and only
+                // while a discourse track with a known identity is playing.
+                guard isAudioPlayer,
+                      moreOptionsDelegate?.mediaMoreOptionsActionSheetCanShareCurrentTrack?() == true else {
+                    return
+                }
+            }
+
             if $0 == .filter && isAudioPlayer {
                 // Do not show the video filters category when the audio player is shown.
                 return
@@ -379,7 +409,11 @@ extension MediaMoreOptionsActionSheet: MediaPlayerActionSheetDataSource {
                 cellIdentifier: $0
             )
 
-            if $0 == .noiseReduction {
+            if $0 == .share {
+                cellModel.accessoryType = .none
+                cellModel.viewToPresent = sharePlaceholderView
+                cellModel.iconImage = UIImage(systemName: "square.and.arrow.up")
+            } else if $0 == .noiseReduction {
                 cellModel.accessoryType = .toggleSwitch
                 cellModel.viewToPresent = nil
                 cellModel.iconImage = UIImage(systemName: "waveform")

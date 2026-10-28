@@ -64,4 +64,20 @@ final class DiscourseDeepLink: NSObject {
     @objc static func canHandle(_ url: URL) -> Bool {
         return DiscourseDeepLink(url: url) != nil
     }
+
+    /// Builds the public website URL for a track, exactly the shape the app
+    /// already parses from Universal Links.
+    @objc static func trackURL(discourseID: String, audioID: String) -> URL? {
+        let discourseID = discourseID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let audioID = audioID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !discourseID.isEmpty, !audioID.isEmpty else {
+            return nil
+        }
+
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "rajneeshdiscourse.com"
+        components.path = "/discourses/\(discourseID)/tracks/\(audioID)"
+        return components.url
+    }
 }
