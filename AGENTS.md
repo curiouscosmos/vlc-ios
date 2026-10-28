@@ -2229,6 +2229,18 @@ Reference files present for the contract: `api/docs.md`,
 
 ## 10. Known gaps and intentional deviations from Android
 
+- First-play silence is fixed in the native audio filter pipeline. RNNoise's
+  conversion from 22.05 kHz mono to/from 48 kHz can emit empty startup blocks;
+  passing those to audio output caused invalid-length CoreMedia errors and silent
+  playback. The maintained libvlc patch now releases empty filter results before
+  the next filter/output. The real VLCKit PCM test covers 22.05, 44.1 and 48 kHz;
+  it failed with two output errors at 22.05 kHz before the fix and passes afterward.
+  Existing RNNoise tests pass, including live toggling. Physical-iPhone verification
+  confirmed immediate first-play audio and a responsive app with RNNoise registered
+  normally. No output override, automatic pause/resume, or diagnostic bypass remains.
+  The Home logo container accepts UIKit's bar-button width instead of conflicting
+  with its 36-point wrapper.
+
 Favourite metadata deployment: `POST /favourites/resolve` is implemented in
 `api/edge.ts` but must be deployed to the existing Bunny service before release.
 No deployment command or credentials are configured in this checkout. Until deployment,

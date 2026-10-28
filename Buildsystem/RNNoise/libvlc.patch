@@ -394,3 +394,17 @@
  
  # shared Qt config
  ifeq ($(call system_tool_majmin, qmake6 -query QT_VERSION 2>/dev/null),$(QTBASE_VERSION_MAJOR))
+--- a/src/audio_output/filters.c
++++ b/src/audio_output/filters.c
+@@ -307,5 +307,11 @@
+          * shall be set by the filter plug-in. */
+         block = filter->ops->filter_audio (filter, block);
++        /* Resamplers may buffer all input during startup. */
++        if (block != NULL && block->i_nb_samples == 0)
++        {
++            block_Release(block);
++            block = NULL;
++        }
+     }
+     return block;
+ }

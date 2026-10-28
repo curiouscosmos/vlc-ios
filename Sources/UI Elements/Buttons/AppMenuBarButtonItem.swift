@@ -120,12 +120,12 @@ final class AppLogoBarButtonItem: UIBarButtonItem {
         container.isUserInteractionEnabled = false
         container.addSubview(iconView)
         NSLayoutConstraint.activate([
-            container.widthAnchor.constraint(equalToConstant: 26),
-            container.heightAnchor.constraint(equalToConstant: 26),
-            iconView.topAnchor.constraint(equalTo: container.topAnchor),
-            iconView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            iconView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            iconView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+            container.widthAnchor.constraint(greaterThanOrEqualToConstant: 26),
+            container.heightAnchor.constraint(greaterThanOrEqualToConstant: 26),
+            iconView.widthAnchor.constraint(equalToConstant: 26),
+            iconView.heightAnchor.constraint(equalToConstant: 26),
+            iconView.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            iconView.centerYAnchor.constraint(equalTo: container.centerYAnchor)
         ])
         customView = container
 

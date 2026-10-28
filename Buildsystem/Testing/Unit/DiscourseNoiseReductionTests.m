@@ -12,6 +12,70 @@
 - (BOOL)applyNoiseReductionEnabled:(BOOL)enabled;
 @end
 
+@interface DiscourseNoiseOutputTests : XCTestCase <VLCMediaPlayerDelegate, VLCLogging>
+@property XCTestExpectation *finished;
+@property BOOL started;
+@property VLCLogLevel level;
+@property NSUInteger outputErrors;
+@end
+
+@implementation DiscourseNoiseOutputTests
+- (void)handleMessage:(NSString *)message logLevel:(VLCLogLevel)level context:(VLCLogContext *)context
+{
+    if ([message containsString:@"write error"]) self.outputErrors++;
+}
+
+- (void)mediaPlayerStateChanged:(VLCMediaPlayerState)state
+{
+    if (state == VLCMediaPlayerStatePlaying) self.started = YES;
+    if (state == VLCMediaPlayerStateStopped && self.started) [self.finished fulfill];
+}
+
+- (void)testColdFilterPlaybackProducesAudio
+{
+    for (NSNumber *rate in @[@22050, @44100, @48000]) {
+        NSURL *directory = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString]];
+        XCTAssertTrue([NSFileManager.defaultManager createDirectoryAtURL:directory withIntermediateDirectories:YES attributes:nil error:nil]);
+        NSURL *input = [directory URLByAppendingPathComponent:@"tone.wav"];
+        NSURL *output = [directory URLByAppendingPathComponent:@"output.pcm"];
+        AVAudioFormat *format = [[AVAudioFormat alloc] initStandardFormatWithSampleRate:rate.doubleValue channels:1];
+        AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:format frameCapacity:rate.unsignedIntValue * 2];
+        buffer.frameLength = buffer.frameCapacity;
+        for (AVAudioFrameCount i = 0; i < buffer.frameLength; ++i)
+            buffer.floatChannelData[0][i] = 0.25f * sinf(2.f * M_PI * 440.f * i / rate.floatValue);
+        NSError *error = nil;
+        AVAudioFile *file = [[AVAudioFile alloc] initForWriting:input settings:format.settings error:&error];
+        XCTAssertNotNil(file, @"%@", error);
+        XCTAssertTrue([file writeFromBuffer:buffer error:&error], @"%@", error);
+        file = nil;
+
+        VLCMediaPlayer *player = [[VLCMediaPlayer alloc] initWithOptions:@[@"--aout=file", @"--audiofile-format=float32", @"--no-audiofile-wav", [@"--audiofile-file=" stringByAppendingString:output.path]]];
+        self.level = kVLCLogLevelError;
+        self.outputErrors = 0;
+        player.libraryInstance.loggers = @[self];
+        XCTAssertTrue([player prepareNoiseReduction]);
+        XCTAssertTrue([player applyNoiseReductionEnabled:NO]);
+        self.started = NO;
+        self.finished = [self expectationWithDescription:@"tone playback finishes"];
+        player.delegate = self;
+        player.media = [VLCMedia mediaWithURL:input];
+        [player play];
+        [self waitForExpectations:@[self.finished] timeout:15];
+        [player stop];
+        XCTAssertEqual(self.outputErrors, 0U, @"Resampler startup must not send empty buffers to audio output at %@ Hz", rate);
+        NSData *pcm = [NSData dataWithContentsOfURL:output];
+        XCTAssertGreaterThan(pcm.length, (NSUInteger)rate.unsignedIntValue * sizeof(float));
+        const float *samples = pcm.bytes;
+        double energy = 0;
+        for (NSUInteger i = 0; i < pcm.length / sizeof(float); ++i) energy += samples[i] * samples[i];
+        XCTAssertGreaterThan(energy, 100.0, @"Cold RNNoise output must retain the tone at %@ Hz", rate);
+        player.delegate = nil;
+        player.libraryInstance.loggers = @[];
+        [NSFileManager.defaultManager removeItemAtURL:directory error:nil];
+    }
+}
+@end
+
 @interface RDNoisePlayerStub : NSObject
 @property BOOL succeeds;
 @property BOOL enabled;

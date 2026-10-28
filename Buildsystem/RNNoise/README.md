@@ -62,6 +62,13 @@ immediate comparisons; CPU/battery cost therefore remains while bypassed. There
 are no allocations in the sample processing loop. Audio-output creation failure
 leaves playback available and disables noise reduction.
 
+The audio filter pipeline discards empty resampler output before advancing to the
+next filter or audio output. In particular, 22.05 kHz mono playback through RNNoise
+can produce empty startup blocks during conversion to/from 48 kHz. Passing those
+blocks onward caused CoreMedia invalid-length errors and silent first playback.
+`DiscourseNoiseOutputTests` exercises the real VLCKit pipeline at 22.05, 44.1 and
+48 kHz, checking both non-silent PCM and absence of empty-buffer output failures.
+
 ## Checks
 
 ```sh
