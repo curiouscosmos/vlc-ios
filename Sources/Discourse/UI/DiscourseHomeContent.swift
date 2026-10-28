@@ -49,6 +49,8 @@ enum DiscourseHomeItem: Hashable {
     case track(DiscourseAudio)
     /// A device-library track from the local playback history.
     case localTrack(DiscourseLocalTrack)
+    /// Placeholder while the weekly top lists are being fetched.
+    case loading
 }
 
 struct DiscourseHomeSection: Hashable {
@@ -65,7 +67,8 @@ enum DiscourseHomeContent {
                          topDiscourses: [Discourse],
                          topTracks: [DiscourseAudio],
                          localTracks: [DiscourseLocalTrack] = [],
-                         historyEnabled: Bool) -> [DiscourseHomeSection] {
+                         historyEnabled: Bool,
+                         topListsLoading: Bool = false) -> [DiscourseHomeSection] {
         var sections: [DiscourseHomeSection] = []
 
         let recentDiscourseItems = capped(unique(recentDiscourses)).map { DiscourseHomeItem.discourse($0) }
@@ -93,12 +96,18 @@ enum DiscourseHomeContent {
         if !topDiscourseItems.isEmpty {
             sections.append(DiscourseHomeSection(kind: .topDiscourses,
                                                  items: topDiscourseItems))
+        } else if topListsLoading {
+            sections.append(DiscourseHomeSection(kind: .topDiscourses,
+                                                 items: [.loading]))
         }
 
         let topTrackItems = unique(topTracks).map { DiscourseHomeItem.track($0) }
         if !topTrackItems.isEmpty {
             sections.append(DiscourseHomeSection(kind: .topTracks,
                                                  items: topTrackItems))
+        } else if topListsLoading {
+            sections.append(DiscourseHomeSection(kind: .topTracks,
+                                                 items: [.loading]))
         }
 
         return sections

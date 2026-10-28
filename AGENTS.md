@@ -858,9 +858,12 @@ stores' payloads into sections, in product order, dropping empty ones:
 - Loading: the history is read synchronously from `UserDefaults` and rebuilt on
   every `viewWillAppear` and on `.discourseHistoryDidChange`; the two weekly
   lists load concurrently through `DiscourseStatsCache`. Pull-to-refresh forces
-  both lists and rebuilds the history section.
-- States: centred spinner while nothing is available and the first stats request
-  runs; the empty state (`HOME_EMPTY_TITLE` / `HOME_EMPTY_MESSAGE`) when every
+  both lists and rebuilds the history section. While a weekly list has no data,
+  its section renders a spinner placeholder (header plus a centred
+  `UIActivityIndicatorView`) so history remains visible while the top lists load.
+- States: the top-section spinner placeholders cover the first weekly request;
+  the centred screen spinner remains the fallback before that request starts.
+  The empty state (`HOME_EMPTY_TITLE` / `HOME_EMPTY_MESSAGE`) appears when every
   section is empty; *Could not load the top lists* with *Try again* when the
   stats request failed and there is no history to show. A stats failure with
   history rendered keeps the history sections.
@@ -2033,6 +2036,12 @@ Google OAuth handler and URL-scheme registration.
   `UIBackgroundModes`. Finite `beginBackgroundTask` work is unaffected.
 - Verified `VLC-iOS` and `VLC-iOS-no-watch` build; the built Info.plist contains
   only `NSLocalNetworkUsageDescription`.
+
+### Post-phase polish — Home top-list loading — **Done**
+- Home shows a spinner placeholder section for *Top discourses this week* and
+  *Top tracks this week* while the weekly stats request is in flight and the
+  corresponding data is empty. History sections stay visible; existing top data
+  keeps its rows and pull-to-refresh uses the refresh control.
 
 ### Post-phase polish — first-play audio session — **Done**
 - `VLCPlaybackService` now activates the shared `AVAudioSession` before

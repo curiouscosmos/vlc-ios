@@ -125,6 +125,8 @@ final class DiscourseHomeViewController: UIViewController {
                                 forCellWithReuseIdentifier: DiscourseCardCell.reuseIdentifier)
         collectionView.register(DiscourseHomeTrackCell.self,
                                 forCellWithReuseIdentifier: DiscourseHomeTrackCell.reuseIdentifier)
+        collectionView.register(DiscourseHomeLoadingCell.self,
+                                forCellWithReuseIdentifier: DiscourseHomeLoadingCell.reuseIdentifier)
         collectionView.register(DiscourseHomeSectionHeaderView.self,
                                 forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
                                 withReuseIdentifier: DiscourseHomeSectionHeaderView.reuseIdentifier)
@@ -233,7 +235,8 @@ final class DiscourseHomeViewController: UIViewController {
                                                     topDiscourses: topDiscourses,
                                                     topTracks: topTracks,
                                                     localTracks: localTracks,
-                                                    historyEnabled: historyEnabled))
+                                                    historyEnabled: historyEnabled,
+                                                    topListsLoading: isLoadingStats))
     }
 
     /// The device library's own playback history (AGENTS section 6.1). The
@@ -263,8 +266,9 @@ final class DiscourseHomeViewController: UIViewController {
                     likesStore.updateCount(discourse.totalLikes, for: .discourse(discourse.id))
                 case .track(let track):
                     likesStore.updateCount(track.totalLikes, for: .audio(track.id))
-                case .localTrack:
-                    // Library tracks carry no discourse like state.
+                case .localTrack, .loading:
+                    // Library tracks carry no discourse like state, and the
+                    // loading placeholder has no payload.
                     break
                 }
             }
@@ -309,6 +313,8 @@ final class DiscourseHomeViewController: UIViewController {
                           download: downloadState(for: track))
         case (.localTrack(let track), let row as DiscourseHomeTrackCell):
             row.configure(with: track, isPlaying: track.url == playingLocalURL)
+        case (.loading, _):
+            break
         default:
             break
         }
@@ -344,7 +350,9 @@ final class DiscourseHomeViewController: UIViewController {
         isLoadingStats = true
         requestToken += 1
         let token = requestToken
-        renderState()
+        // Rebuild immediately so the weekly sections show their placeholders
+        // while history is already on screen.
+        reloadHistory()
 
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -563,6 +571,14 @@ extension DiscourseHomeViewController: UICollectionViewDataSource {
                 self?.open(item)
             }
             return row
+        case .loading:
+            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: DiscourseHomeLoadingCell.reuseIdentifier,
+                                                          for: indexPath)
+            guard let loadingCell = cell as? DiscourseHomeLoadingCell else {
+                return cell
+            }
+            loadingCell.configure()
+            return loadingCell
         }
     }
 
@@ -615,6 +631,44 @@ extension DiscourseHomeViewController: UICollectionViewDelegate {
             // mini player behave exactly as when the file is played from
             // the local library.
             PlaybackService.sharedInstance().playMedia(at: 0, fromCollection: [media])
+        case .loading:
+            break
         }
+    }
+}
+
+private final class DiscourseHomeLoadingCell: UICollectionViewCell {
+    static let reuseIdentifier = "DiscourseHomeLoadingCell"
+
+    private let spinner = UIActivityIndicatorView(style: .medium)
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        spinner.hidesWhenStopped = false
+        contentView.addSubview(spinner)
+        NSLayoutConstraint.activate([
+            spinner.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            spinner.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure() {
+        spinner.color = DiscourseColors.current.accent
+        spinner.startAnimating()
+        isAccessibilityElement = true
+        accessibilityLabel = NSLocalizedString("HOME_LOADING_TOP_LISTS",
+                                                comment: "Home top lists loading indicator")
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        spinner.startAnimating()
     }
 }

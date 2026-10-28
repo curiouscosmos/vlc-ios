@@ -983,6 +983,7 @@
 "HOME_SECTION_TOP_DISCOURSES" = "Top discourses this week"; /* Home section: top discourses this week */
 "HOME_SECTION_TOP_TRACKS" = "Top tracks this week"; /* Home section: top tracks this week */
 "HOME_ERROR_TITLE" = "Could not load the top lists"; /* Home heading when the top lists cannot be loaded */
+"HOME_LOADING_TOP_LISTS" = "Loading top lists…"; /* Home top lists loading indicator */
 "DISCOURSE_LOCAL_LIBRARY" = "Local library"; /* Title of the device audio library */
 "DISCOURSE_FILTER_TITLE" = "Filter"; /* Catalogue filter button */
 "DISCOURSE_FILTER_LANGUAGE" = "Language"; /* Catalogue filter: language */

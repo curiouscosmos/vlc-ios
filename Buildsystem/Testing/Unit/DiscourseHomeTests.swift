@@ -26,6 +26,21 @@ final class DiscourseHomeTests: XCTestCase {
         XCTAssertTrue(sections.isEmpty)
     }
 
+    func testTopListsShowLoadingPlaceholdersWhileStatsLoad() {
+        let sections = DiscourseHomeContent.sections(recentDiscourses: [discourse("recent-d")],
+                                                     recentTracks: [],
+                                                     topDiscourses: [],
+                                                     topTracks: [],
+                                                     historyEnabled: true,
+                                                     topListsLoading: true)
+
+        XCTAssertEqual(sections.map(\.kind), [.recentlyPlayedDiscourses,
+                                              .topDiscourses,
+                                              .topTracks])
+        XCTAssertEqual(sections[1].items, [.loading])
+        XCTAssertEqual(sections[2].items, [.loading])
+    }
+
     func testSectionsFollowProductOrder() {
         let sections = DiscourseHomeContent.sections(
             recentDiscourses: [discourse("recent-d")],
