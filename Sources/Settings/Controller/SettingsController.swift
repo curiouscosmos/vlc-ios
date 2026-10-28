@@ -16,7 +16,6 @@
  *****************************************************************************/
 
 import CoreSpotlight
-import LocalAuthentication
 import UIKit
 
 extension Notification.Name {
@@ -571,7 +570,7 @@ extension SettingsController {
                 if success {
                     CSSearchableIndex.default().deleteAllSearchableItems(completionHandler: nil)
                 }
-                self.reloadSettingsSections() // To show/hide biometric row
+                self.reloadSettingsSections()
             }
         } else {
             // When disabled any existing passcode should be removed.

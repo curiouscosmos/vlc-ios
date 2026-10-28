@@ -20,7 +20,7 @@
    presentingViewController:(UIViewController *)presenter
                   didChange:(void (^)(void))didChange;
 
-+ (NSArray<UIMenuElement *> *)alarmActionsForFavorite:(VLCFavorite *)favorite
++ (NSArray<UIMenuElement *> *)menuElementsForFavorite:(VLCFavorite *)favorite
                              presentingViewController:(UIViewController *)presenter
                                             didChange:(void (^)(void))didChange;
 

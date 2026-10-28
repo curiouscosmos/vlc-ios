@@ -14,7 +14,6 @@
  * Refer to the COPYING file of the official project for license.
  *****************************************************************************/
 
-import LocalAuthentication
 import UIKit
 
 // MARK: - PasscodeAction
@@ -26,14 +25,11 @@ enum PasscodeAction {
 
 class PasscodeLockController: UIViewController {
     // MARK: - Properties
-    @objc static private(set) var isEvaluatingBiometricAuthentication = false
-
     private let notificationCenter = NotificationCenter.default
 
     let action: PasscodeAction
     let keychainService: KeychainCoordinator
 
-    var allowBiometricAuthentication: Bool = false
     var isCancellable: Bool = false
 
     /// The handler called on completion. On ``PasscodeAction/set`` action passcode provided if successfully set.
@@ -41,7 +37,6 @@ class PasscodeLockController: UIViewController {
     var completionHandler: ((Bool, String?) -> Void)?
 
     private var tempPasscode = ""
-    private var avoidPromptingBiometricAuth = false
 
     private var passcodeLength: Int {
         // If a passcode exists, return its length
@@ -169,12 +164,6 @@ class PasscodeLockController: UIViewController {
         passcodeField.becomeFirstResponder()
     }
 
-    override func viewDidAppear(_: Bool) {
-        // The observer isn't triggering on launch
-        // So we should also call here
-        biometricAuthRequest()
-    }
-
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
 
@@ -183,9 +172,6 @@ class PasscodeLockController: UIViewController {
 
         // Hide failedLabel to reset
         failedLabel.isHidden = true
-
-        // Reset
-        avoidPromptingBiometricAuth = false
 
         passcodeField.resignFirstResponder()
 
@@ -317,12 +303,6 @@ class PasscodeLockController: UIViewController {
                                        name: UIResponder.keyboardWillHideNotification,
                                        object: nil)
 
-        // Biometric auth observer
-        notificationCenter.addObserver(self,
-                                       selector: #selector(biometricAuthRequest),
-                                       name: UIApplication.didBecomeActiveNotification,
-                                       object: nil)
-
         // Application will terminate observer
         notificationCenter.addObserver(self,
                                        selector: #selector(handleApplicationWillTerminate),
@@ -441,54 +421,6 @@ extension PasscodeLockController: PasscodeFieldDelegate {
 #if os(iOS)
                 NotificationFeedbackGenerator().error()
 #endif
-            }
-        }
-    }
-}
-
-// MARK: - Biometric Authentication Helpers
-
-extension PasscodeLockController {
-    var isBiometricAuthEnabled: Bool {
-        let context = LAContext()
-        return context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
-    }
-
-    @objc private func biometricAuthRequest() {
-        guard action == .enter, // action is enter
-              view.window != nil, // view controller is presented and visible
-              isBiometricAuthEnabled, // biometric auth is enabled from system settings
-              allowBiometricAuthentication, // biometric authentication allowed from user in app
-              !avoidPromptingBiometricAuth, // there is no already showing auth view
-              UIApplication.shared.applicationState == .active, // the app is active state
-              keychainService.hasSecret else {
-            return
-        }
-
-        avoidPromptingBiometricAuth = true
-        PasscodeLockController.isEvaluatingBiometricAuthentication = true
-
-        let context = LAContext()
-
-        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics,
-                               localizedReason: NSLocalizedString("BIOMETRIC_UNLOCK", comment: "")) { [weak self] success, _ in
-            DispatchQueue.main.async {
-                PasscodeLockController.isEvaluatingBiometricAuthentication = false
-
-                guard let self = self else {
-                    return
-                }
-
-                if success {
-                    // Dismiss and call completion handler
-                    let completionHandler = self.takeCompletionHandler()
-                    self.dismiss(animated: true) {
-                        completionHandler?(true, nil)
-                    }
-                } else {
-                    // User hit cancel and wants to enter the passcode
-                    self.passcodeField.becomeFirstResponder()
-                }
             }
         }
     }

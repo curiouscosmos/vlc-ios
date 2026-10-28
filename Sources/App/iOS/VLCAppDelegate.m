@@ -49,7 +49,6 @@
     /* Rajneesh Discourse ships dark-first: the fork palette is dark by default,
        light remains available from Settings. */
     NSDictionary *appDefaults = @{kVLCSettingAppTheme : @(kVLCSettingAppThemeDark),
-                                  kVLCSettingPasscodeEnableBiometricAuth : @(1),
                                   kVLCSettingContinueAudioInBackgroundKey : @(YES),
                                   kVLCSettingStretchAudio : @(YES),
                                   kVLCSettingDefaultPreampLevel : @(0),
@@ -67,7 +66,6 @@
                                   kVLCSettingBrightnessGesture : @(YES),
                                   kVLCSettingSeekGesture : @(YES),
                                   kVLCSettingCloseGesture : @(YES),
-                                  kVLCSettingSnapshotGesture : @(NO),
                                   kVLCSettingPlaybackLongTouchSpeedUp : @(YES),
                                   kVLCSettingVideoFullscreenPlayback : @(YES),
                                   kVLCSettingContinuePlayback : @(1),
@@ -253,10 +251,6 @@
 
 - (void)applicationWillResignActive:(UIApplication *)application
 {
-    if (PasscodeLockController.isEvaluatingBiometricAuthentication) {
-        return;
-    }
-
     [self validatePasscodeIfNeededWithCompletion:^{
         //TODO: handle updating the videoview and
         if ([VLCPlaybackService sharedInstance].isPlaying){
@@ -311,10 +305,7 @@
 {
     if ([[VLCKeychainCoordinator passcodeService] hasSecret]) {
         //TODO: Dismiss playback
-        BOOL allowBiometricAuthentication = [[NSUserDefaults standardUserDefaults] boolForKey:kVLCSettingPasscodeEnableBiometricAuth];
-
-        [[VLCKeychainCoordinator passcodeService] lockApplicationWithAllowBiometricAuthentication:allowBiometricAuthentication
-                                                                                       completion:completion];
+        [[VLCKeychainCoordinator passcodeService] lockApplicationWithCompletion:completion];
     } else {
         completion();
     }

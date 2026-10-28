@@ -14,7 +14,6 @@
  *****************************************************************************/
 
 import Foundation
-import LocalAuthentication
 
 @objc(VLCKeychainCoordinator)
 class KeychainCoordinator: NSObject {
@@ -90,19 +89,17 @@ extension KeychainCoordinator {
     }
 
     /// If ``PasscodeLockController/cancellable`` is `false`, **completion** always takes `true` because it will be called only on success case.
-    @objc func validateSecret(allowBiometricAuthentication: Bool = false, isCancellable: Bool = false, completion: @escaping (Bool) -> Void) {
+    @objc func validateSecret(isCancellable: Bool = false, completion: @escaping (Bool) -> Void) {
         guard hasSecret else {
             return
         }
 
-        showPasscodeController(action: .enter,
-                               allowBiometricAuthentication: allowBiometricAuthentication,
-                               isCancellable: isCancellable) { success, _ in
+        showPasscodeController(action: .enter, isCancellable: isCancellable) { success, _ in
             completion(success)
         }
     }
 
-    @objc func lockApplication(allowBiometricAuthentication: Bool, completion: @escaping () -> Void) {
+    @objc func lockApplication(completion: @escaping () -> Void) {
         actionsAfterUnlock.append(completion)
         guard applicationLockController == nil,
               let presentingViewController = UIApplication.shared.dismissPresentedScreensAbovePlayer() else {
@@ -119,7 +116,6 @@ extension KeychainCoordinator {
             actionsAfterUnlock.removeAll()
             actions.forEach { $0() }
         }
-        passcodeController.allowBiometricAuthentication = allowBiometricAuthentication
         applicationLockController = passcodeController
 
         present(passcodeController,
@@ -128,7 +124,7 @@ extension KeychainCoordinator {
     }
 
     /// The handler called on completion. On ``PasscodeAction/set`` action passcode provided. Otherwise nil.
-    private func showPasscodeController(action: PasscodeAction, allowBiometricAuthentication: Bool = false, isCancellable: Bool = false, completion: @escaping (Bool, String?) -> Void) {
+    private func showPasscodeController(action: PasscodeAction, isCancellable: Bool = false, completion: @escaping (Bool, String?) -> Void) {
         // Check if a presentingViewController exists and passcode not already showing
         guard let presentingViewController, !isPasscodeControllerPresenting else {
             return
@@ -137,7 +133,6 @@ extension KeychainCoordinator {
         let passcodeController = PasscodeLockController(action: action, keychainService: self) { success, secret in
             completion(success, secret)
         }
-        passcodeController.allowBiometricAuthentication = allowBiometricAuthentication
         passcodeController.isCancellable = isCancellable
 
         present(passcodeController, from: presentingViewController)

@@ -25,9 +25,6 @@
 "SETTINGS_PODCASTS_EPISODES_PER_SHOW" = "Episodes per show";
 "SETTINGS_PLAYBACK_TITLE" = "Playback";
 "SETTINGS_PASSCODE_LOCK" = "Passcode Lock";
-"SETTINGS_PASSCODE_LOCK_ALLOWTOUCHID" = "Allow Touch ID for unlock";
-"SETTINGS_PASSCODE_LOCK_ALLOWFACEID" = "Allow Face ID for unlock";
-"SETTINGS_PASSCODE_LOCK_ALLOWOPTICID" = "Allow Optic ID for unlock";
 "SETTINGS_HIDE_LIBRARY_IN_FILES_APP" = "Hide the media library in Files";
 "SETTINGS_VIDEO_FULLSCREEN" = "Play video in fullscreen";
 "SETTINGS_HIDE_UI_DURING_PLAYBACK" = "Hide user interface during playback";
@@ -65,7 +62,6 @@
 "SETTINGS_GESTURES_CLOSE" = "Pinch to close";
 "SETTINGS_GESTURES_FORWARD_BACKWARD_EQUAL" = "Use the same interval to seek forward and backwards";
 "SETTINGS_GESTURES_TAP_SWIPE_EQUAL" = "Use the same interval for tap and swipe gestures";
-"SETTINGS_GESTURES_SNAPSHOT" = "Three finger tap for snapshot";
 
 "SETTINGS_SUBTITLES_TITLE" = "Subtitles";
 "SETTINGS_SUBTITLES_DISABLE" = "Disable subtitles";

@@ -11,7 +11,6 @@
  *****************************************************************************/
 
 import UIKit
-import LocalAuthentication
 
 class ParentalControlCoordinator: NSObject {
 
@@ -59,10 +58,7 @@ class ParentalControlCoordinator: NSObject {
             return
         }
 
-        let shouldUseBiometricAuth = isBiometricAuthEnabled() && isBiometricAuthenticationEnabledByUser()
-
-        keychain.validateSecret(allowBiometricAuthentication: shouldUseBiometricAuth,
-                                isCancellable: true) { [weak self] success in
+        keychain.validateSecret(isCancellable: true) { [weak self] success in
             if success {
                 self?.updateTimestamp()
             }
@@ -123,12 +119,4 @@ class ParentalControlCoordinator: NSObject {
         }
     }
 
-    private func isBiometricAuthEnabled() -> Bool {
-        let context = LAContext()
-        return context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
-    }
-
-    private func isBiometricAuthenticationEnabledByUser() -> Bool {
-        return UserDefaults.standard.bool(forKey: kVLCSettingPasscodeEnableBiometricAuth)
-    }
 }

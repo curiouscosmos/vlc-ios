@@ -16,7 +16,6 @@
  *****************************************************************************/
 
 import Foundation
-import LocalAuthentication
 
 // MARK: - SettingsItem
 
@@ -273,38 +272,6 @@ enum PrivacyOptions {
                 preferenceKey: kVLCSettingPasscodeOnKey)
     }
 
-    static var enableBiometrics: SettingsItem? {
-        let authContext = LAContext()
-
-        if authContext.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil) {
-            let isEnabled: Bool = UserDefaults.standard.bool(forKey: kVLCSettingPasscodeOnKey)
-
-            switch authContext.biometryType {
-            case .touchID:
-                return .toggle(title: "SETTINGS_PASSCODE_LOCK_ALLOWTOUCHID",
-                               subtitle: nil,
-                               preferenceKey: kVLCSettingPasscodeEnableBiometricAuth,
-                               isEnabled: isEnabled)
-            case .faceID:
-                return .toggle(title: "SETTINGS_PASSCODE_LOCK_ALLOWFACEID",
-                               subtitle: nil,
-                               preferenceKey: kVLCSettingPasscodeEnableBiometricAuth,
-                               isEnabled: isEnabled)
-            case .opticID:
-                return .toggle(title: "SETTINGS_PASSCODE_LOCK_ALLOWOPTICID",
-                               subtitle: nil,
-                               preferenceKey: kVLCSettingPasscodeEnableBiometricAuth,
-                               isEnabled: isEnabled)
-            case .none:
-                fallthrough
-            @unknown default:
-                return nil
-            }
-        }
-
-        return nil
-    }
-
     static var hideLibraryInFilesApp: SettingsItem {
         .toggle(title: "SETTINGS_HIDE_LIBRARY_IN_FILES_APP",
                 subtitle: "SETTINGS_HIDE_LIBRARY_IN_FILES_APP_SUBTITLE",
@@ -326,7 +293,6 @@ enum PrivacyOptions {
     static func section() -> SettingsSection? {
         var items: [SettingsItem?] = [
             passcodeLock,
-            enableBiometrics,
             hideLibraryInFilesApp,
             parentalControl,
         ]
@@ -410,11 +376,6 @@ enum GestureControlOptions {
                 preferenceKey: kVLCSettingPlaybackLongTouchSpeedUp)
     }
 
-    static var threeFingerTapSnapshot: SettingsItem {
-        .toggle(title: "SETTINGS_GESTURES_SNAPSHOT",
-                preferenceKey: kVLCSettingSnapshotGesture)
-    }
-
     static var lockScreenSkip: SettingsItem {
         let k = kVLCSettingPlaybackLockscreenSkip
         return .init(title: "SETTINGS_PLAYBACK_LOCKSCREEN_SKIP",
@@ -443,7 +404,6 @@ enum GestureControlOptions {
             isTapSwipeEqual ? nil : forwardSkipLengthSwipe,
             (isTapSwipeEqual || isForwardBackwardEqual) ? nil : backwardSkipLengthSwipe,
             longTouchToSpeedUp,
-            threeFingerTapSnapshot,
             lockScreenSkip,
             externalControlsSkip,
         ].compactMap { $0 })

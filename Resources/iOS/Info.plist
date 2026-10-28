@@ -302,8 +302,6 @@
 	<true/>
 	<key>MLKitGroupIdentifier</key>
 	<string>$(GROUP_IDENTIFIER)</string>
-	<key>NSAlarmKitUsageDescription</key>
-	<string>In order to wake you up with your favorite radio station we will need access to alarms</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

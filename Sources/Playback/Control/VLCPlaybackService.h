@@ -213,7 +213,6 @@ NS_SWIFT_NAME(PlaybackService)
 - (CGFloat)frequencyOfBandAtIndex:(unsigned int)index;
 - (NSArray<VLCAudioEqualizerPreset *> *)equalizerProfiles;
 - (void)togglePictureInPicture;
-- (void)saveSnapshotWithCompletion:(void (^)(BOOL success, NSError *_Nullable error))completion;
 
 - (void)savePlaybackState;
 

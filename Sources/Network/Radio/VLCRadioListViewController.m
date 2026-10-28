@@ -31,7 +31,6 @@
     VLCRadioService *_radioService;
     NSArray<VLCFavorite *> *_radioFavorites;
     NSArray<VLCFavorite *> *_recentStreams;
-    NSSet<NSURL *> *_favoritesWithAlarms;
 }
 @end
 
@@ -128,20 +127,7 @@
 - (void)reloadFavorites
 {
     _radioFavorites = [[[VLCAppCoordinator sharedInstance] favoriteService] favoritesInGroupWithIdentifier:VLCFavoriteGroupRadio];
-    [self reloadAlarmState];
     [self.tableView reloadData];
-}
-
-- (void)reloadAlarmState
-{
-    [VLCRadioAlarmService.shared urlsWithAlarmsForFavorites:_radioFavorites
-                                                completion:^(NSSet<NSURL *> *urls) {
-        if (urls.count == 0 && self->_favoritesWithAlarms.count == 0)
-            return;
-
-        self->_favoritesWithAlarms = urls;
-        [self.tableView reloadData];
-    }];
 }
 
 #pragma mark - section layout
@@ -318,19 +304,11 @@
         return nil;
 
     __weak typeof(self) weakSelf = self;
-    return [VLCRadioFavoriteMenu alarmActionsForFavorite:_radioFavorites[index]
+    return [VLCRadioFavoriteMenu menuElementsForFavorite:_radioFavorites[index]
                                 presentingViewController:self
                                                didChange:^{
         [weakSelf reloadFavorites];
     }];
-}
-
-- (BOOL)favoritesGridCell:(VLCRadioFavoritesGridCell *)cell hasAlarmForFavoriteAtIndex:(NSInteger)index
-{
-    if ([self gridCellShowsRecents:cell] || index >= _radioFavorites.count)
-        return NO;
-
-    return [_favoritesWithAlarms containsObject:_radioFavorites[index].url];
 }
 
 - (void)favoritesGridCell:(VLCRadioFavoritesGridCell *)cell didSelectFavoriteAtIndex:(NSInteger)index

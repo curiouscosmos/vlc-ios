@@ -128,7 +128,6 @@
 "SHARING_ACTIVITY_OPEN_IN_TITLE" = "Open In...";
 "SHARING_ERROR_NO_FILES" = "Could not find any files to share";
 "SHARING_ERROR_NO_APPLICATIONS" = "Could not find any applications to open this type of file";
-"SHARING_SUCCESS_CAMERA_ROLL" = "File was successfully saved to the Camera Roll";
 
 "SECTION_HEADER_LIBRARY" = "Media Library";
 "SECTION_HEADER_NETWORK" = "Network";
@@ -177,7 +176,6 @@
 "PASSCODES_DID_NOT_MATCH" = "Passcodes did not match. Try again.";
 "PASSCODE_FAILED_1" = "1 Failed Passcode Attempt";
 "PASSCODE_FAILED_FORMAT" = "%d Failed Passcode Attempts";
-"BIOMETRIC_UNLOCK" = "Unlock Media Library\nCancel to enter Passcode";
 
 "Settings" = "Settings"; // plain text key to keep compatibility with InAppSettingsKit's upstream
 "ON" = "On";

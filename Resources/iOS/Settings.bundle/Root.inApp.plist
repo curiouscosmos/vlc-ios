@@ -229,26 +229,6 @@
 		</dict>
 		<dict>
 			<key>DefaultValue</key>
-			<true/>
-			<key>Key</key>
-			<string>AllowTouchID</string>
-			<key>Title</key>
-			<string>SETTINGS_PASSCODE_LOCK_ALLOWTOUCHID</string>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-		</dict>
-		<dict>
-			<key>DefaultValue</key>
-			<true/>
-			<key>Key</key>
-			<string>AllowFaceID</string>
-			<key>Title</key>
-			<string>SETTINGS_PASSCODE_LOCK_ALLOWFACEID</string>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-		</dict>
-		<dict>
-			<key>DefaultValue</key>
 			<false/>
 			<key>Key</key>
 			<string>HideLibraryInFilesApp</string>

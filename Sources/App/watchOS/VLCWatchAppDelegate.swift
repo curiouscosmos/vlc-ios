@@ -35,7 +35,6 @@ class VLCWatchAppDelegate: NSObject, WKApplicationDelegate {
 
         let appDefaults: [String : Any] = [
             kVLCSettingAppTheme : kVLCSettingAppThemeBright,
-            kVLCSettingPasscodeEnableBiometricAuth : 1,
             kVLCSettingContinueAudioInBackgroundKey : true,
             kVLCSettingStretchAudio : true,
             kVLCSettingDefaultPreampLevel : 0,
@@ -53,7 +52,6 @@ class VLCWatchAppDelegate: NSObject, WKApplicationDelegate {
             kVLCSettingBrightnessGesture : true,
             kVLCSettingSeekGesture : true,
             kVLCSettingCloseGesture : true,
-            kVLCSettingSnapshotGesture : false,
             kVLCSettingPlaybackLongTouchSpeedUp : true,
             kVLCSettingVideoFullscreenPlayback : true,
             kVLCSettingContinuePlayback : 1,

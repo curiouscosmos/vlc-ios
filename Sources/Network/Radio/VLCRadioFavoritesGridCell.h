@@ -23,7 +23,6 @@ NS_ASSUME_NONNULL_BEGIN
 @optional
 - (nullable NSArray<UIMenuElement *> *)favoritesGridCell:(VLCRadioFavoritesGridCell *)cell
                             menuElementsForFavoriteAtIndex:(NSInteger)index;
-- (BOOL)favoritesGridCell:(VLCRadioFavoritesGridCell *)cell hasAlarmForFavoriteAtIndex:(NSInteger)index;
 @end
 
 @interface VLCRadioFavoritesGridCell : UITableViewCell

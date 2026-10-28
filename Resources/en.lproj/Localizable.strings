@@ -152,7 +152,6 @@
 "SHARING_ACTIVITY_OPEN_IN_TITLE" = "Open In...";
 "SHARING_ERROR_NO_FILES" = "Could not find any files to share";
 "SHARING_ERROR_NO_APPLICATIONS" = "Could not find any applications to open this type of file";
-"SHARING_SUCCESS_CAMERA_ROLL" = "File was successfully saved to the Camera Roll";
 
 "RADIO" = "Radio";
 "RADIOVC_DETAILTEXT" = "Listen to radio stations from around the world";
@@ -163,12 +162,6 @@
 "STATION_COUNT" = "%lu stations";
 "RADIO_COUNTRIES_LOADING_FAILED" = "Couldn't load the list of countries. Please check your connection and try again.";
 "RADIO_STATIONS_LOADING_FAILED" = "Couldn't load the stations. Please check your connection and try again.";
-"RADIO_ALARM_SET" = "Set Alarm…";
-"RADIO_ALARM_EDIT" = "Edit Alarm…";
-"RADIO_ALARM_REMOVE" = "Remove Alarm";
-"RADIO_ALARM_LISTEN" = "Listen";
-"RADIO_ALARM_DENIED" = "VLC is not allowed to set alarms. You can grant access in the Settings app.";
-"RADIO_ALARM_FAILED" = "The alarm could not be set. Please try again.";
 "BUTTON_RETRY" = "Retry";
 "BITRATE_FORMAT" = "%li kb/s";
 "HEADER_TITLE_RENDERER" = "Select a casting device";
@@ -238,7 +231,6 @@
 "NO_FILES" = "No supported files";
 "DOWNLOADING" = "Downloading...";
 "REMAINING_TIME" = "Remaining time: %@";
-"BIOMETRIC_UNLOCK" = "Unlock Media Library\nCancel to enter Passcode";
 
 // Passcode Strings that we need to localize for them
 "Set Passcode" = "Set Passcode";
@@ -683,10 +675,6 @@
 "CHAPTERS_HINT" = "Select to open the chapters view";
 "BOOKMARKS_HINT" = "Select to open the bookmarks view";
 "INTERFACE_LOCK_HINT" = "Enable the option to lock the user interface";
-"SNAPSHOT_SAVED" = "Snapshot Saved";
-"SNAPSHOT_SAVED_TO_CAMERA_ROLL" = "Snapshot saved to Camera Roll";
-"SNAPSHOT_FAILED" = "Snapshot Failed";
-"SNAPSHOT_FAILED_MESSAGE" = "Unable to save snapshot. Please ensure photo library access is granted.";
 
 // MARK: - Settings
 "FORCE_RESCAN_TITLE" = "Force media library rescan";

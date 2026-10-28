@@ -1521,10 +1521,13 @@ Google Drive and Google Sign-In are removed from the app: no cloud-list entry,
 Drive favourite routing, OAuth URL handler, URL scheme, or Google pods remain.
 Upstream Google Drive source files and shortcut tests remain as unbuilt references.
 OneDrive and its ADAL authentication dependency are also removed, along with the
-last `UIWebView` references (ITMS-90809). Verified: `VLC-iOS-no-watch` and
-`VLC-iOS` simulator builds pass with no `UIWebView`, ADAL or OneDrive artifacts in
-the built app; the focused `VLC-iOSTests/URLHandlerTests` suite passes both tests,
-including absence of Google OAuth handler and URL-scheme registration.
+last `UIWebView` references (ITMS-90809). AlarmKit, Face ID biometrics,
+photo-library saving and iCloud Documents were removed in the follow-up
+permission cleanup, leaving Local Network as the only runtime privacy prompt.
+Verified: `VLC-iOS-no-watch` and `VLC-iOS` simulator builds pass with no
+`UIWebView`, ADAL or OneDrive artifacts in the built app; the focused
+`VLC-iOSTests/URLHandlerTests` suite passes both tests, including absence of
+Google OAuth handler and URL-scheme registration.
 
 
 > Updated in the same commit as the change. Legend: **Done**, **Partial**, **Missing**.
@@ -2003,6 +2006,22 @@ including absence of Google OAuth handler and URL-scheme registration.
   `com.microsoft.adalcache` keychain group is gone from all iOS entitlements.
 - The built iOS app has no `UIWebView` symbols or ADAL storyboards, resolving
   ITMS-90809. Verified with `nm -u` and an app-bundle scan.
+
+### Post-phase polish — remove optional permissions and iCloud Documents — **Done**
+- Removed the radio alarm feature, `NSAlarmKitUsageDescription` and all
+  `RADIO_ALARM_*` strings.
+- Removed biometric unlock from the passcode and parental-control flows,
+  `NSFaceIDUsageDescription`, the `LocalAuthentication` framework link and the
+  biometric settings rows.
+- Removed photo-library saving: the snapshot gesture/settings and the
+  Save-to-Camera-Roll share action. The `NSPhotoLibrary*UsageDescription` keys
+  are gone; `PHPickerViewController` remains and needs no permission.
+- Removed iCloud Documents (`CloudDocuments`, iCloud and ubiquity container
+  identifiers) and the unreachable iCloud row in the upstream cloud-services
+  screen. The separate `NSUbiquitousKeyValueStore` entitlement remains because
+  the server list, recent URLs and Dropbox/Box credentials still use it.
+- Verified `VLC-iOS` and `VLC-iOS-no-watch` build; the built Info.plist contains
+  only `NSLocalNetworkUsageDescription`.
 
 ### Post-phase polish — titles and segment tint — **Done**
 - The Audio Mixer tab reads **Mixer** (`AUDIO_MIXER` key unchanged); the Home and
@@ -2487,6 +2506,16 @@ Record every deviation here; never hide a gap.
     the list deletes only the copy. The removed Local Library screen is not a
     Mixer destination.
 
+51. **Optional permissions intentionally removed.** The fork no longer ships
+    radio alarms (AlarmKit), Face ID/Touch ID unlock, photo-library saving or
+    iCloud Documents. This removes `NSAlarmKitUsageDescription`,
+    `NSFaceIDUsageDescription` and both `NSPhotoLibrary*UsageDescription` keys;
+    the only runtime privacy prompt left is Local Network. The iCloud
+    key-value store entitlement stays because `NSUbiquitousKeyValueStore` still
+    backs the server list, recent URLs and Dropbox/Box credentials. iCloud Drive
+    folders selected through the system document picker remain readable without
+    the app's own iCloud Documents container.
+
 *(Add new deviations here as they are discovered during implementation.)*
 
 ---
@@ -2602,6 +2631,16 @@ behaviour:
      `Resources/iOS/Settings.bundle/Root.inApp.plist` and
      `Resources/iOS/Settings.bundle/en.lproj/Root.strings` — the same toggle for
      the system Settings app and the removed video/subtitle groups.
+   - `Sources/Settings/Controller/PasscodeLockController.swift`,
+     `Sources/Helpers/KeychainCoordinator.swift`,
+     `Sources/Helpers/ParentalControlCoordinator.swift`,
+     `Sources/Network/Radio/VLCRadio*`,
+     `Sources/Playback/Player/VideoPlayer-iOS/VideoPlayerViewController.swift`,
+     `Sources/Cloud/Services List/VLCCloudServicesTableViewController.m`,
+     `Resources/*.lproj/InfoPlist.strings`, the app entitlements and
+     `Resources/iOS/Settings.bundle` — the fork's removal of AlarmKit,
+     biometric unlock, photo-library saving and iCloud Documents; Local Network
+     is the only remaining runtime privacy prompt.
    - `Sources/App/iOS/VLCAppDelegate.m` — registers `playback_history = YES`
      (alongside the existing default registrations) so the toggle reads on
      before the user changes it.

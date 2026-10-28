@@ -15,7 +15,6 @@
 #import "VLCDropboxTableViewController.h"
 #import "VLCBoxTableViewController.h"
 #import "VLCBoxController.h"
-#import "VLCDocumentPickerController.h"
 #import "VLCCloudServiceCell.h"
 
 #import "VLC-Swift.h"
@@ -69,7 +68,7 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return 4;
+    return 3;
 }
 
 - (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath
@@ -115,13 +114,6 @@
             cell.lonesomeCloudTitle.text = @"";
             break;
         }
-        case 3: {
-            // Cloud Drives
-            cell.icon.image = [UIImage imageNamed:@"iCloudCell"];
-            cell.lonesomeCloudTitle.text = @"iCloud";
-            cell.cloudTitle.text = cell.cloudInformation.text = @"";
-            break;
-        }
         default:
             break;
     }
@@ -152,14 +144,6 @@
            // P Cloud
             [self.navigationController pushViewController:self.pcloudTableViewController animated:YES];
             break;
-        case 3: {
-            // iCloud
-            // with a nil parameter, this method returns the first container listed in the
-            // com.apple.developer.ubiquity-container-identifiers entitlement array
-            NSURL *ubiquityURL = [[NSFileManager defaultManager] URLForUbiquityContainerIdentifier:nil];
-            [[VLCDocumentPickerController new] presentFromViewController:self initialDirectory:ubiquityURL];
-            break;
-        }
         default:
             break;
     }

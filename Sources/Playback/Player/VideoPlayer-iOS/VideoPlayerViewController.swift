@@ -247,12 +247,6 @@ class VideoPlayerViewController: PlayerViewController {
         return longPressRecognizer
     }()
 
-    private lazy var snapshotTapRecognizer: UITapGestureRecognizer = {
-        let recognizer = UITapGestureRecognizer(target: self, action: #selector(handleSnapshotGesture(_:)))
-        recognizer.numberOfTouchesRequired = 3
-        return recognizer
-    }()
-
     // MARK: - Constraints
 
     private lazy var videoPlayerControlsHeightConstraint: NSLayoutConstraint = {
@@ -530,7 +524,6 @@ class VideoPlayerViewController: PlayerViewController {
         view.addGestureRecognizer(upSwipeRecognizer)
         view.addGestureRecognizer(downSwipeRecognizer)
         view.addGestureRecognizer(longPressGestureRecognizer)
-        view.addGestureRecognizer(snapshotTapRecognizer)
     }
 
     private func setupConstraints() {
@@ -905,42 +898,6 @@ class VideoPlayerViewController: PlayerViewController {
     }
 
     // MARK: - Observers
-
-    // MARK: - Snapshot Gesture
-
-    @objc private func handleSnapshotGesture(_ sender: UITapGestureRecognizer) {
-        guard UserDefaults.standard.bool(forKey: kVLCSettingSnapshotGesture) else { return }
-
-        playbackService.saveSnapshot { [weak self] success, error in
-            guard let self = self else { return }
-
-            if success {
-                self.showSnapshotSuccessAlert()
-            } else {
-                self.showSnapshotFailureAlert(error: error)
-            }
-        }
-    }
-
-    private func showSnapshotSuccessAlert() {
-        let alert = UIAlertController(
-            title: NSLocalizedString("SNAPSHOT_SAVED", comment: ""),
-            message: NSLocalizedString("SNAPSHOT_SAVED_TO_CAMERA_ROLL", comment: ""),
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: NSLocalizedString("BUTTON_OK", comment: ""), style: .default))
-        present(alert, animated: true)
-    }
-
-    private func showSnapshotFailureAlert(error: Error?) {
-        let alert = UIAlertController(
-            title: NSLocalizedString("SNAPSHOT_FAILED", comment: ""),
-            message: NSLocalizedString("SNAPSHOT_FAILED_MESSAGE", comment: ""),
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: NSLocalizedString("BUTTON_OK", comment: ""), style: .default))
-        present(alert, animated: true)
-    }
 
 #if os(iOS)
     @objc func systemVolumeDidChange(notification: NSNotification) {

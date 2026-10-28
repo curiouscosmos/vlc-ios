@@ -13,7 +13,6 @@
  *****************************************************************************/
 
 #define kVLCSettingPasscodeOnKey @"PasscodeProtection"
-#define kVLCSettingPasscodeEnableBiometricAuth @"EnableBiometricAuth"
 #define kVLCSettingHideLibraryInFilesApp @"HideLibraryInFilesApp"
 #define kVLCSettingParentalControl @"ParentalControl"
 #define kVLCThemeDidChangeNotification @"themeDidChangeNotfication"
@@ -68,7 +67,6 @@
 #define kVLCSettingBrightnessGesture @"EnableBrightnessGesture"
 #define kVLCSettingSeekGesture @"EnableSeekGesture"
 #define kVLCSettingCloseGesture @"EnableCloseGesture"
-#define kVLCSettingSnapshotGesture @"EnableSnapshotGesture"
 #define kVLCSettingVideoFullscreenPlayback @"AlwaysUseFullscreenForVideo"
 #define kVLCSettingContinuePlayback @"ContinuePlayback"
 #define kVLCSettingContinueAudioPlayback @"ContinueAudioPlayback"
