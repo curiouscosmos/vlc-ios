@@ -13,12 +13,8 @@
 
 #import "VLCDropboxController.h"
 #import <BoxSDK/BoxSDK.h>
-#if TARGET_OS_IOS
-#import <OneDriveSDK/OneDriveSDK.h>
-#endif
 
 @class VLCNetworkImageView;
-@class ODItem;
 @class VLCPCloudCellContentWrapper;
 
 @interface VLCCloudStorageTableViewCell : UITableViewCell
@@ -34,7 +30,6 @@
 
 @property (nonatomic, retain) VLCPCloudCellContentWrapper *pcloudFile;
 @property (nonatomic, retain) DBFILESMetadata *dropboxFile;
-@property (nonatomic, retain) ODItem *oneDriveFile;
 @property (nonatomic, retain) BoxItem *boxFile;
 
 @property (nonatomic, readwrite) BOOL isDownloadable;

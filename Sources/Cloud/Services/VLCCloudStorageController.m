@@ -14,8 +14,6 @@
 #import "VLCCloudStorageController.h"
 
 #import "VLCBoxController.h"
-#import <OneDriveSDK.h>
-#import "VLCOneDriveConstants.h"
 #import "VLCDropboxController.h"
 #import "VLCDropboxConstants.h"
 #import "VLC-Swift.h"
@@ -52,9 +50,6 @@
 
     // Configure Dropbox
     [DBClientsManager setupWithAppKey:kVLCDropboxAppKey];
-
-    // Configure OneDrive
-    [ODClient setMicrosoftAccountAppId:kVLCOneDriveClientID scopes:@[@"onedrive.readwrite", @"offline_access"]];
 
     VLCPCloudController  *controller = [VLCPCloudController pCloudInstance];
     // Start P Cloud session on init to check whether it is logged in or not as soon as possible

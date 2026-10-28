@@ -175,7 +175,6 @@
 #define kVLCMigratedToUbiquitousStoredServerList @"kVLCMigratedToUbiquitousStoredServerList"
 #define kVLCStoredServerList @"kVLCStoredServerList"
 #define kVLCStoreDropboxCredentials @"kVLCStoreDropboxCredentials"
-#define kVLCStoreOneDriveCredentials @"kVLCStoreOneDriveCredentials"
 #define kVLCStoreBoxCredentials @"kVLCStoreBoxCredentials"
 
 #define kVLCUserActivityPlaying @"org.videolan.vlc-ios.playing"

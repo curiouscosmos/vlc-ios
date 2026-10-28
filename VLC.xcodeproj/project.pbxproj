@@ -854,8 +854,6 @@
 		7D6972B7304AA49E00B8261B /* SettingsCustomValueInputHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D6972B4304AA49E00B8261B /* SettingsCustomValueInputHandler.swift */; };
 		7D6B08FA174D716200A05173 /* MessageUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7D6B08F9174D716200A05173 /* MessageUI.framework */; };
 		7D6B08FC174D773C00A05173 /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 7D6B08FB174D773C00A05173 /* Settings.bundle */; };
-		7D6D2CEE2A0A6056001604B3 /* VLCOneDriveTableViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7D6D2CE92A0A6056001604B3 /* VLCOneDriveTableViewController.m */; };
-		7D6D2CEF2A0A6056001604B3 /* VLCOneDriveController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7D6D2CEB2A0A6056001604B3 /* VLCOneDriveController.m */; };
 		7D6DE9A930614E870028EED9 /* MediaLibraryCorruptionReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D6DE9A630614E870028EED9 /* MediaLibraryCorruptionReport.swift */; };
 		7D6DE9AA30614E870028EED9 /* MediaLibraryCorruptionReportPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D6DE9A730614E870028EED9 /* MediaLibraryCorruptionReportPresenter.swift */; };
 		7D6DE9AB30614E870028EED9 /* MediaLibraryCorruptionReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D6DE9A630614E870028EED9 /* MediaLibraryCorruptionReport.swift */; };
@@ -1078,7 +1076,6 @@
 		7DA514CE2EF82B63000C9995 /* PreferenceSetting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 448BA8472D83115D008CCDFF /* PreferenceSetting.swift */; };
 		7DA514CF2EF82B63000C9995 /* VLCCloudServiceCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 41B93C031A53835300102E8B /* VLCCloudServiceCell.m */; };
 		7DA514D12EF82B63000C9995 /* MediaLibraryBaseModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DE1887321089B3A00A091D2 /* MediaLibraryBaseModel.swift */; };
-		7DA514D22EF82B63000C9995 /* VLCOneDriveController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7D6D2CEB2A0A6056001604B3 /* VLCOneDriveController.m */; };
 		7DA514D32EF82B63000C9995 /* VLCSEPA.m in Sources */ = {isa = PBXBuildFile; fileRef = 7D745DD02B88CEBE004B4DCD /* VLCSEPA.m */; };
 		7DA514D42EF82B63000C9995 /* VLCSubtitleItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 7D2DE69A24D5AC0E00E8D84D /* VLCSubtitleItem.m */; };
 		7DA514D52EF82B63000C9995 /* VideoPlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9F1F9E24938B680074BDBB /* VideoPlayerViewController.swift */; };
@@ -1179,7 +1176,6 @@
 		7DA5153F2EF82B63000C9995 /* ArtistModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DE18891210B5BAD00A091D2 /* ArtistModel.swift */; };
 		7DA515402EF82B63000C9995 /* VLCPrice.m in Sources */ = {isa = PBXBuildFile; fileRef = 7DFCAF8D2B877D6600B63B84 /* VLCPrice.m */; };
 		7DA515412EF82B63000C9995 /* PasscodeLockController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 444E5BF924C6081A0003B69C /* PasscodeLockController.swift */; };
-		7DA515422EF82B63000C9995 /* VLCOneDriveTableViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7D6D2CE92A0A6056001604B3 /* VLCOneDriveTableViewController.m */; };
 		7DA515462EF82B63000C9995 /* VLCAppSceneDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 7D37196328F1F0B800C5A9F2 /* VLCAppSceneDelegate.m */; };
 		7DA515472EF82B63000C9995 /* VLCRemoteControlService.m in Sources */ = {isa = PBXBuildFile; fileRef = 417D7F5F1F7BA26200DDF36A /* VLCRemoteControlService.m */; };
 		7DA515482EF82B63000C9995 /* VLCPlayerDisplayController.m in Sources */ = {isa = PBXBuildFile; fileRef = DD510B6F1B14E564003BA71C /* VLCPlayerDisplayController.m */; };
@@ -2391,11 +2387,6 @@
 		7D6B08F9174D716200A05173 /* MessageUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MessageUI.framework; path = System/Library/Frameworks/MessageUI.framework; sourceTree = SDKROOT; };
 		7D6B08FB174D773C00A05173 /* Settings.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; name = Settings.bundle; path = Resources/iOS/Settings.bundle; sourceTree = SOURCE_ROOT; };
 		7D6D13591758D1A00007EA9A /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; lineEnding = 0; name = it; path = it.lproj/Localizable.strings; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.simpleColoring; };
-		7D6D2CE92A0A6056001604B3 /* VLCOneDriveTableViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = VLCOneDriveTableViewController.m; path = Sources/Cloud/Services/OneDrive/VLCOneDriveTableViewController.m; sourceTree = SOURCE_ROOT; };
-		7D6D2CEA2A0A6056001604B3 /* VLCOneDriveTableViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = VLCOneDriveTableViewController.h; path = Sources/Cloud/Services/OneDrive/VLCOneDriveTableViewController.h; sourceTree = SOURCE_ROOT; };
-		7D6D2CEB2A0A6056001604B3 /* VLCOneDriveController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = VLCOneDriveController.m; path = Sources/Cloud/Services/OneDrive/VLCOneDriveController.m; sourceTree = SOURCE_ROOT; };
-		7D6D2CEC2A0A6056001604B3 /* VLCOneDriveConstants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = VLCOneDriveConstants.h; path = Sources/Cloud/Services/OneDrive/VLCOneDriveConstants.h; sourceTree = SOURCE_ROOT; };
-		7D6D2CED2A0A6056001604B3 /* VLCOneDriveController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = VLCOneDriveController.h; path = Sources/Cloud/Services/OneDrive/VLCOneDriveController.h; sourceTree = SOURCE_ROOT; };
 		7D6DE9A630614E870028EED9 /* MediaLibraryCorruptionReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaLibraryCorruptionReport.swift; sourceTree = "<group>"; };
 		7D6DE9A730614E870028EED9 /* MediaLibraryCorruptionReportPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaLibraryCorruptionReportPresenter.swift; sourceTree = "<group>"; };
 		7D715D522B852A92005873FE /* VLCDonationInvoicesViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VLCDonationInvoicesViewController.h; sourceTree = "<group>"; };
@@ -4043,18 +4034,6 @@
 			path = Directory;
 			sourceTree = "<group>";
 		};
-		7D6D2CE82A0A603F001604B3 /* OneDrive */ = {
-			isa = PBXGroup;
-			children = (
-				7D6D2CEC2A0A6056001604B3 /* VLCOneDriveConstants.h */,
-				7D6D2CED2A0A6056001604B3 /* VLCOneDriveController.h */,
-				7D6D2CEB2A0A6056001604B3 /* VLCOneDriveController.m */,
-				7D6D2CEA2A0A6056001604B3 /* VLCOneDriveTableViewController.h */,
-				7D6D2CE92A0A6056001604B3 /* VLCOneDriveTableViewController.m */,
-			);
-			path = OneDrive;
-			sourceTree = "<group>";
-		};
 		7D6DE9A830614E870028EED9 /* Corruption */ = {
 			isa = PBXGroup;
 			children = (
@@ -4819,7 +4798,6 @@
 			isa = PBXGroup;
 			children = (
 				2289D9DD2C41B1FA005DF938 /* PCloud */,
-				7D6D2CE82A0A603F001604B3 /* OneDrive */,
 				7DC869F428CB8A4600EE99F8 /* Dropbox */,
 				7DC869F328CB8A3200EE99F8 /* Google Drive */,
 				7DC869F228CB8A1A00EE99F8 /* Box */,
@@ -7047,7 +7025,6 @@
 				448BA8482D83116D008CCDFF /* PreferenceSetting.swift in Sources */,
 				41B93C051A53835300102E8B /* VLCCloudServiceCell.m in Sources */,
 				8DE1887421089B3A00A091D2 /* MediaLibraryBaseModel.swift in Sources */,
-				7D6D2CEF2A0A6056001604B3 /* VLCOneDriveController.m in Sources */,
 				7D745DD12B88CEBE004B4DCD /* VLCSEPA.m in Sources */,
 				7D2DE69D24D5AC0E00E8D84D /* VLCSubtitleItem.m in Sources */,
 				8D9F1F9F24938B680074BDBB /* VideoPlayerViewController.swift in Sources */,
@@ -7176,7 +7153,6 @@
 				8DE18892210B5BAD00A091D2 /* ArtistModel.swift in Sources */,
 				7DFCAF8E2B877D6600B63B84 /* VLCPrice.m in Sources */,
 				444E5BFA24C6081B0003B69C /* PasscodeLockController.swift in Sources */,
-				7D6D2CEE2A0A6056001604B3 /* VLCOneDriveTableViewController.m in Sources */,
 				7DF0C8D03026687000326B65 /* PodcastEpisodeDetailViewController.swift in Sources */,
 				7DC27E97305684C100D33BEE /* ValueStepperView.swift in Sources */,
 				7D37196428F1F0B800C5A9F2 /* VLCAppSceneDelegate.m in Sources */,
@@ -7473,7 +7449,6 @@
 				7DC27EAB3056A21A00D33BEE /* TrackSelectorView.swift in Sources */,
 				7DA514CF2EF82B63000C9995 /* VLCCloudServiceCell.m in Sources */,
 				7DA514D12EF82B63000C9995 /* MediaLibraryBaseModel.swift in Sources */,
-				7DA514D22EF82B63000C9995 /* VLCOneDriveController.m in Sources */,
 				7DD3236730014BF300C9A583 /* UIImage+PaddedImage.m in Sources */,
 				7DA514D32EF82B63000C9995 /* VLCSEPA.m in Sources */,
 				7DA514D42EF82B63000C9995 /* VLCSubtitleItem.m in Sources */,
@@ -7609,7 +7584,6 @@
 				7DF60F8B300501CF003A40B8 /* VLCRadioListViewController.m in Sources */,
 				7DA515402EF82B63000C9995 /* VLCPrice.m in Sources */,
 				7DA515412EF82B63000C9995 /* PasscodeLockController.swift in Sources */,
-				7DA515422EF82B63000C9995 /* VLCOneDriveTableViewController.m in Sources */,
 				7DA515462EF82B63000C9995 /* VLCAppSceneDelegate.m in Sources */,
 				7DA515472EF82B63000C9995 /* VLCRemoteControlService.m in Sources */,
 				7DA515482EF82B63000C9995 /* VLCPlayerDisplayController.m in Sources */,

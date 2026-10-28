@@ -195,9 +195,6 @@
                 <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="googleDrive" translatesAutoresizingMaskIntoConstraints="NO" id="TjA-N4-Pd2">
                     <rect key="frame" x="84" y="10" width="64" height="64"/>
                 </imageView>
-                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="oneDrive" translatesAutoresizingMaskIntoConstraints="NO" id="Wmf-tD-sge">
-                    <rect key="frame" x="212" y="10" width="64" height="64"/>
-                </imageView>
                 <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="whiteCloudiPhone" translatesAutoresizingMaskIntoConstraints="NO" id="Xe8-tw-eMr">
                     <rect key="frame" x="20" y="155" width="340" height="340"/>
                     <constraints>
@@ -219,8 +216,6 @@
                 <constraint firstItem="TjA-N4-Pd2" firstAttribute="top" secondItem="FS3-Ul-viJ" secondAttribute="top" constant="10" id="S7e-Jd-AJE"/>
                 <constraint firstItem="1cr-eo-iga" firstAttribute="leading" secondItem="FS3-Ul-viJ" secondAttribute="leading" constant="10" id="T2M-e3-b6q"/>
                 <constraint firstItem="BA8-z3-VAE" firstAttribute="leading" secondItem="TjA-N4-Pd2" secondAttribute="trailing" constant="10" id="mWG-xn-c4Y"/>
-                <constraint firstItem="BA8-z3-VAE" firstAttribute="trailing" secondItem="Wmf-tD-sge" secondAttribute="leading" constant="10" id="mjY-z6-fsI"/>
-                <constraint firstItem="Wmf-tD-sge" firstAttribute="centerY" secondItem="TjA-N4-Pd2" secondAttribute="centerY" id="oeG-69-f7W"/>
                 <constraint firstAttribute="bottom" secondItem="Xe8-tw-eMr" secondAttribute="bottom" constant="-35" id="xqN-AE-dWS"/>
             </constraints>
             <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
@@ -259,7 +254,6 @@
         <image name="dropBox" width="64" height="64"/>
         <image name="googleDrive" width="64" height="64"/>
         <image name="laptop" width="344.5" height="480.5"/>
-        <image name="oneDrive" width="64" height="64"/>
         <image name="phone" width="218" height="423"/>
         <image name="whiteCloudiPhone" width="340" height="376.5"/>
         <image name="whiteiPhone" width="340" height="374.5"/>

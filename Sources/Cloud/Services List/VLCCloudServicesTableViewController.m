@@ -15,8 +15,6 @@
 #import "VLCDropboxTableViewController.h"
 #import "VLCBoxTableViewController.h"
 #import "VLCBoxController.h"
-#import "VLCOneDriveTableViewController.h"
-#import "VLCOneDriveController.h"
 #import "VLCDocumentPickerController.h"
 #import "VLCCloudServiceCell.h"
 
@@ -26,7 +24,6 @@
 
 @property (nonatomic) VLCDropboxTableViewController *dropboxTableViewController;
 @property (nonatomic) VLCBoxTableViewController *boxTableViewController;
-@property (nonatomic) VLCOneDriveTableViewController *oneDriveTableViewController;
 @property (nonatomic) VLCPCloudViewController *pcloudTableViewController;
 @end
 
@@ -39,12 +36,10 @@
 
     [self.tableView registerNib:[UINib nibWithNibName:@"VLCCloudServiceCell" bundle:nil] forCellReuseIdentifier:@"CloudServiceCell"];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(themeDidChange) name:kVLCThemeDidChangeNotification object:nil];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(authenticationSessionsChanged:) name:VLCOneDriveControllerSessionUpdated object:nil];
     [self themeDidChange];
 
     self.dropboxTableViewController = [[VLCDropboxTableViewController alloc] initWithNibName:@"VLCCloudStorageTableViewController" bundle:nil];
     self.boxTableViewController = [[VLCBoxTableViewController alloc] initWithNibName:@"VLCCloudStorageTableViewController" bundle:nil];
-    self.oneDriveTableViewController = [[VLCOneDriveTableViewController alloc] initWithNibName:@"VLCCloudStorageTableViewController" bundle:nil];
     self.pcloudTableViewController = [[VLCPCloudViewController alloc] initWithNibName:@"VLCCloudStorageTableViewController" bundle:nil];
 
     self.title = NSLocalizedString(@"CLOUD_SERVICES", @"");
@@ -65,13 +60,6 @@
     self.navigationController.navigationBar.prefersLargeTitles = YES;
 }
 
-- (void)authenticationSessionsChanged:(NSNotification *)notification
-{
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self.tableView reloadData];
-    });
-}
-
 - (UIStatusBarStyle)preferredStatusBarStyle
 {
     return PresentationTheme.current.colors.statusBarStyle;
@@ -81,7 +69,7 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return 5;
+    return 4;
 }
 
 - (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath
@@ -118,16 +106,6 @@
             break;
         }
         case 2: {
-            //OneDrive
-            BOOL isAuthorized = [[VLCOneDriveController sharedInstance] isAuthorized];
-            cell.icon.image = [UIImage imageNamed:@"OneDriveCell"];
-            cell.cloudTitle.text = @"OneDrive";
-            cell.cloudInformation.text = isAuthorized ? NSLocalizedString(@"LOGGED_IN", "") : NSLocalizedString(@"LOGIN", "");
-            cell.cloudInformation.textColor = isAuthorized ? PresentationTheme.current.colors.orangeUI : PresentationTheme.current.colors.cellDetailTextColor;
-            cell.lonesomeCloudTitle.text = @"";
-            break;
-        }
-        case 3: {
             // pCloud
             BOOL isAuthorized =  [[VLCPCloudController pCloudInstance] isAuthorized];
             cell.icon.image = [UIImage imageNamed:@"pCloudCell"];
@@ -137,7 +115,7 @@
             cell.lonesomeCloudTitle.text = @"";
             break;
         }
-        case 4: {
+        case 3: {
             // Cloud Drives
             cell.icon.image = [UIImage imageNamed:@"iCloudCell"];
             cell.lonesomeCloudTitle.text = @"iCloud";
@@ -171,14 +149,10 @@
            [self.navigationController pushViewController:self.boxTableViewController animated:YES];
             break;
         case 2:
-            //OneDrive
-            [self.navigationController pushViewController:self.oneDriveTableViewController animated:YES];
-            break;
-        case 3:
            // P Cloud
             [self.navigationController pushViewController:self.pcloudTableViewController animated:YES];
             break;
-        case 4: {
+        case 3: {
             // iCloud
             // with a nil parameter, this method returns the first container listed in the
             // com.apple.developer.ubiquity-container-identifiers entitlement array

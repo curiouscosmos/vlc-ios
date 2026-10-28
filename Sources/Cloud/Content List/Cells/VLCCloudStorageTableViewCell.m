@@ -73,85 +73,6 @@
                            withObject:nil waitUntilDone:NO];
 }
 
-- (void)updateOneDriveDisplayAsFolder
-{
-    _downloadButton.hidden = NO;
-    _folderTitleLabel.text = _oneDriveFile.name;
-    _titleLabel.hidden = _subtitleLabel.hidden = YES;
-    _folderTitleLabel.hidden = NO;
-    _thumbnailView.image = [UIImage systemImageNamed:@"folder"];
-}
-
-- (void)loadThumbnail
-{
-    // The onedrive Api has no way to cancel a request and the ODThumbnail has no back reference to it's item
-    // so this might lead to wrong thumbnails if the cell is reused since we have no way of cancelling requests or check if the completion is still for the set item
-    ODDriveRequestBuilder *drive = [[ODClient loadCurrentClient] drive];
-    ODThumbnailRequest *request = [[[[drive items:_oneDriveFile.id] thumbnails:@"0"] medium] request];
-    __weak typeof(self) weakSelf = self;
-    [request getWithCompletion:^(ODThumbnail *response, NSError *error) {
-        if (error == nil && response.url) {// we don't care about errors for thumbnails
-            dispatch_async(dispatch_get_main_queue(), ^{
-                 [weakSelf.thumbnailView setImageWithURL:[NSURL URLWithString:response.url]];
-            });
-        }
-    }];
-}
-
-- (void)updateOneDriveDisplayAsItem
-{
-    int64_t duration = 0;
-    NSString *title = self.oneDriveFile.name;
-    NSMutableString *subtitle = [[NSMutableString alloc] init];
-
-    _downloadButton.hidden = NO;
-    _titleLabel.text = title;
-
-    if (_oneDriveFile.audio) {
-        _thumbnailView.image = [UIImage imageNamed:@"audioFile"];
-        duration = _oneDriveFile.audio.duration;
-        [self loadThumbnail];
-    } else if (_oneDriveFile.video) {
-        _thumbnailView.image = [UIImage imageNamed:@"movie"];
-        duration = _oneDriveFile.video.duration;
-        [self loadThumbnail];
-    } else {
-        _thumbnailView.image = [UIImage imageNamed:@"blank"];
-    }
-
-    if (duration > 0) {
-        VLCTime *time = [VLCTime timeWithNumber:[NSNumber numberWithLongLong:duration]];
-        [subtitle appendString:[time verboseStringValue]];
-    }
-
-    if (_oneDriveFile.size > 0) {
-        subtitle = [NSMutableString stringWithString:[NSByteCountFormatter
-                                                      stringFromByteCount:_oneDriveFile.size
-                                                      countStyle:NSByteCountFormatterCountStyleFile]];
-        if (duration > 0) {
-            VLCTime *time = [VLCTime timeWithNumber:[NSNumber numberWithLongLong:duration]];
-            [subtitle appendFormat:@" — %@", [time verboseStringValue]];
-        }
-    }
-
-    _subtitleLabel.text = subtitle;
-    _titleLabel.hidden = _subtitleLabel.hidden = NO;
-    _folderTitleLabel.hidden = YES;
-}
-
-- (void)updateOneDriveDisplayedInformation
-{
-    _oneDriveFile.folder ? [self updateOneDriveDisplayAsFolder] : [self updateOneDriveDisplayAsItem];
-}
-
-- (void)setOneDriveFile:(ODItem *)oneDriveFile
-{
-    if (oneDriveFile != _oneDriveFile) {
-        _oneDriveFile = oneDriveFile;
-        [self updateOneDriveDisplayedInformation];
-    }
-}
-
 - (void)_updatedDisplayedInformation
 {
     /* cells are reused across providers, so never inherit a badge */
@@ -228,8 +149,6 @@
                 }
             }];
         }
-    } else if(_oneDriveFile != nil) {
-        [self updateOneDriveDisplayedInformation];
     } else if(_pcloudFile != nil) {
         BOOL isDirectory = self.pcloudFile.isDirectory;
 

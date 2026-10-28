@@ -17,7 +17,7 @@ NS_ASSUME_NONNULL_BEGIN
 typedef NS_ENUM(NSInteger, VLCCloudService) {
     VLCCloudServiceNone,
     VLCCloudServiceDropbox,
-    VLCCloudServiceBox = 3,
+    VLCCloudServiceBox,
     VLCCloudServicePCloud
 };
 

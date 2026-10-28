@@ -590,8 +590,9 @@ from the playback and likes notifications.
 - **SPM** (`Package.resolved`): **VLCMediaLibraryKit `0.15.0-b2`**, XKKeychain `1.0.3`, pcloud-sdk-swift `3.2.3`,
   CocoaHTTPServer `2.4.2`, InAppSettingsKit `3.7.1`, OBSlider `1.1.3`,
   GRKArrayDiff `1.1.2`, MarqueeLabel `4.5.3`.
-- **CocoaPods** (`Podfile.lock`): ADAL, box-ios-sdk-v2, ObjectiveDropboxOfficial, OneDriveSDK (plus their transitive dependencies).
-  Targets: `VLC-iOS`, `VLC-iOS-no-watch`, `VLC-iOSTests`.
+- **CocoaPods** (`Podfile.lock`): box-ios-sdk-v2, ObjectiveDropboxOfficial
+  (plus their transitive dependencies). Targets: `VLC-iOS`, `VLC-iOS-no-watch`,
+  `VLC-iOSTests`.
 
 ### 4.7 Discourse API layer (`Sources/Discourse/API/`)
 
@@ -1519,9 +1520,11 @@ they found it.
 Google Drive and Google Sign-In are removed from the app: no cloud-list entry,
 Drive favourite routing, OAuth URL handler, URL scheme, or Google pods remain.
 Upstream Google Drive source files and shortcut tests remain as unbuilt references.
-Verified: `VLC-iOS-no-watch` simulator build passes; the focused
-`VLC-iOSTests/URLHandlerTests` suite passes both tests, including absence of
-Google OAuth handler and URL-scheme registration.
+OneDrive and its ADAL authentication dependency are also removed, along with the
+last `UIWebView` references (ITMS-90809). Verified: `VLC-iOS-no-watch` and
+`VLC-iOS` simulator builds pass with no `UIWebView`, ADAL or OneDrive artifacts in
+the built app; the focused `VLC-iOSTests/URLHandlerTests` suite passes both tests,
+including absence of Google OAuth handler and URL-scheme registration.
 
 
 > Updated in the same commit as the change. Legend: **Done**, **Partial**, **Missing**.
@@ -1990,6 +1993,16 @@ Google OAuth handler and URL-scheme registration.
   pre-existing `sort.imageset` ambiguity; a full compile/visual check is blocked
   because the tvOS simulator runtime is not installed on this machine
   (`tvOS 26.4 is not installed`).
+
+### Post-phase polish — remove OneDrive and ADAL (UIWebView) — **Done**
+- Removed the OneDrive cloud browser and its service-list row, list-cell support,
+  constants, onboarding icon, `OneDriveCell` / `OneDriveWhite` assets and About
+  credits.
+- Removed `ADAL`, `OneDriveSDK` and the transitive `Base32` pod; `pod install`
+  pruned them from `Podfile.lock` and the Pods project. The Microsoft
+  `com.microsoft.adalcache` keychain group is gone from all iOS entitlements.
+- The built iOS app has no `UIWebView` symbols or ADAL storyboards, resolving
+  ITMS-90809. Verified with `nm -u` and an app-bundle scan.
 
 ### Post-phase polish — titles and segment tint — **Done**
 - The Audio Mixer tab reads **Mixer** (`AUDIO_MIXER` key unchanged); the Home and

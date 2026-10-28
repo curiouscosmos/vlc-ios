@@ -5,8 +5,6 @@ inhibit_all_warnings!
 def ios_specific_pods
   use_modular_headers!
   pod 'FirebaseAnalytics/Core'
-  pod 'ADAL', :git => 'https://code.videolan.org/fkuehne/azure-activedirectory-library-for-objc.git', :commit => '348e94df'
-  pod 'OneDriveSDK', :git => 'https://code.videolan.org/fkuehne/onedrive-sdk-ios.git', :commit => '810f82da'
   pod 'ObjectiveDropboxOfficial'
   pod 'box-ios-sdk-v2', :git => 'https://github.com/fkuehne/box-ios-sdk-v2.git', :commit => '08161e74' #has a our fixes
 end
