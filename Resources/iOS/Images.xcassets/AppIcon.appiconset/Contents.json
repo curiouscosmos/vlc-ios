@@ -143,7 +143,8 @@
       "role": "notificationCenter",
       "scale": "2x",
       "size": "33x33",
-      "subtype": "45mm"
+      "subtype": "45mm",
+      "filename": "AppIcon66.png"
     },
     {
       "filename": "AppIcon80-2.png",
@@ -166,7 +167,8 @@
       "role": "appLauncher",
       "scale": "2x",
       "size": "46x46",
-      "subtype": "41mm"
+      "subtype": "41mm",
+      "filename": "AppIcon92.png"
     },
     {
       "filename": "AppIcon100.png",
@@ -181,14 +183,16 @@
       "role": "appLauncher",
       "scale": "2x",
       "size": "51x51",
-      "subtype": "45mm"
+      "subtype": "45mm",
+      "filename": "AppIcon102.png"
     },
     {
       "idiom": "watch",
       "role": "appLauncher",
       "scale": "2x",
       "size": "54x54",
-      "subtype": "49mm"
+      "subtype": "49mm",
+      "filename": "AppIcon108.png"
     },
     {
       "filename": "AppIcon172.png",
@@ -219,14 +223,16 @@
       "role": "quickLook",
       "scale": "2x",
       "size": "117x117",
-      "subtype": "45mm"
+      "subtype": "45mm",
+      "filename": "AppIcon234.png"
     },
     {
       "idiom": "watch",
       "role": "quickLook",
       "scale": "2x",
       "size": "129x129",
-      "subtype": "49mm"
+      "subtype": "49mm",
+      "filename": "AppIcon258.png"
     },
     {
       "filename": "AppIcon1024-1.png",

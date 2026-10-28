@@ -1959,10 +1959,10 @@ Google OAuth handler and URL-scheme registration.
 
 ### Post-phase polish — branding icon and iOS 26 tab bar — **Done**
 - **App icon.** The new Rajneesh artwork replaced the upstream set in
-  `AppIcon.appiconset` (iPhone, iPad and App Store sizes; the watch entries are
-  untouched) and both iOS app targets now select `AppIcon` instead of the
-  `VLC26*` Icon Composer bundles. Verified on the simulator home screen on iOS
-  18.3 and iOS 26.4.
+  `AppIcon.appiconset` (iPhone, iPad, App Store and watch-role sizes; the watch
+  notification-centre, launcher and quick-look entries are now filled too) and
+  both iOS app targets now select `AppIcon` instead of the `VLC26*` Icon Composer
+  bundles. Verified on the simulator home screen on iOS 18.3 and iOS 26.4.
 - **Launch screen.** `Launch Screen.storyboard` now shows the same artwork as a
   rounded 128 pt tile on the `#0D0D0D` app background instead of the orange VLC
   cone, using a new `LaunchIcon.imageset` (160/320/480 px) exported from the
@@ -1976,6 +1976,20 @@ Google OAuth handler and URL-scheme registration.
   on every tab); iOS 18.3 keeps the classic bar.
 - **Tests.** 112 unit tests and 16 UI tests (download test skipped on a slow-CDN
   run) on the iOS 18.3 reference device, 0 failures.
+
+### Post-phase polish — watchOS and tvOS artwork — **Done**
+- **watchOS.** `Resources/watchOS/Assets.xcassets/AppIcon.appiconset` and
+  `AppIconDev.appiconset` now use the Osho artwork, and the watch-role icons in
+  the iOS `AppIcon.appiconset` were regenerated. Watch icons are opaque and pad
+  the wordmark to about 80% width so the circular mask does not clip it. A
+  generic watchOS build passes and the compiled watch `Assets.car` contains the
+  new `AppIcon`.
+- **tvOS.** The layered primary app icon (large and small, 1x/2x), top-shelf
+  images, About/Settings artwork and launch tile now use the Osho artwork; the
+  launch background is `#0D0D0D`. The catalog metadata loads and reports only the
+  pre-existing `sort.imageset` ambiguity; a full compile/visual check is blocked
+  because the tvOS simulator runtime is not installed on this machine
+  (`tvOS 26.4 is not installed`).
 
 ### Post-phase polish — titles and segment tint — **Done**
 - The Audio Mixer tab reads **Mixer** (`AUDIO_MIXER` key unchanged); the Home and
@@ -2153,11 +2167,14 @@ Record every deviation here; never hide a gap.
    `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`; `Launch Screen.storyboard`
    shows `LaunchIcon.imageset` on `#0D0D0D`). The layered `VLC26*.icon` Icon
    Composer bundles stay in the project for upstream sync but are no longer
-   selected. The onboarding illustrations and the VLC-cone artwork used by the
-   passcode and donation screens are still upstream assets. Replacing them needs
-   real design files. The About title mark is gone; the About page shows the
-   branded app icon (`AppIcon-480x480.png`), and its "Contact us" action now
-   mails `support@marfells.com` (was `support@sandalbar.online`). The
+   selected. The watchOS and tvOS app icons, the tvOS top shelf/About artwork and
+   the tvOS launch tile now use the Osho artwork too; the tvOS network-browsing
+   cone artwork remains upstream. The onboarding illustrations and the VLC-cone
+   artwork used by the passcode and donation screens are still upstream assets.
+   Replacing them needs real design files. The About title mark is gone; the
+   About page shows the branded app icon (`AppIcon-480x480.png`), and its
+   "Contact us" action now mails `support@marfells.com` (was
+   `support@sandalbar.online`). The
    navigation-bar settings button now draws the rounded app icon, and
    `VLCEmptyLibraryView` (the shared empty state behind the local library,
    playlists, history and folders) shows the app logo instead of the VLC cone.
@@ -2535,6 +2552,14 @@ behaviour:
      branded splash (rounded icon on `#0D0D0D`), covered by
      `DiscourseLaunchScreenTests`. `LaunchIcon` is also the source for the
      navigation-bar settings icon and the shared empty-state artwork.
+   - `Resources/watchOS/Assets.xcassets/AppIcon.appiconset`,
+     `Resources/watchOS/Assets.xcassets/AppIconDev.appiconset`,
+     `Resources/tvOS/Images.xcassets/App Icon & Top Shelf Image.brandassets`,
+     `Resources/tvOS/Images.xcassets/about-app-icon.imageset`,
+     `Resources/tvOS/Images.xcassets/LaunchCone.imageset` and
+     `Resources/tvOS/Launch Screen.storyboard` — the Osho artwork for the watch
+     and Apple TV shells: opaque circular-safe watch icons, the layered TV app
+     icon, dark top-shelf and About banners, and the launch tile on `#0D0D0D`.
    - `Sources/UI Elements/Buttons/AppMenuBarButtonItem.swift` — the settings bar
      button and its About menu item draw the rounded app icon instead of
      `MenuCone`; the file also carries `AppLogoBarButtonItem` (the non-interactive
