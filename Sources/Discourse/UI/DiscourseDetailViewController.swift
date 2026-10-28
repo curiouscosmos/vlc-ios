@@ -226,7 +226,22 @@ final class DiscourseDetailViewController: UIViewController {
         let token = requestToken
 
         if tracks.isEmpty {
-            showLoading()
+            if !forceRefresh,
+               let cached = client.cachedDiscourseTracks(discourseID: self.discourse.id),
+               !cached.isEmpty {
+                tracks = cached.sorted(by: Self.trackOrder)
+                hasLoaded = true
+                updateDownloadMenu()
+                playbackStore.register(tracks)
+                seedLikeCounts(tracks)
+                headerView.setPlayAllEnabled(true)
+                tableView.reloadData()
+                updatePlayingState()
+                showContent()
+                scrollToHighlightedTrackIfNeeded()
+            } else {
+                showLoading()
+            }
         }
 
         Task { @MainActor [weak self] in

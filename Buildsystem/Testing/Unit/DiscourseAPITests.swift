@@ -135,6 +135,27 @@ final class DiscourseAPITests: XCTestCase {
         XCTAssertNil(cache.staleData(for: url))
     }
 
+    func testStaleCachedCatalogueAndTrackListsAreAvailableForSWR() throws {
+        let directory = Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        var now = Date(timeIntervalSince1970: 3_000_000)
+        let cache = DiscourseAPICache(directory: directory, dateProvider: { now })
+        let client = DiscourseAPIClient(apiKey: "test-key",
+                                        baseURLString: "https://oshoapi.example/",
+                                        cache: cache)
+
+        let catalogueURL = try XCTUnwrap(URL(string: "https://oshoapi.example/discourses?page=1"))
+        let tracksURL = try XCTUnwrap(URL(string: "https://oshoapi.example/discourse-audios?discourse_id=d1"))
+        cache.store(Self.discoursesJSON, for: catalogueURL)
+        cache.store(Self.tracksJSON, for: tracksURL)
+
+        now = now.addingTimeInterval(DiscourseAPICache.timeToLive + 1)
+        XCTAssertNil(cache.freshData(for: catalogueURL))
+        XCTAssertEqual(client.cachedDiscourses(page: 1)?.data.count, 2)
+        XCTAssertEqual(client.cachedDiscourseTracks(discourseID: "d1")?.count, 2)
+    }
+
     func testCacheEvictsOldestEntriesPastCapacity() {
         let directory = Self.temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

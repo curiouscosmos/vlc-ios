@@ -53,8 +53,38 @@ final class DiscourseAPIClient {
                     language: DiscourseLanguage? = nil,
                     sort: DiscourseCatalogueSort? = nil,
                     forceRefresh: Bool = false) async throws -> DiscoursePage<Discourse> {
+        return try await get("discourses",
+                             query: Self.discourseQuery(page: page,
+                                                        search: search,
+                                                        isAudioCleaned: isAudioCleaned,
+                                                        language: language,
+                                                        sort: sort),
+                             cacheable: true,
+                             forceRefresh: forceRefresh)
+    }
+
+    /// The last cached catalogue page, fresh or stale, for an immediate render
+    /// before the network revalidates it.
+    func cachedDiscourses(page: Int = 1,
+                          search: String? = nil,
+                          isAudioCleaned: Bool? = nil,
+                          language: DiscourseLanguage? = nil,
+                          sort: DiscourseCatalogueSort? = nil) -> DiscoursePage<Discourse>? {
+        return cached(path: "discourses",
+                      query: Self.discourseQuery(page: page,
+                                                 search: search,
+                                                 isAudioCleaned: isAudioCleaned,
+                                                 language: language,
+                                                 sort: sort))
+    }
+
+    private static func discourseQuery(page: Int,
+                                       search: String?,
+                                       isAudioCleaned: Bool?,
+                                       language: DiscourseLanguage?,
+                                       sort: DiscourseCatalogueSort?) -> [String: String] {
         var query: [String: String] = ["page": String(max(1, page))]
-        if let search = Self.clean(search) {
+        if let search = clean(search) {
             query["search"] = search
         }
         if let isAudioCleaned {
@@ -66,11 +96,7 @@ final class DiscourseAPIClient {
         if let sort {
             query["sort"] = sort.rawValue
         }
-
-        return try await get("discourses",
-                             query: query,
-                             cacheable: true,
-                             forceRefresh: forceRefresh)
+        return query
     }
 
     func discourseAudios(page: Int = 1,
@@ -79,11 +105,41 @@ final class DiscourseAPIClient {
                          language: DiscourseLanguage? = nil,
                          sort: DiscourseCatalogueSort? = nil,
                          forceRefresh: Bool = false) async throws -> DiscoursePage<DiscourseAudio> {
+        return try await get("discourse-audios",
+                             query: Self.discourseAudiosQuery(page: page,
+                                                              search: search,
+                                                              discourseName: discourseName,
+                                                              language: language,
+                                                              sort: sort),
+                             cacheable: true,
+                             forceRefresh: forceRefresh)
+    }
+
+    /// The last cached track page, fresh or stale, for an immediate render before
+    /// the network revalidates it.
+    func cachedDiscourseAudios(page: Int = 1,
+                               search: String? = nil,
+                               discourseName: String? = nil,
+                               language: DiscourseLanguage? = nil,
+                               sort: DiscourseCatalogueSort? = nil) -> DiscoursePage<DiscourseAudio>? {
+        return cached(path: "discourse-audios",
+                      query: Self.discourseAudiosQuery(page: page,
+                                                       search: search,
+                                                       discourseName: discourseName,
+                                                       language: language,
+                                                       sort: sort))
+    }
+
+    private static func discourseAudiosQuery(page: Int,
+                                             search: String?,
+                                             discourseName: String?,
+                                             language: DiscourseLanguage?,
+                                             sort: DiscourseCatalogueSort?) -> [String: String] {
         var query: [String: String] = ["page": String(max(1, page))]
-        if let search = Self.clean(search) {
+        if let search = clean(search) {
             query["search"] = search
         }
-        if let discourseName = Self.clean(discourseName) {
+        if let discourseName = clean(discourseName) {
             query["discourse_name"] = discourseName
         }
         if let language {
@@ -92,11 +148,7 @@ final class DiscourseAPIClient {
         if let sort {
             query["sort"] = sort.rawValue
         }
-
-        return try await get("discourse-audios",
-                             query: query,
-                             cacheable: true,
-                             forceRefresh: forceRefresh)
+        return query
     }
 
     /// All tracks of one discourse (this route is not paginated).
@@ -106,6 +158,26 @@ final class DiscourseAPIClient {
                                                               cacheable: true,
                                                               forceRefresh: forceRefresh)
         return envelope.data
+    }
+
+    /// The last cached track list for one discourse, fresh or stale.
+    func cachedDiscourseTracks(discourseID: String) -> [DiscourseAudio]? {
+        let envelope: DiscourseAudiosEnvelope? = cached(path: "discourse-audios",
+                                                        query: ["discourse_id": discourseID])
+        return envelope?.data
+    }
+
+    struct FavouriteResolution: Decodable {
+        let discourses: [Discourse]
+        let audios: [DiscourseAudio]
+        let missing_discourse_ids: [String]
+        let missing_discourse_audio_ids: [String]
+    }
+
+    func resolveFavourites(discourses: [String], audios: [String]) async throws -> FavouriteResolution {
+        let body = try JSONSerialization.data(withJSONObject: ["discourse_ids": discourses,
+                                                                "discourse_audio_ids": audios])
+        return try await get("favourites/resolve", method: "POST", body: body, cacheable: false)
     }
 
     // MARK: - Likes
@@ -192,6 +264,15 @@ final class DiscourseAPIClient {
     }
 
     // MARK: - Request plumbing
+
+    /// Reads any cached body, including stale data, for the SWR first render.
+    private func cached<Response: Decodable>(path: String, query: [String: String]) -> Response? {
+        guard let url = try? makeURL(path: path, query: query),
+              let data = cache.staleData(for: url) else {
+            return nil
+        }
+        return try? decode(data, path: path)
+    }
 
     private func get<Response: Decodable>(_ path: String,
                                           query: [String: String] = [:],

@@ -433,6 +433,8 @@ final class DiscourseStoresTests: XCTestCase {
         let fallback = try await cache.discourses()
         XCTAssertEqual(fallback.map(\.id), ["d2"], "a failed refresh keeps the previous list")
         XCTAssertEqual(service.discourseCalls, 4)
+        XCTAssertEqual(cache.cachedDiscourses()?.map(\.id), ["d2"],
+                       "the stale payload is available for an SWR first render")
     }
 
     func testStatsCachePropagatesFailureWithoutCachedCopy() async {

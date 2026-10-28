@@ -137,11 +137,15 @@ final class DiscourseStatsCache {
 
     // MARK: - Internals
 
-    private func cachedDiscourses() -> [Discourse]? {
+    /// The last cached top discourses, regardless of age, for an immediate
+    /// first render before the network revalidates them.
+    func cachedDiscourses() -> [Discourse]? {
         queue.sync { settings.decode([Discourse].self, forKey: Keys.discourses) }
     }
 
-    private func cachedAudios() -> [DiscourseAudio]? {
+    /// The last cached top tracks, regardless of age, for an immediate first
+    /// render before the network revalidates them.
+    func cachedAudios() -> [DiscourseAudio]? {
         queue.sync { settings.decode([DiscourseAudio].self, forKey: Keys.audios) }
     }
 

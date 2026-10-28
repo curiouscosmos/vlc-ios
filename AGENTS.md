@@ -623,10 +623,17 @@ resolver and the cache are testable without a running app.
 `discourseAudios(page:search:discourseName:language:sort:forceRefresh:)`,
 `discourseTracks(discourseID:forceRefresh:)`, `likes()`,
 `likeDiscourse(id:)`/`likeAudio(id:)`, `unlikeDiscourse(id:)`/`unlikeAudio(id:)`,
-`recordStats(discourseID:audioID:)`, `discourseStats(...)`, `audioStats(...)`.
+`recordStats(discourseID:audioID:)`, `discourseStats(...)`, `audioStats(...)`,
+plus the SWR cache readers `cachedDiscourses(...)`, `cachedDiscourseAudios(...)`
+and `cachedDiscourseTracks(...)`.
 
 - Successful GETs are served from `DiscourseAPICache` while fresh (24 h); a force
   refresh sends `Cache-Control: no-cache` and hits the network.
+- **Stale-while-revalidate.** Catalogue, detail, search and Home read any cached
+  payload first via the `cached…` methods and render it immediately, then run the
+  normal request. A fresh cache still avoids the network; a stale cache is
+  revalidated in place; failure keeps the stale content. A force refresh keeps
+  the current content and skips the cache preload.
 - Transport failures and 5xx answers serve stale cache when present, otherwise the
   call throws `DiscourseAPIError`. Cached payloads are never deleted on error.
 - `/likes` is never cached (user specific), whatever the caller passes.
@@ -661,7 +668,7 @@ accepts an injected `DiscourseSettings`, service, date provider and
 | `DiscourseLikesStore` | Liked sets, optimistic toggles with rollback, pending map, 7-day `GET /likes` gate. |
 | `DiscourseHistoryStore` | Recently played discourses/tracks, newest first, deduped, max 24. |
 | `DiscourseStatsStore` | 24 h `POST /stats` dedupe, marked only after success. |
-| `DiscourseStatsCache` | Weekly top discourses/tracks, 3 h TTL, stale-on-failure. |
+| `DiscourseStatsCache` | Weekly top discourses/tracks, 3 h TTL, stale-on-failure; `cachedDiscourses()` / `cachedAudios()` expose stale payloads for Home's SWR first render. |
 | `DiscoursePlaybackStore` | Resume positions, completion, progress fractions, "played" flag, track index. |
 | `DiscourseCatalogueFilterStore` | Last language/sort filter. |
 | `DiscoursePlaybackSettings` | Reads the fork's `playback_history` switch (default on). |
@@ -719,8 +726,9 @@ share the heart, badge state and VoiceOver overlay. The cell loads artwork
 through the upstream `VLCNetworkImageView` (`VLCThumbnailsCache` memory + disk
 cache), so no new image pipeline exists.
 
-- First page loads from the 24 h `DiscourseAPICache` when fresh, from the network
-  otherwise; pull-to-refresh is a force refresh (`Cache-Control: no-cache`).
+- First page renders any cached page immediately, fresh or stale, then revalidates
+  a stale page; no cache falls back to the network spinner. Pull-to-refresh is a
+  force refresh (`Cache-Control: no-cache`).
 - Paging: the next page is requested when the scroll is within 400 pt of the
   bottom and `page < meta.total_pages`; appended items are deduped by id and
   inserted with `insertItems(at:)` so the list does not flash.
@@ -771,7 +779,8 @@ Home carousel's `.tile` cards keep it over the artwork's corner.
   affected visible row, so the ring follows the 30 s saves and the completion
   without reloading the table. A finished track shows a checkmark
   (`accessibilityValue` *Played*).
-- States mirror the catalogue: spinner on first load, empty state with *Reload*,
+- Cached tracks render immediately; a stale list is revalidated in place. States
+  mirror the catalogue: spinner on first load, empty state with *Reload*,
   failure state with *Try again* and `DiscourseErrorCopy.serverFailure`. A failed
   refresh with rows already rendered keeps them. Pull-to-refresh is a force
   refresh, and a request token drops stale answers.
@@ -797,7 +806,8 @@ Home carousel's `.tile` cards keep it over the artwork's corner.
   `DiscourseSearchResults`, which dedupes by id. Paging follows whichever endpoint
   is deeper (`page < max(total_pages)`), loading the same page number from both
   when the scroll is within 400 pt of the bottom. The GETs use the same 24 h cache
-  as the catalogue; pull-to-refresh forces a network read.
+  as the catalogue; cached page-one results render immediately and revalidate
+  when stale, and pull-to-refresh forces a network read.
 - Typing is debounced by 350 ms; the keyboard's search key runs the query
   immediately. A request token drops answers for queries the user has already
   replaced, and an empty/cleared field returns to the idle prompt without a
@@ -858,9 +868,10 @@ stores' payloads into sections, in product order, dropping empty ones:
 - Loading: the history is read synchronously from `UserDefaults` and rebuilt on
   every `viewWillAppear` and on `.discourseHistoryDidChange`; the two weekly
   lists load concurrently through `DiscourseStatsCache`. Pull-to-refresh forces
-  both lists and rebuilds the history section. While a weekly list has no data,
-  its section renders a spinner placeholder (header plus a centred
-  `UIActivityIndicatorView`) so history remains visible while the top lists load.
+  both lists and rebuilds the history section. Cached weekly lists render
+  immediately and revalidate in place; while a list has no cached data, its
+  section renders a spinner placeholder (header plus a centred
+  `UIActivityIndicatorView`) so history remains visible while it loads.
 - States: the top-section spinner placeholders cover the first weekly request;
   the centred screen spinner remains the fallback before that request starts.
   The empty state (`HOME_EMPTY_TITLE` / `HOME_EMPTY_MESSAGE`) appears when every
@@ -2036,6 +2047,14 @@ Google OAuth handler and URL-scheme registration.
   `UIBackgroundModes`. Finite `beginBackgroundTask` work is unaffected.
 - Verified `VLC-iOS` and `VLC-iOS-no-watch` build; the built Info.plist contains
   only `NSLocalNetworkUsageDescription`.
+
+### Post-phase polish — stale-while-revalidate — **Done**
+- Catalogue, detail, search and Home now render any cached payload immediately
+  and revalidate stale data in place. `DiscourseAPIClient` exposes
+  `cachedDiscourses`, `cachedDiscourseAudios` and `cachedDiscourseTracks`;
+  `DiscourseStatsCache` exposes stale top lists for Home. Fresh cache still
+  skips the network, stale failures keep rendered content, and force refresh
+  keeps the current content and skips the preload.
 
 ### Post-phase polish — Home top-list loading — **Done**
 - Home shows a spinner placeholder section for *Top discourses this week* and

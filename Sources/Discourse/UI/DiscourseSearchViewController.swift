@@ -236,7 +236,17 @@ final class DiscourseSearchViewController: UIViewController {
         let token = requestToken
         isLoading = true
         results.reset()
-        contentState = .loading
+
+        if !forceRefresh,
+           let cachedDiscourses = client.cachedDiscourses(page: 1, search: trimmed),
+           let cachedTracks = client.cachedDiscourseAudios(page: 1, search: trimmed),
+           !(cachedDiscourses.data.isEmpty && cachedTracks.data.isEmpty) {
+            results.append(discourses: cachedDiscourses, tracks: cachedTracks)
+            seedLikeCounts(discourses: cachedDiscourses.data, tracks: cachedTracks.data)
+            contentState = .results
+        } else {
+            contentState = .loading
+        }
         render()
 
         Task { @MainActor [weak self] in

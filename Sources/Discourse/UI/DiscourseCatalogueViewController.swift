@@ -253,7 +253,21 @@ final class DiscourseCatalogueViewController: UIViewController {
         isLoadingNextPage = false
 
         if discourses.isEmpty {
-            showLoading()
+            if !forceRefresh,
+               let cached = client.cachedDiscourses(page: 1,
+                                                    language: filterStore.language,
+                                                    sort: filterStore.sort),
+               !cached.data.isEmpty {
+                discourses = cached.data
+                seedLikeCounts(cached.data)
+                currentPage = cached.meta.page
+                totalPages = cached.meta.totalPages
+                hasLoaded = true
+                collectionView.reloadData()
+                showContent()
+            } else {
+                showLoading()
+            }
         }
 
         Task { @MainActor [weak self] in

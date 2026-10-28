@@ -350,8 +350,18 @@ final class DiscourseHomeViewController: UIViewController {
         isLoadingStats = true
         requestToken += 1
         let token = requestToken
-        // Rebuild immediately so the weekly sections show their placeholders
-        // while history is already on screen.
+
+        // Stale-while-revalidate: render the last cached top lists immediately
+        // and let the request below replace them when it completes.
+        if topDiscourses.isEmpty, let cached = statsCache.cachedDiscourses() {
+            topDiscourses = cached
+        }
+        if topTracks.isEmpty, let cached = statsCache.cachedAudios() {
+            topTracks = cached
+        }
+
+        // Rebuild immediately so any still-missing weekly section shows its
+        // placeholder while history is already on screen.
         reloadHistory()
 
         Task { @MainActor [weak self] in
