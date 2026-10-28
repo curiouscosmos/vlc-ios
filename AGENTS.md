@@ -505,9 +505,11 @@ by `VLCPlayerDisplayController` in a `VLCPlaybackNavigationController`
 carries one fork-only arranged subview before the more-options button: the
 discourse like control (`DiscourseLikeControl`, §4.9), which
 `AudioPlayerViewController` inserts, hides for non-discourse media and refreshes
-from the playback and likes notifications. Buffering uses a plain white
-`UIActivityIndicatorView`; the VLC pulsing cone remains only on the upstream
-podcast/network loading screens.
+from the playback and likes notifications. The more-options menu gains a Share
+row only for a discourse track; it shares
+`https://rajneeshdiscourse.com/discourses/{discourseID}/tracks/{audioID}`.
+Buffering uses a plain white `UIActivityIndicatorView`; the VLC pulsing cone
+remains only on the upstream podcast/network loading screens.
 
 ### 4.3 Local media library
 
@@ -1539,6 +1541,28 @@ they found it.
 
 ## 9. Current implementation status
 
+Automatic Favourite Tracks and Favourite Discourses collections appear above ordinary
+playlists after their first like and remain after their final unlike. Stable IDs
+`favourite-tracks` and `favourite-discourses` are independent of VLC playlist names.
+`DiscourseLikesStore` remains the only membership owner and saves Codable payloads,
+creation flags, added dates, refresh dates and explicit unavailable markers through
+`DiscourseSettings`. Like actions capture payloads before optimistic toggles; failures
+retain the existing rollback behaviour. Local dates sort newest first; migrated/server
+likes without a date sort last by ID. Metadata migration reads history, registry and
+the existing bounded API cache. Foreground and collection refresh resolve stale (24 h)
+or missing details in batches of 100, after the weekly membership refresh. Requests
+that overlap a tap cannot overwrite it. Restored pending requests reconcile on refresh.
+Playlist collection screens reuse discourse cards, track rows, the playback queue and
+detail navigation. Their diffable updates retain scroll position. Missing media keeps
+its saved payload or a placeholder, disables opening/playback, and can still be unliked.
+Retry and pull-to-refresh preserve saved content on failure. Covers try ordered artwork
+URLs through the existing thumbnail cache and shared URLCache (including stale offline
+responses), skipping failed images; a heart is the fallback.
+Tests: `node api/tests/favourites.test.cjs` plus `DiscourseStoresTests` cover resolver
+validation, persistence, ordering, rollback, missing metadata, offline failure, refresh
+races and artwork fallback. Ordinary playlist editing remains in the upstream controller.
+
+
 Google Drive and Google Sign-In are removed from the app: no cloud-list entry,
 Drive favourite routing, OAuth URL handler, URL scheme, or Google pods remain.
 Upstream Google Drive source files and shortcut tests remain as unbuilt references.
@@ -2205,6 +2229,14 @@ Reference files present for the contract: `api/docs.md`,
 
 ## 10. Known gaps and intentional deviations from Android
 
+Favourite metadata deployment: `POST /favourites/resolve` is implemented in
+`api/edge.ts` but must be deployed to the existing Bunny service before release.
+No deployment command or credentials are configured in this checkout. Until deployment,
+local saved favourites work and unresolved entries remain available for retry. Automatic
+collections use fixed rows above the existing playlist grid, avoiding changes to VLC's
+editable playlist model. They cannot be renamed, reordered or deleted.
+
+
 Google Drive is intentionally unavailable. Existing downloaded local files remain
 usable; saved Drive favourites cannot open the removed browser.
 
@@ -2577,6 +2609,12 @@ Record every deviation here; never hide a gap.
 ---
 
 ## 11. Upstream sync policy
+
+Preserve automatic favourite rows and collection screens in `PlaylistViewController`,
+favourite metadata/capture/refresh in the likes store and actions, bounded cache recovery,
+and `POST /favourites/resolve` when syncing upstream. Keep automatic collections separate
+from editable `VLCMLPlaylist` records and preserve existing playlist editing behaviour.
+
 
 Keep Google Drive sources and tests out of target build phases when syncing
 upstream; do not restore Google Sign-In pods, cloud entries or OAuth registration.

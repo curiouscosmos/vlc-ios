@@ -58,3 +58,29 @@ GET /stats?by=discourse_audio&time=24_hours
 # Seed
 // https://seeddata-pdiw5.bunny.run/seed
 POST /seed
+
+## Favourite metadata resolution
+
+`POST /favourites/resolve` requires the existing `x-api-key` header. It returns
+public metadata only and never changes likes or downloads audio.
+
+```json
+{"discourse_ids":["discourse-id"],"discourse_audio_ids":["audio-id"]}
+```
+
+Both arrays are required, may be empty, and accept at most 100 IDs combined.
+IDs must be nonempty trimmed strings of at most 256 characters; malformed JSON,
+invalid arrays/IDs, unknown fields and oversized batches return HTTP 400.
+Resolution uses two parameterized indexed queries, without catalogue scanning.
+
+```json
+{"discourses":[],"audios":[],"missing_discourse_ids":["discourse-id"],"missing_discourse_audio_ids":["audio-id"]}
+```
+
+Resolved objects use the existing catalogue payload formats. Explicit missing IDs
+are distinct from transport failures. Clients retain favourite membership in both
+cases. Deploy the updated `api/edge.ts` to the existing Bunny Edge Script before
+releasing the iOS feature; no schema migration is required. This checkout has no
+automated deployment command or deployment credentials configured.
+
+Validation: `node api/tests/favourites.test.cjs` (Node 24+, local SQLite).

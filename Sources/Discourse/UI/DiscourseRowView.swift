@@ -36,6 +36,18 @@ final class DiscourseRowView: UIView {
     private var subtitleTrailingToContainer: NSLayoutConstraint!
 
     /// Opens the discourse or starts the track (VoiceOver activation).
+    var isPlaybackAvailable = true {
+        didSet {
+            if isPlaybackAvailable { accessibilityButton.accessibilityTraits.remove(.notEnabled) }
+            else { accessibilityButton.accessibilityTraits.insert(.notEnabled) }
+            if !isPlaybackAvailable {
+                accessibilityButton.accessibilityValue = NSLocalizedString("Unavailable", comment: "Favourite media unavailable")
+            } else {
+                accessibilityButton.accessibilityValue = nil
+            }
+        }
+    }
+
     var onOpen: (() -> Void)?
     /// Toggles the like from the heart.
     var onToggleLike: (() -> Void)?
@@ -95,7 +107,8 @@ final class DiscourseRowView: UIView {
 
         accessibilityButton.translatesAutoresizingMaskIntoConstraints = false
         accessibilityButton.onActivate = { [weak self] in
-            self?.onOpen?()
+            guard let self, self.isPlaybackAvailable else { return }
+            self.onOpen?()
         }
 
         addSubview(containerView)
@@ -231,6 +244,7 @@ final class DiscourseRowView: UIView {
         titleLabel.text = nil
         subtitleLabel.text = nil
         isPlaying = false
+        isPlaybackAvailable = true
         onOpen = nil
         onToggleLike = nil
         onToggleDownload = nil

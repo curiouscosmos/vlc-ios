@@ -48,6 +48,11 @@ final class DiscourseHomeTrackCell: UICollectionViewCell {
 
     // MARK: - Content
 
+    var isPlaybackAvailable: Bool {
+        get { rowView.isPlaybackAvailable }
+        set { rowView.isPlaybackAvailable = newValue }
+    }
+
     var onOpen: (() -> Void)? {
         get { rowView.onOpen }
         set { rowView.onOpen = newValue }

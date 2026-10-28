@@ -18,6 +18,14 @@
 
 import UIKit
 
+private final class TopAlignedLabel: UILabel {
+    override func drawText(in rect: CGRect) {
+        var textRect = rect
+        textRect.size.height = sizeThatFits(CGSize(width: rect.width, height: .greatestFiniteMagnitude)).height
+        super.drawText(in: textRect)
+    }
+}
+
 final class DiscourseCardCell: UICollectionViewCell {
     static let reuseIdentifier = "DiscourseCardCell"
 
@@ -38,7 +46,7 @@ final class DiscourseCardCell: UICollectionViewCell {
 
     private let cardView = UIView()
     private let artworkView = VLCNetworkImageView()
-    private let titleLabel = UILabel()
+    private let titleLabel = TopAlignedLabel()
     private let languageLabel = UILabel()
     private let metadataLabel = UILabel()
     private let contentStack = UIStackView()
@@ -57,6 +65,18 @@ final class DiscourseCardCell: UICollectionViewCell {
     private var titleHeightConstraint: NSLayoutConstraint!
 
     /// Opens the discourse (VoiceOver activation; touches still select the cell).
+    var isPlaybackAvailable = true {
+        didSet {
+            if isPlaybackAvailable { accessibilityButton.accessibilityTraits.remove(.notEnabled) }
+            else { accessibilityButton.accessibilityTraits.insert(.notEnabled) }
+            if !isPlaybackAvailable {
+                accessibilityButton.accessibilityValue = NSLocalizedString("Unavailable", comment: "Favourite media unavailable")
+            } else {
+                accessibilityButton.accessibilityValue = nil
+            }
+        }
+    }
+
     var onOpen: (() -> Void)?
     /// Toggles the discourse like from the heart.
     var onToggleLike: (() -> Void)?
@@ -112,7 +132,8 @@ final class DiscourseCardCell: UICollectionViewCell {
 
         accessibilityButton.translatesAutoresizingMaskIntoConstraints = false
         accessibilityButton.onActivate = { [weak self] in
-            self?.onOpen?()
+            guard let self, self.isPlaybackAvailable else { return }
+            self.onOpen?()
         }
 
         downloadBadge.translatesAutoresizingMaskIntoConstraints = false
@@ -299,6 +320,7 @@ final class DiscourseCardCell: UICollectionViewCell {
         accessibilityLabel = nil
         downloadBadge.isHidden = true
         downloadBadge.accessibilityLabel = nil
+        isPlaybackAvailable = true
         onOpen = nil
         onToggleLike = nil
     }

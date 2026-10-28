@@ -47,6 +47,34 @@ class VLCTestMenu: XCTestCase {
         XCTAssertTrue(app.navigationBars[VLCAccessibilityIdentifier.playlist].waitForExistence(timeout: 5))
     }
 
+    func testAutomaticFavouriteCollectionsAndUnavailableNavigation() {
+        app.terminate()
+        app.launchArguments = [
+            "-osho_api_liked_discourses", "(favouritetestdiscourse)",
+            "-osho_api_liked_audios", "(favouritetesttrack)",
+            "-osho_api_likes_fetched_at", String(Date().timeIntervalSince1970)
+        ]
+        app.launch()
+        helper.tapTabBarItem(VLCAccessibilityIdentifier.playlist)
+        let tracks = app.buttons["favourite-tracks"]
+        let discourses = app.buttons["favourite-discourses"]
+        XCTAssertTrue(tracks.waitForExistence(timeout: 5))
+        XCTAssertTrue(discourses.exists)
+        tracks.tap()
+        XCTAssertTrue(app.navigationBars.staticTexts["Favourite Tracks"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Unavailable track")).firstMatch.exists)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        discourses.tap()
+        XCTAssertTrue(app.navigationBars.staticTexts["Favourite Discourses"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Unavailable discourse")).firstMatch.exists)
+        app.terminate()
+        app.launchArguments = []
+        app.launch()
+        helper.tapTabBarItem(VLCAccessibilityIdentifier.playlist)
+        XCTAssertTrue(app.buttons["favourite-tracks"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["favourite-discourses"].exists)
+    }
+
     func testNavigationToAudioMixer() {
         helper.tapTabBarItem(VLCAccessibilityIdentifier.audioMixer)
         XCTAssertTrue(app.navigationBars[VLCAccessibilityIdentifier.audioMixer].waitForExistence(timeout: 5))

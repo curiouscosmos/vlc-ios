@@ -57,6 +57,29 @@ final class DiscourseAPICache {
         return caches.appendingPathComponent("DiscourseAPI", isDirectory: true)
     }
 
+    /// Migration reads only existing bounded disk cache; no catalogue requests.
+    func savedFavouritePayloads() -> (discourses: [String: Discourse], audios: [String: DiscourseAudio]) {
+        queue.sync {
+            var discourses: [String: Discourse] = [:]
+            var audios: [String: DiscourseAudio] = [:]
+            let files = (try? fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+            for file in files {
+                guard let data = try? Data(contentsOf: file),
+                      let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let items = body["data"] as? [[String: Any]] else { continue }
+                for item in items {
+                    guard let payload = try? JSONSerialization.data(withJSONObject: item) else { continue }
+                    if item["audio_url"] != nil, let audio = try? JSONDecoder().decode(DiscourseAudio.self, from: payload) {
+                        audios[audio.id] = audio
+                    } else if item["total_tracks"] != nil, let discourse = try? JSONDecoder().decode(Discourse.self, from: payload) {
+                        discourses[discourse.id] = discourse
+                    }
+                }
+            }
+            return (discourses, audios)
+        }
+    }
+
     // MARK: - Reading
 
     /// Returns the cached body for `url` together with its freshness.

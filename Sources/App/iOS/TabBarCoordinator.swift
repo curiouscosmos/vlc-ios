@@ -93,7 +93,7 @@ class TabBarCoordinator: NSObject {
     @objc private func refreshDiscourseLikes() {
         Task {
             do {
-                _ = try await DiscourseLikesStore.shared.refresh()
+                try await DiscourseLikesStore.shared.refreshFavourites()
             } catch {
                 DiscourseDiagnostics.log("likes refresh failed",
                                          level: .info,

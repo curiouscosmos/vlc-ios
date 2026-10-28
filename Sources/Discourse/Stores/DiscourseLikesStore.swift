@@ -156,17 +156,22 @@ final class DiscourseLikesStore {
 
     private let settings: DiscourseSettings
     private let service: DiscourseLikeService
+    private let resolver: ([String], [String]) async throws -> DiscourseAPIClient.FavouriteResolution
     private let dateProvider: () -> Date
     private let notificationCenter: NotificationCenter
     private let queue = DispatchQueue(label: "online.sandalbar.rajneesh-discourse.likes")
+    private var inFlight: Set<Target> = []
+    private var revision = 0
     private var stateStore: State
 
     init(settings: DiscourseSettings = .shared,
          service: DiscourseLikeService = DiscourseAPIClient.shared,
+         resolver: @escaping ([String], [String]) async throws -> DiscourseAPIClient.FavouriteResolution = { try await DiscourseAPIClient.shared.resolveFavourites(discourses: $0, audios: $1) },
          dateProvider: @escaping () -> Date = Date.init,
          notificationCenter: NotificationCenter = .default) {
         self.settings = settings
         self.service = service
+        self.resolver = resolver
         self.dateProvider = dateProvider
         self.notificationCenter = notificationCenter
 
@@ -186,6 +191,113 @@ final class DiscourseLikesStore {
             }
         }
         stateStore = state
+        persist(state)
+    }
+
+    struct FavouriteMetadata: Codable {
+        var discourses: [String: Discourse] = [:]
+        var audios: [String: DiscourseAudio] = [:]
+        var added: [String: Date] = [:]
+        var refreshed: [String: Date] = [:]
+        var unavailable: Set<String> = []
+        var created: Set<String> = []
+    }
+
+    enum Collection: String, CaseIterable {
+        case tracks = "favourite-tracks"
+        case discourses = "favourite-discourses"
+        var title: String {
+            self == .tracks ? NSLocalizedString("Favourite Tracks", comment: "Automatic playlist")
+                : NSLocalizedString("Favourite Discourses", comment: "Automatic playlist")
+        }
+    }
+
+    private static let metadataKey = "osho_api_favourite_metadata"
+
+    var favouriteMetadata: FavouriteMetadata {
+        queue.sync { settings.decode(FavouriteMetadata.self, forKey: Self.metadataKey) ?? FavouriteMetadata() }
+    }
+
+    func favouriteIDs(in collection: Collection) -> [String] {
+        let state = self.state
+        let metadata = favouriteMetadata
+        return (collection == .tracks ? state.audioIDs : state.discourseIDs).sorted {
+            let prefix = collection == .tracks ? "audio:" : "discourse:"
+            let left = metadata.added[prefix + $0] ?? .distantPast
+            let right = metadata.added[prefix + $1] ?? .distantPast
+            return left == right ? $0 < $1 : left > right
+        }
+    }
+
+    func capture(discourse: Discourse? = nil, audio: DiscourseAudio? = nil, fresh: Bool = true) {
+        queue.sync {
+            var metadata = settings.decode(FavouriteMetadata.self, forKey: Self.metadataKey) ?? FavouriteMetadata()
+            if let discourse {
+                metadata.discourses[discourse.id] = discourse
+                if fresh {
+                    metadata.refreshed[Target.discourse(discourse.id).storageKey] = dateProvider()
+                    metadata.unavailable.remove(Target.discourse(discourse.id).storageKey)
+                }
+            }
+            if let audio {
+                metadata.audios[audio.id] = audio
+                if fresh {
+                    metadata.refreshed[Target.audio(audio.id).storageKey] = dateProvider()
+                    metadata.unavailable.remove(Target.audio(audio.id).storageKey)
+                }
+            }
+            settings.encode(metadata, forKey: Self.metadataKey)
+        }
+    }
+
+    /// Recover saved payloads before making any requests. Failed requests leave them intact.
+    func refreshFavourites() async throws {
+        for discourse in DiscourseHistoryStore(settings: settings).recentlyPlayedDiscourses where isLiked(.discourse(discourse.id)) && favouriteMetadata.discourses[discourse.id] == nil {
+            capture(discourse: discourse, fresh: false)
+        }
+        for audio in DiscourseHistoryStore(settings: settings).recentlyPlayedAudios where isLiked(.audio(audio.id)) && favouriteMetadata.audios[audio.id] == nil {
+            capture(audio: audio, fresh: false)
+        }
+        let known = favouriteMetadata
+        let needsRecovery = state.discourseIDs.contains { known.discourses[$0] == nil }
+            || state.audioIDs.contains { known.audios[$0] == nil }
+        let cached = needsRecovery ? DiscourseAPICache.shared.savedFavouritePayloads() : (discourses: [:], audios: [:])
+        for id in state.discourseIDs where known.discourses[id] == nil {
+            if let value = DiscourseTrackRegistry.shared.discourse(id: id) ?? cached.discourses[id] { capture(discourse: value, fresh: false) }
+        }
+        for id in state.audioIDs where known.audios[id] == nil {
+            if let value = DiscourseTrackRegistry.shared.track(id: id) ?? cached.audios[id] { capture(audio: value, fresh: false) }
+        }
+        postChange()
+        try await refresh()
+        let snapshot = state
+        let metadata = favouriteMetadata
+        let targets = snapshot.discourseIDs.sorted().map { Target.discourse($0) }
+            + snapshot.audioIDs.sorted().map { Target.audio($0) }
+        let stale = targets.filter {
+            guard let date = metadata.refreshed[$0.storageKey] else { return true }
+            return dateProvider().timeIntervalSince(date) >= 86400
+        }
+        for offset in stride(from: 0, to: stale.count, by: 100) {
+            let batch = Array(stale[offset..<min(offset + 100, stale.count)])
+            let response = try await resolver(
+                batch.filter { !$0.isAudio }.map { $0.id },
+                batch.filter { $0.isAudio }.map { $0.id })
+            queue.sync {
+                var saved = settings.decode(FavouriteMetadata.self, forKey: Self.metadataKey) ?? FavouriteMetadata()
+                for discourse in response.discourses { saved.discourses[discourse.id] = discourse }
+                for audio in response.audios { saved.audios[audio.id] = audio }
+                let missing = Set(response.missing_discourse_ids.map { Target.discourse($0).storageKey }
+                    + response.missing_discourse_audio_ids.map { Target.audio($0).storageKey })
+                for target in batch {
+                    saved.refreshed[target.storageKey] = dateProvider()
+                    if missing.contains(target.storageKey) { saved.unavailable.insert(target.storageKey) }
+                    else { saved.unavailable.remove(target.storageKey) }
+                }
+                settings.encode(saved, forKey: Self.metadataKey)
+            }
+            postChange()
+        }
     }
 
     // MARK: - Reading
@@ -232,18 +344,22 @@ final class DiscourseLikesStore {
             }
         }
 
+        let revision = queue.sync { self.revision }
         let likes = try await service.fetchLikes()
-        apply(likes)
+        apply(likes, revision: revision)
         return state
     }
 
-    private func apply(_ likes: DiscourseLikes) {
+    private func apply(_ likes: DiscourseLikes, revision: Int) {
         queue.sync {
+            guard self.revision == revision else { return }
             var state = stateStore
             state.discourseIDs = likes.discourseIDs
             state.audioIDs = likes.audioIDs
-            // The server answered for this install: whatever was pending is settled.
-            state.pending.removeAll()
+            state.pending = state.pending.filter { inFlight.contains($0.key) }
+            for (target, liked) in state.pending {
+                if liked { state.insert(target) } else { state.remove(target) }
+            }
             stateStore = state
             persist(state)
             settings.set(dateProvider().timeIntervalSince1970, forKey: Keys.fetchedAt)
@@ -291,10 +407,15 @@ final class DiscourseLikesStore {
                 return nil
             }
 
+            revision += 1
+            inFlight.insert(target)
             let previous = (state.isLiked(target), state.count(for: target))
             var optimistic = state
             optimistic.pending[target] = liked
             if liked {
+                var metadata = settings.decode(FavouriteMetadata.self, forKey: Self.metadataKey) ?? FavouriteMetadata()
+                metadata.added[target.storageKey] = dateProvider()
+                settings.encode(metadata, forKey: Self.metadataKey)
                 optimistic.insert(target)
             } else {
                 optimistic.remove(target)
@@ -316,6 +437,8 @@ final class DiscourseLikesStore {
             queue.sync {
                 var state = stateStore
                 state.counts[target] = max(0, serverTotal)
+                revision += 1
+                inFlight.remove(target)
                 state.pending.removeValue(forKey: target)
                 stateStore = state
                 persist(state)
@@ -325,6 +448,8 @@ final class DiscourseLikesStore {
         } catch {
             queue.sync {
                 var state = stateStore
+                revision += 1
+                inFlight.remove(target)
                 state.pending.removeValue(forKey: target)
                 if previous.isLiked {
                     state.insert(target)
@@ -380,6 +505,7 @@ final class DiscourseLikesStore {
             settings.remove(Keys.audios)
             settings.remove(Keys.fetchedAt)
             settings.remove(Keys.pending)
+            settings.remove(Self.metadataKey)
         }
         postChange()
     }
@@ -387,6 +513,18 @@ final class DiscourseLikesStore {
     // MARK: - Persistence
 
     private func persist(_ state: State) {
+        var metadata = settings.decode(FavouriteMetadata.self, forKey: Self.metadataKey) ?? FavouriteMetadata()
+        for collection in Collection.allCases {
+            let ids = collection == .tracks ? state.audioIDs : state.discourseIDs
+            if !ids.isEmpty { metadata.created.insert(collection.rawValue) }
+            for id in ids.sorted() {
+                let target = Target(id: id, isAudio: collection == .tracks)
+                if metadata.added[target.storageKey] == nil {
+                    metadata.added[target.storageKey] = state.pending[target] == true ? dateProvider() : .distantPast
+                }
+            }
+        }
+        settings.encode(metadata, forKey: Self.metadataKey)
         settings.set(state.discourseIDs, forKey: Keys.discourses)
         settings.set(state.audioIDs, forKey: Keys.audios)
         var pending: [String: Bool] = [:]

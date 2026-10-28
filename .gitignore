@@ -13,6 +13,13 @@ Pods
 # Private Constants
 0001-privateConstants.patch
 
+# Secrets — never commit the Osho API key
+.env
+.env.*
+!.env.example
+Secrets.xcconfig
+GeneratedSecrets.xcconfig
+
 # Others
 build
 DerivedData
@@ -22,3 +29,4 @@ ImportedSources
 !Makefile
 .idea/
 .*.sw[nop]
+Resources/iOS/GoogleService-Info.plist

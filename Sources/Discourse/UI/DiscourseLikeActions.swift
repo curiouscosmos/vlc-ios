@@ -22,6 +22,7 @@ enum DiscourseLikeActions {
     static func toggleDiscourse(_ discourse: Discourse,
                                 from viewController: UIViewController?,
                                 store: DiscourseLikesStore = .shared) {
+        if !store.isLiked(.discourse(discourse.id)) { store.capture(discourse: discourse) }
         Task { @MainActor in
             do {
                 try await store.toggleDiscourse(id: discourse.id,
@@ -38,6 +39,7 @@ enum DiscourseLikeActions {
     static func toggleAudio(_ track: DiscourseAudio,
                             from viewController: UIViewController?,
                             store: DiscourseLikesStore = .shared) {
+        if !store.isLiked(.audio(track.id)) { store.capture(audio: track) }
         Task { @MainActor in
             do {
                 try await store.toggleAudio(id: track.id,

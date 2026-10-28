@@ -40,6 +40,143 @@ final class DiscourseStoresTests: XCTestCase {
 
     // MARK: - Likes
 
+    @MainActor
+    func testFavouriteArtworkSkipsFailedImagesInDisplayOrder() async {
+        let urls = ["missing", "first", "later"].map { URL(string: "https://example.test/\($0)")! }
+        let expected = UIImage(systemName: "heart")!
+        var visited: [URL] = []
+        let result = await FavouriteCollectionButton.firstArtwork(urls: urls) { url in
+            visited.append(url)
+            return url == urls[1] ? expected : nil
+        }
+        XCTAssertTrue(result === expected)
+        XCTAssertEqual(visited, Array(urls.prefix(2)))
+        let none = await FavouriteCollectionButton.firstArtwork(urls: urls) { _ in nil }
+        XCTAssertNil(none)
+    }
+
+    @MainActor
+    func testFavouriteArtworkUsesSavedURLCacheWithoutNetwork() async throws {
+        let url = URL(string: "https://offline.invalid/\(UUID().uuidString).png")!
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 10, height: 10)).image { context in
+            UIColor.red.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 10, height: 10))
+        }
+        let request = URLRequest(url: url)
+        let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        URLCache.shared.storeCachedResponse(CachedURLResponse(response: response, data: try XCTUnwrap(image.pngData())), for: request)
+        defer { URLCache.shared.removeCachedResponse(for: request) }
+        let result = await FavouriteCollectionButton.firstArtwork(urls: [url])
+        XCTAssertNotNil(result)
+    }
+
+    func testFavouriteCollectionsPersistAndRetainEmptyCollections() async throws {
+        let service = FakeLikeService()
+        var now = Date(timeIntervalSince1970: 100)
+        let store = DiscourseLikesStore(settings: settings, service: service, dateProvider: { now })
+        XCTAssertTrue(store.favouriteMetadata.created.isEmpty)
+        let audio = Self.audio(id: "a1")
+        store.capture(audio: audio)
+        try await store.setAudioLiked(true, id: "a1", totalLikes: 0)
+        now = Date(timeIntervalSince1970: 200)
+        try await store.setAudioLiked(true, id: "a2", totalLikes: 0)
+        try await store.setAudioLiked(true, id: "a2", totalLikes: 0)
+        XCTAssertEqual(store.favouriteIDs(in: .tracks), ["a2", "a1"])
+        XCTAssertEqual(service.audioLikeCount, 2)
+        try await store.setAudioLiked(false, id: "a2", totalLikes: 0)
+        try await store.setAudioLiked(false, id: "a1", totalLikes: 0)
+        let reloaded = DiscourseLikesStore(settings: settings, service: service)
+        XCTAssertTrue(reloaded.favouriteIDs(in: .tracks).isEmpty)
+        XCTAssertTrue(reloaded.favouriteMetadata.created.contains(DiscourseLikesStore.Collection.tracks.rawValue))
+        XCTAssertEqual(reloaded.favouriteMetadata.audios["a1"], audio)
+        XCTAssertFalse(reloaded.favouriteMetadata.created.contains(DiscourseLikesStore.Collection.discourses.rawValue))
+    }
+
+    func testFavouriteMigrationResolutionAndMissingItems() async throws {
+        settings.set(Set(["d2", "d1"]), forKey: DiscourseLikesStore.Keys.discourses)
+        settings.set(Set(["a1"]), forKey: DiscourseLikesStore.Keys.audios)
+        let service = FakeLikeService()
+        service.likes = DiscourseLikes(discourseIDs: ["d1", "d2"], audioIDs: ["a1"])
+        let store = DiscourseLikesStore(settings: settings, service: service, resolver: { discourses, audios in
+            XCTAssertEqual(discourses, ["d1", "d2"])
+            XCTAssertEqual(audios, ["a1"])
+            return DiscourseAPIClient.FavouriteResolution(discourses: [Self.discourse(id: "d1")], audios: [],
+                missing_discourse_ids: ["d2"], missing_discourse_audio_ids: ["a1"])
+        })
+        XCTAssertEqual(store.favouriteIDs(in: .discourses), ["d1", "d2"])
+        try await store.refreshFavourites()
+        XCTAssertEqual(store.favouriteIDs(in: .discourses), ["d1", "d2"])
+        XCTAssertNotNil(store.favouriteMetadata.discourses["d1"])
+        XCTAssertTrue(store.favouriteMetadata.unavailable.contains("discourse:d2"))
+        XCTAssertTrue(store.isLiked(.audio("a1")), "Missing metadata never removes membership")
+        let reloaded = DiscourseLikesStore(settings: settings, service: service)
+        XCTAssertEqual(reloaded.favouriteMetadata.unavailable, store.favouriteMetadata.unavailable)
+        store.capture(audio: Self.audio(id: "a1"))
+        XCTAssertFalse(store.favouriteMetadata.unavailable.contains("audio:a1"), "A newly captured public payload restores availability")
+    }
+
+    func testFavouriteResolutionBatchesAtOneHundred() async throws {
+        let service = FakeLikeService()
+        service.likes = DiscourseLikes(discourseIDs: Set((0..<105).map { "d\($0)" }),
+                                      audioIDs: Set((0..<100).map { "a\($0)" }))
+        var batchSizes: [Int] = []
+        let store = DiscourseLikesStore(settings: settings, service: service, resolver: { discourses, audios in
+            batchSizes.append(discourses.count + audios.count)
+            return DiscourseAPIClient.FavouriteResolution(discourses: [], audios: [],
+                missing_discourse_ids: discourses, missing_discourse_audio_ids: audios)
+        })
+        try await store.refreshFavourites()
+        XCTAssertEqual(batchSizes, [100, 100, 5])
+        XCTAssertEqual(store.favouriteMetadata.unavailable.count, 205)
+        try await store.refreshFavourites()
+        XCTAssertEqual(batchSizes.count, 3, "Fresh metadata must not be fetched again")
+    }
+
+    func testFailedFavouriteLookupKeepsSavedMetadata() async throws {
+        let service = FakeLikeService()
+        service.likes = DiscourseLikes(discourseIDs: [], audioIDs: ["a1"])
+        let store = DiscourseLikesStore(settings: settings, service: service, resolver: { _, _ in
+            throw URLError(.notConnectedToInternet)
+        })
+        let audio = Self.audio(id: "a1")
+        store.capture(audio: audio, fresh: false)
+        do { try await store.refreshFavourites(); XCTFail("Expected offline lookup failure") } catch { }
+        XCTAssertEqual(store.favouriteMetadata.audios["a1"], audio)
+        XCTAssertTrue(store.isLiked(.audio("a1")))
+        service.unlikeError = URLError(.notConnectedToInternet)
+        do { try await store.setAudioLiked(false, id: "a1", totalLikes: 0); XCTFail("Expected rollback") } catch { }
+        XCTAssertEqual(store.favouriteIDs(in: .tracks), ["a1"])
+    }
+
+    func testRefreshStartedDuringToggleCannotUndoItsCompletion() async throws {
+        let service = FakeLikeService()
+        let store = DiscourseLikesStore(settings: settings, service: service)
+        let started = expectation(description: "Like request started")
+        var finishLike: CheckedContinuation<Void, Never>?
+        service.onAudioLike = {
+            await withCheckedContinuation { continuation in
+                finishLike = continuation
+                started.fulfill()
+            }
+        }
+        let toggle = Task { try await store.setAudioLiked(true, id: "a1", totalLikes: 0) }
+        await fulfillment(of: [started], timeout: 3)
+        service.onFetch = {
+            finishLike?.resume()
+            _ = try await toggle.value
+        }
+        try await store.refresh(force: true)
+        XCTAssertTrue(store.isLiked(.audio("a1")))
+    }
+
+    func testRefreshCannotUndoToggleCompletedDuringFetch() async throws {
+        let service = FakeLikeService()
+        let store = DiscourseLikesStore(settings: settings, service: service)
+        service.onFetch = { _ = try await store.setAudioLiked(true, id: "a1", totalLikes: 0) }
+        try await store.refresh(force: true)
+        XCTAssertTrue(store.isLiked(.audio("a1")))
+    }
+
     func testLikesRefreshHonoursTheSevenDayWindow() async throws {
         var now = Date(timeIntervalSince1970: 1_000_000)
         let service = FakeLikeService()
@@ -480,6 +617,8 @@ final class DiscourseStoresTests: XCTestCase {
 
     private final class FakeLikeService: DiscourseLikeService {
         var likes = DiscourseLikes()
+        var onAudioLike: (() async -> Void)?
+        var onFetch: (() async throws -> Void)?
         var fetchCount = 0
         var fetchError: Error?
         var likeError: Error?
@@ -492,6 +631,7 @@ final class DiscourseStoresTests: XCTestCase {
 
         func fetchLikes() async throws -> DiscourseLikes {
             fetchCount += 1
+            try await onFetch?()
             if let fetchError {
                 throw fetchError
             }
@@ -516,6 +656,7 @@ final class DiscourseStoresTests: XCTestCase {
 
         func sendAudioLike(id: String) async throws -> DiscourseLikeResult {
             audioLikeCount += 1
+            await onAudioLike?()
             if let likeError {
                 throw likeError
             }

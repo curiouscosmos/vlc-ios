@@ -1056,3 +1056,14 @@
 /* New strings */
 "MIXER_PAUSE_ACCESSIBILITY" = "MIXER_PAUSE_ACCESSIBILITY"; /* Pause mixer */
 "MIXER_PLAY_ACCESSIBILITY" = "MIXER_PLAY_ACCESSIBILITY"; /* Play mixer */
+
+/* New strings */
+"Favourite Discourses" = "Favourite Discourses"; /* Automatic playlist */
+"Favourite Tracks" = "Favourite Tracks"; /* Automatic playlist */
+"Retry" = "Retry"; /* Retry favourites */
+"Unavailable discourse" = "Unavailable discourse"; /* Favourite without metadata */
+"Unavailable track" = "Unavailable track"; /* Favourite without metadata */
+
+/* New strings */
+"Unavailable" = "Unavailable"; /* Favourite media unavailable */
+"Use the heart controls to add favourites." = "Use the heart controls to add favourites."; /* Empty automatic collection */

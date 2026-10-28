@@ -906,6 +906,35 @@ async function likeDiscourseAudio(
 	});
 }
 
+/** Resolve public favourite metadata without modifying membership. */
+async function resolveFavourites(request: Request): Promise<Response> {
+    let body: any;
+    try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
+    const validIDs = (value: any) => Array.isArray(value) && value.every((id: any) =>
+        typeof id === "string" && id.length > 0 && id.length <= 256 && id.trim() === id);
+    if (!body || typeof body !== "object" || Array.isArray(body) ||
+        Object.keys(body).some(key => !["discourse_ids", "discourse_audio_ids"].includes(key)) ||
+        !validIDs(body.discourse_ids) || !validIDs(body.discourse_audio_ids) ||
+        body.discourse_ids.length + body.discourse_audio_ids.length > 100) {
+        return jsonResponse({ error: "Expected two ID arrays with at most 100 IDs combined" }, 400);
+    }
+    const resolve = async (table: string, ids: string[]) => {
+        if (!ids.length) return [];
+        const result = await db.execute({
+            sql: `SELECT * FROM ${table} WHERE id IN (${ids.map(() => "?").join(",")})`, args: ids
+        });
+        return result.rows;
+    };
+    const [discourses, audios] = await Promise.all([
+        resolve("discourse", body.discourse_ids), resolve("discourse_audio", body.discourse_audio_ids)
+    ]);
+    return jsonResponse({
+        discourses: discourses.map(normalizeDiscourse), audios,
+        missing_discourse_ids: body.discourse_ids.filter((id: string) => !discourses.some(row => row.id === id)),
+        missing_discourse_audio_ids: body.discourse_audio_ids.filter((id: string) => !audios.some(row => row.id === id))
+    });
+}
+
 /**
  * Router
  */
@@ -956,11 +985,15 @@ BunnySDK.net.http.serve(
 				});
 			}
 
-			if (["stats", "discourses", "discourse-audios", "likes"].includes(resource)) {
+			if (["stats", "discourses", "discourse-audios", "likes", "favourites"].includes(resource)) {
 				await ensureSchema();
 			}
 
-			if (resource === "likes" && request.method === "GET" && !id) {
+			if (resource === "favourites" && id === "resolve" && !action && request.method === "POST") {
+                return resolveFavourites(request);
+            }
+
+            if (resource === "likes" && request.method === "GET" && !id) {
 				return getUserLikes(url);
 			}
 			if (resource === "likes" && request.method === "DELETE" && !id) {
