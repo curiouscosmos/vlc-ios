@@ -505,7 +505,9 @@ by `VLCPlayerDisplayController` in a `VLCPlaybackNavigationController`
 carries one fork-only arranged subview before the more-options button: the
 discourse like control (`DiscourseLikeControl`, §4.9), which
 `AudioPlayerViewController` inserts, hides for non-discourse media and refreshes
-from the playback and likes notifications.
+from the playback and likes notifications. Buffering uses a plain white
+`UIActivityIndicatorView`; the VLC pulsing cone remains only on the upstream
+podcast/network loading screens.
 
 ### 4.3 Local media library
 
@@ -2561,6 +2563,11 @@ behaviour:
    - `Sources/Playback/Control/VLCPlaybackService.{h,m}` — main-player RNNoise
      capability checks, preference, live switching and renderer transitions,
      plus audio-session activation before the first play and resume.
+   - `Sources/Playback/Player/PlayerViewController.swift`,
+     `Sources/Playback/Player/AudioPlayer/AudioPlayerViewController.swift` and
+     `Sources/Playback/Player/VideoPlayer-iOS/VideoPlayerViewController.swift` —
+     buffering uses a plain white `UIActivityIndicatorView` instead of the VLC
+     pulsing cone.
    - `Sources/Playback/Player/VideoPlayer-iOS/MediaMoreOptionsActionSheet.swift`,
      its `Subviews/MediaPlayerActionSheet.swift`, and
      `Sources/UI Elements/ActionSheet/ActionSheetCell.swift` — audio-only noise

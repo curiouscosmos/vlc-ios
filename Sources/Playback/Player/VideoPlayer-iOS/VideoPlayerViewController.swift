@@ -433,7 +433,7 @@ class VideoPlayerViewController: PlayerViewController {
         view.addSubview(volumeControlView)
 #endif
         view.addSubview(externalVideoOutputView)
-        view.addSubview(coneLoadingView)
+        view.addSubview(loadingIndicator)
         view.addSubview(statusLabel)
         view.addSubview(longPressPlaybackSpeedView)
 
@@ -539,7 +539,7 @@ class VideoPlayerViewController: PlayerViewController {
         setupVolumeControlConstraints()
 #endif
         setupStatusLabelConstraints()
-        setupConeLoadingViewConstraints()
+        setupLoadingIndicatorConstraints()
         setupLongPressPlaybackSpeedConstraints()
     }
 
@@ -705,12 +705,10 @@ class VideoPlayerViewController: PlayerViewController {
         ])
     }
 
-    private func setupConeLoadingViewConstraints() {
+    private func setupLoadingIndicatorConstraints() {
         NSLayoutConstraint.activate([
-            coneLoadingView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            coneLoadingView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            coneLoadingView.topAnchor.constraint(equalTo: view.topAnchor),
-            coneLoadingView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
     }
 

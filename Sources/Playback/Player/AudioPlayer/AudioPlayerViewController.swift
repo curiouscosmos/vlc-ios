@@ -100,7 +100,7 @@ class AudioPlayerViewController: PlayerViewController {
         setupOptionsNavigationBar()
         setupSliders()
         setupStatusLabel()
-        setupConeLoadingView()
+        setupLoadingIndicator()
     }
 #else
     @objc override init(mediaLibraryService: MediaLibraryService, playerController: PlayerController) {
@@ -118,7 +118,7 @@ class AudioPlayerViewController: PlayerViewController {
         setupAudioPlayerViewConstraints()
         setupOptionsNavigationBar()
         setupStatusLabel()
-        setupConeLoadingView()
+        setupLoadingIndicator()
     }
 #endif
 
@@ -418,15 +418,13 @@ class AudioPlayerViewController: PlayerViewController {
         ])
     }
 
-    private func setupConeLoadingView() {
-        audioPlayerView.addSubview(coneLoadingView)
-        audioPlayerView.bringSubviewToFront(coneLoadingView)
+    private func setupLoadingIndicator() {
+        audioPlayerView.addSubview(loadingIndicator)
+        audioPlayerView.bringSubviewToFront(loadingIndicator)
 
         NSLayoutConstraint.activate([
-            coneLoadingView.centerXAnchor.constraint(equalTo: audioPlayerView.thumbnailImageView.centerXAnchor),
-            coneLoadingView.centerYAnchor.constraint(equalTo: audioPlayerView.thumbnailImageView.centerYAnchor),
-            coneLoadingView.widthAnchor.constraint(equalTo: audioPlayerView.thumbnailImageView.widthAnchor),
-            coneLoadingView.heightAnchor.constraint(equalTo: audioPlayerView.thumbnailImageView.heightAnchor)
+            loadingIndicator.centerXAnchor.constraint(equalTo: audioPlayerView.thumbnailImageView.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: audioPlayerView.thumbnailImageView.centerYAnchor)
         ])
     }
 
