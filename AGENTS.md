@@ -475,8 +475,10 @@ instantiated once by `VLCAppCoordinator`; it enables/disables commands on
 `...PlaybackDidStart`/`...PlaybackDidStop` and handles
 play/pause/stop/next/previous/skip/rate/position/shuffle/repeat.
 
-**Background audio.** `UIBackgroundModes` includes `audio`
-(`Resources/iOS/Info.plist`). `VLCPlaybackService` observes
+**Background audio.** `UIBackgroundModes` contains only `audio`
+(`Resources/iOS/Info.plist`); the podcast `fetch`/`processing` modes and
+`BGTaskSchedulerPermittedIdentifiers` were removed with the unreachable podcast
+background refresher. `VLCPlaybackService` observes
 `AVAudioSessionInterruptionNotification`, `AVAudioSessionRouteChangeNotification`,
 and `UIApplicationWillResignActive/DidEnterBackground/WillEnterForeground`.
 Interruption handling pauses/resumes `_mediaPlayer`; route changes pause when an
@@ -2020,6 +2022,9 @@ Google OAuth handler and URL-scheme registration.
   identifiers) and the unreachable iCloud row in the upstream cloud-services
   screen. The separate `NSUbiquitousKeyValueStore` entitlement remains because
   the server list, recent URLs and Dropbox/Box credentials still use it.
+- Removed the podcast background refresher, the `fetch`/`processing` background
+  modes and `BGTaskSchedulerPermittedIdentifiers`; only `audio` remains in
+  `UIBackgroundModes`. Finite `beginBackgroundTask` work is unaffected.
 - Verified `VLC-iOS` and `VLC-iOS-no-watch` build; the built Info.plist contains
   only `NSLocalNetworkUsageDescription`.
 
@@ -2275,7 +2280,11 @@ Record every deviation here; never hide a gap.
     to the upstream podcast/radio surface, so `PodcastFeedURLHandler.showPodcasts()`
     now finds no host tab and reports an error for incoming `vlc-x-callback`/
     podcast URLs. Podcasts are not part of this product's surface; the classes stay
-    for upstream sync and would need a new host if podcasts ever return.
+    for upstream sync and would need a new host if podcasts ever return. The
+    podcast background refresher, the `fetch`/`processing` background modes and
+    `BGTaskSchedulerPermittedIdentifiers` were removed because they served only
+    that unreachable surface. Finite `beginBackgroundTask` work for media
+    downloads and Wi-Fi sharing is unaffected and needs no background mode.
 
 20. **Cards show downloads as a badge, not a footer row.** The brief draws a
     download row under the card metadata; the Home carousel gives its cards a

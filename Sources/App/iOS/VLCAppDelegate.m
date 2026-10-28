@@ -23,7 +23,6 @@
 #import "VLC-Swift.h"
 #import "VLCAppSceneDelegate.h"
 #import "VLCMLMedia+isWatched.h"
-#import "PodcastBackgroundRefresher.h"
 #if TARGET_OS_IOS
 #import <FirebaseCore/FirebaseCore.h>
 #endif
@@ -173,8 +172,6 @@
     if (shortcutItem) {
         [[VLCAppCoordinator sharedInstance] handleShortcutItem:shortcutItem];
     }
-
-    [[PodcastBackgroundRefresher sharedInstance] registerTasks];
 
 #if (TARGET_OS_IOS || TARGET_OS_WATCH) && !NO_WATCH
     if ([WCSession isSupported]) {

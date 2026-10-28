@@ -928,7 +928,6 @@ extension PodcastStore: MediaLibraryObserver {
             guard let self = self, self.automaticDownloadsEnabled else {
                 return
             }
-            PodcastBackgroundRefresher.sharedInstance().scheduleDownloadTask()
             self.cacheNewEpisodesInForeground()
         }
     }
