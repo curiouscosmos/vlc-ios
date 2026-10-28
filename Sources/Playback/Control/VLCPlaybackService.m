@@ -575,6 +575,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         return;
     }
 
+    [self _activateAudioSession];
     [_listPlayer playItemAtNumber:@(_itemInMediaListToBePlayedFirst)];
     _currentIndex = _itemInMediaListToBePlayedFirst;
 
@@ -1243,7 +1244,18 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
 - (void)play
 {
+    [self _activateAudioSession];
     [_listPlayer play];
+}
+
+- (void)_activateAudioSession
+{
+#if TARGET_OS_IOS || TARGET_OS_TV
+    NSError *error = nil;
+    if (![[AVAudioSession sharedInstance] setActive:YES error:&error]) {
+        APLog(@"Failed to activate audio session: %@", error.localizedDescription);
+    }
+#endif
 }
 
 - (void)pause

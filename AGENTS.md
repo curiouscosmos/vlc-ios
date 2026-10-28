@@ -478,7 +478,11 @@ play/pause/stop/next/previous/skip/rate/position/shuffle/repeat.
 **Background audio.** `UIBackgroundModes` contains only `audio`
 (`Resources/iOS/Info.plist`); the podcast `fetch`/`processing` modes and
 `BGTaskSchedulerPermittedIdentifiers` were removed with the unreachable podcast
-background refresher. `VLCPlaybackService` observes
+background refresher. `VLCPlaybackService` activates the shared
+`AVAudioSession` immediately before `_playNewMedia` and before a resume `play`,
+because the full player only activated it in its own `viewDidLoad` after
+playback had started; without this, the first track could report playing while
+silent until pause/play. `VLCPlaybackService` observes
 `AVAudioSessionInterruptionNotification`, `AVAudioSessionRouteChangeNotification`,
 and `UIApplicationWillResignActive/DidEnterBackground/WillEnterForeground`.
 Interruption handling pauses/resumes `_mediaPlayer`; route changes pause when an
@@ -2028,6 +2032,12 @@ Google OAuth handler and URL-scheme registration.
 - Verified `VLC-iOS` and `VLC-iOS-no-watch` build; the built Info.plist contains
   only `NSLocalNetworkUsageDescription`.
 
+### Post-phase polish — first-play audio session — **Done**
+- `VLCPlaybackService` now activates the shared `AVAudioSession` before
+  `_playNewMedia` and before a resume `play`. Previously the full player activated
+  it only in `viewDidLoad`, after playback had started, so the first track could
+  show as playing with no audio until pause/play.
+
 ### Post-phase polish — titles and segment tint — **Done**
 - The Audio Mixer tab reads **Mixer** (`AUDIO_MIXER` key unchanged); the Home and
   Audio Mixer screens no longer show a navigation title, so their content starts
@@ -2549,7 +2559,8 @@ behaviour:
    edit — and update it whenever a new one is added. Keep the list here:
 
    - `Sources/Playback/Control/VLCPlaybackService.{h,m}` — main-player RNNoise
-     capability checks, preference, live switching and renderer transitions.
+     capability checks, preference, live switching and renderer transitions,
+     plus audio-session activation before the first play and resume.
    - `Sources/Playback/Player/VideoPlayer-iOS/MediaMoreOptionsActionSheet.swift`,
      its `Subviews/MediaPlayerActionSheet.swift`, and
      `Sources/UI Elements/ActionSheet/ActionSheetCell.swift` — audio-only noise
