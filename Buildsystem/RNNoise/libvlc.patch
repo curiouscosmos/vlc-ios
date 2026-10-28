@@ -1,0 +1,396 @@
+--- a/lib/media_player.c
++++ b/lib/media_player.c
+@@ -794,6 +794,8 @@
+     var_Create (mp, "volume", VLC_VAR_FLOAT);
+     var_Create (mp, "corks", VLC_VAR_INTEGER);
+     var_Create (mp, "audio-filter", VLC_VAR_STRING);
++    var_Create (mp, "rd-rnnoise-prepared", VLC_VAR_BOOL);
++    var_Create (mp, "rd-rnnoise-enabled", VLC_VAR_BOOL);
+     var_Create (mp, "role", VLC_VAR_STRING | VLC_VAR_DOINHERIT);
+     var_Create (mp, "amem-data", VLC_VAR_ADDRESS);
+     var_Create (mp, "amem-setup", VLC_VAR_ADDRESS);
+@@ -2224,6 +2226,81 @@
+  */
+ #define EQZ_BAND_VALUE_SIZE 12
+ 
++/* Call with the player lock held: retain every unrelated filter token. */
++static int rd_set_filter(libvlc_media_player_t *mp, const char *name, bool enabled)
++{
++    char *old = var_GetString(mp, "audio-filter");
++    if (!old) return -1;
++    char *updated = malloc(strlen(old) + strlen(name) + 2);
++    if (!updated) { free(old); return -1; }
++    updated[0] = '\0';
++    char *cursor = old, *token;
++    while ((token = strsep(&cursor, " :")) != NULL) {
++        if (!*token || !strcmp(token, name)) continue;
++        if (*updated) strcat(updated, ":");
++        strcat(updated, token);
++    }
++    if (enabled) {
++        if (*updated) strcat(updated, ":");
++        strcat(updated, name);
++    }
++    int ret = var_SetString(mp, "audio-filter", updated);
++    audio_output_t *aout = vlc_player_aout_Hold(mp->player);
++    if (aout) {
++        if (ret == VLC_SUCCESS) ret = var_SetString(aout, "audio-filter", updated);
++        aout_Release(aout);
++    }
++    free(updated);
++    free(old);
++    return ret == VLC_SUCCESS ? 0 : -1;
++}
++
++bool libvlc_media_player_noise_reduction_available(libvlc_media_player_t *mp)
++{
++    vlc_player_Lock(mp->player);
++    bool ready = var_GetBool(mp, "rd-rnnoise-prepared");
++    if (ready && vlc_player_IsStarted(mp->player)) {
++        audio_output_t *aout = vlc_player_aout_Hold(mp->player);
++        ready = aout && var_GetBool(aout, "rd-rnnoise-active");
++        if (aout) aout_Release(aout);
++    }
++    vlc_player_Unlock(mp->player);
++    return ready;
++}
++
++int libvlc_media_player_prepare_noise_reduction(libvlc_media_player_t *mp)
++{
++    vlc_player_Lock(mp->player);
++    int ret = 0;
++    if (!var_GetBool(mp, "rd-rnnoise-prepared")) {
++        if (vlc_player_IsStarted(mp->player) || !module_exists("rnnoise"))
++            ret = -1;
++        else {
++            ret = rd_set_filter(mp, "rnnoise", true);
++            if (!ret) var_SetBool(mp, "rd-rnnoise-prepared", true);
++        }
++    }
++    vlc_player_Unlock(mp->player);
++    return ret;
++}
++
++int libvlc_media_player_set_noise_reduction(libvlc_media_player_t *mp, bool enabled)
++{
++    vlc_player_Lock(mp->player);
++    if (!var_GetBool(mp, "rd-rnnoise-prepared")) {
++        vlc_player_Unlock(mp->player);
++        return -1;
++    }
++    int ret = var_SetBool(mp, "rd-rnnoise-enabled", enabled);
++    audio_output_t *aout = vlc_player_aout_Hold(mp->player);
++    if (aout) {
++        if (ret == VLC_SUCCESS) ret = var_SetBool(aout, "rd-rnnoise-enabled", enabled);
++        aout_Release(aout);
++    }
++    vlc_player_Unlock(mp->player);
++    return ret == VLC_SUCCESS ? 0 : -1;
++}
++
+ int libvlc_media_player_set_equalizer( libvlc_media_player_t *p_mi, libvlc_equalizer_t *p_equalizer )
+ {
+     char bands[EQZ_BANDS_MAX * EQZ_BAND_VALUE_SIZE + 1];
+@@ -2241,7 +2318,8 @@
+         var_SetFloat( p_mi, "equalizer-preamp", p_equalizer->f_preamp );
+         var_SetString( p_mi, "equalizer-bands", bands );
+     }
+-    var_SetString( p_mi, "audio-filter", p_equalizer ? "equalizer" : "" );
++    vlc_player_Lock(p_mi->player);
++    int filter_result = rd_set_filter(p_mi, "equalizer", p_equalizer != NULL);
+ 
+     audio_output_t *p_aout = vlc_player_aout_Hold( p_mi->player );
+     if( p_aout != NULL )
+@@ -2252,11 +2330,11 @@
+             var_SetString( p_aout, "equalizer-bands", bands );
+         }
+ 
+-        var_SetString( p_aout, "audio-filter", p_equalizer ? "equalizer" : "" );
+         aout_Release(p_aout);
+     }
+ 
+-    return 0;
++    vlc_player_Unlock(p_mi->player);
++    return filter_result;
+ }
+ 
+ 
+--- a/lib/libvlc.sym
++++ b/lib/libvlc.sym
+@@ -305,3 +305,7 @@
+ libvlc_picture_list_count
+ libvlc_picture_list_destroy
+ libvlc_abi_version
++
++libvlc_media_player_prepare_noise_reduction
++libvlc_media_player_set_noise_reduction
++libvlc_media_player_noise_reduction_available
+--- a/include/vlc/libvlc_media_player.h
++++ b/include/vlc/libvlc_media_player.h
+@@ -3499,6 +3499,13 @@
+  */
+ LIBVLC_API float libvlc_audio_equalizer_get_amp_at_index( libvlc_equalizer_t *p_equalizer, unsigned u_band );
+ 
++/** Whether a prepared RNNoise filter is available in the current audio output. */
++LIBVLC_API bool libvlc_media_player_noise_reduction_available(libvlc_media_player_t *mp);
++/** Prepare the persistent RNNoise filter before starting playback. Returns 0 or -1. */
++LIBVLC_API int libvlc_media_player_prepare_noise_reduction(libvlc_media_player_t *mp);
++/** Switch wet/dry audio without rebuilding the filter chain. Returns 0 or -1. */
++LIBVLC_API int libvlc_media_player_set_noise_reduction(libvlc_media_player_t *mp, bool enabled);
++
+ /**
+  * Apply new equalizer settings to a media player.
+  *
+--- a/modules/audio_filter/rnnoise.c
++++ b/modules/audio_filter/rnnoise.c
+@@ -29,146 +29,72 @@
+ 
+ #include <rnnoise.h>
+ 
+-typedef struct
++#include "rnnoise_frame.h"
++
++typedef struct { rd_rnnoise frames; vlc_tick_t next_pts; } filter_sys_t;
++
++static void Flush(filter_t *filter)
+ {
+-    DenoiseState **p_sts;
+-    float *p_scratch_buffer;
+-    bool b_first;
+-} filter_sys_t;
+-
+-static void
+-Flush(filter_t *p_filter)
+-{
+-    filter_sys_t *p_sys = p_filter->p_sys;
+-
+-    if (p_sys->p_sts) {
+-        int i_channels = p_filter->fmt_in.audio.i_channels;
+-        for (int i = 0; i < i_channels; i++) {
+-            rnnoise_destroy( p_sys->p_sts[i] );
+-        }
+-        free(p_sys->p_sts);
+-        p_sys->p_sts = NULL;
+-        p_sys->b_first = true;
+-    }
++    filter_sys_t *sys = filter->p_sys;
++    rd_rnnoise_reset(&sys->frames);
++    sys->next_pts = VLC_TICK_INVALID;
+ }
+ 
+-static DenoiseState **init_denoise_state(unsigned i_channels)
++static block_t *Process(filter_t *filter, block_t *block)
+ {
+-    DenoiseState **p_sts = malloc(i_channels * sizeof(DenoiseState *));
+-    if (unlikely(!p_sts))
+-        return NULL;
+-
+-    for (unsigned i = 0; i < i_channels; i++)
+-    {
+-        p_sts[i] = rnnoise_create(NULL);
+-        if (unlikely(!p_sts[i]))
+-        {
+-            for (unsigned j = 0; j < i; j++)
+-                rnnoise_destroy( p_sts[j] );
+-
+-            return NULL;
+-        }
+-    }
+-
+-    return p_sts;
++    filter_sys_t *sys = filter->p_sys;
++    if (block->i_flags & BLOCK_FLAG_DISCONTINUITY) Flush(filter);
++    sys->next_pts = block->i_pts == VLC_TICK_INVALID ? VLC_TICK_INVALID
++        : block->i_pts + vlc_tick_from_samples(block->i_nb_samples, 48000);
++    rd_rnnoise_process(&sys->frames, (float *)block->p_buffer,
++                      block->i_nb_samples,
++                      var_InheritBool(filter, "rd-rnnoise-enabled"));
++    return block;
+ }
+ 
+-
+-#define FRAME_SIZE 480
+-
+-static block_t *Process(filter_t *p_filter, block_t *p_block)
++static block_t *Drain(filter_t *filter)
+ {
+-    filter_sys_t *p_sys = p_filter->p_sys;
+-    float *p_buffer = (float *)p_block->p_buffer;
+-    const int i_channels = p_filter->fmt_in.audio.i_channels;
+-
+-    float *tmp = p_sys->p_scratch_buffer;
+-
+-    if (unlikely(p_sys->p_sts == NULL))
+-    {
+-        /* Can happen after a flush */
+-        p_sys->p_sts = init_denoise_state(i_channels);
+-        if (p_sys->p_sts == NULL)
+-            return p_block;
+-    }
+-
+-    for (int i_nb_samples = p_block->i_nb_samples; i_nb_samples > 0; i_nb_samples -= FRAME_SIZE)
+-    {
+-        /* handle case where we have fewer than FRAME_SIZE samples left to process */
+-        const unsigned frame_size = __MIN(FRAME_SIZE, i_nb_samples);
+-
+-        /* rnnoise processes blocks of 480 samples, and expects input to be in the 32768 scale. */
+-        for (unsigned i = 0; i < frame_size; i++) {
+-            for (int j = 0; j < i_channels; j++) {
+-                tmp[i + j * frame_size] = p_buffer[i * i_channels + j] * 32768.f;
+-            }
+-        }
+-
+-        for (int i = 0; i < i_channels; i++) {
+-            rnnoise_process_frame(p_sys->p_sts[i], tmp + i * frame_size , tmp + i * frame_size);
+-        }
+-
+-        /* Skip writing first frame to output (as per the examples) I guess to prime rnnoise? */
+-        if(!p_sys->b_first)
+-        {
+-            for (unsigned i = 0; i < frame_size; i++) {
+-                for (int j = 0; j < i_channels; j++) {
+-                    p_buffer[i * i_channels + j] = tmp[i + j * frame_size] / 32768.f;
+-                }
+-            }
+-        }
+-        else
+-        {
+-            p_sys->b_first = false;
+-        }
+-        p_buffer += frame_size * i_channels;
+-    }
+-
+-    return p_block;
++    filter_sys_t *sys = filter->p_sys;
++    if (sys->next_pts == VLC_TICK_INVALID) return NULL;
++    block_t *tail = block_Alloc(RD_DELAY * sys->frames.channels * sizeof(float));
++    if (!tail) { Flush(filter); return NULL; }
++    memset(tail->p_buffer, 0, tail->i_buffer);
++    tail->i_nb_samples = RD_DELAY;
++    tail->i_pts = sys->next_pts;
++    tail->i_length = vlc_tick_from_samples(RD_DELAY, 48000);
++    rd_rnnoise_process(&sys->frames, (float *)tail->p_buffer, RD_DELAY,
++                      var_InheritBool(filter, "rd-rnnoise-enabled"));
++    Flush(filter);
++    return tail;
+ }
+ 
+-static void Close( filter_t *obj )
++static void Close(filter_t *filter)
+ {
+-    filter_t *p_filter = (filter_t *)obj;
+-    filter_sys_t *p_sys = p_filter->p_sys;
+-    Flush(p_filter);
+-    free(p_sys->p_scratch_buffer);
++    filter_sys_t *sys = filter->p_sys;
++    var_SetBool(vlc_object_parent(filter), "rd-rnnoise-active", false);
++    rd_rnnoise_destroy(&sys->frames);
+ }
+ 
+-static int Open (vlc_object_t *obj)
++static int Open(vlc_object_t *obj)
+ {
+-    filter_t *p_filter = (filter_t *)obj;
+-
+-    filter_sys_t *p_sys = p_filter->p_sys = vlc_obj_malloc(VLC_OBJECT(p_filter), sizeof(*p_sys));
+-    if(unlikely(!p_sys))
+-        return VLC_ENOMEM;
+-
+-    p_sys->b_first = true;
+-
+-    int i_channels = p_filter->fmt_in.audio.i_channels;
+-    p_sys->p_sts = init_denoise_state(i_channels);
+-    if (unlikely(!p_sys->p_sts)) {
+-        vlc_obj_free(VLC_OBJECT(p_filter), p_sys);
++    filter_t *filter = (filter_t *)obj;
++    filter_sys_t *sys = vlc_obj_malloc(obj, sizeof(*sys));
++    if (!sys) return VLC_ENOMEM;
++    if (!rd_rnnoise_init(&sys->frames, filter->fmt_in.audio.i_channels)) {
++        vlc_obj_free(obj, sys);
+         return VLC_ENOMEM;
+     }
+-
+-    p_sys->p_scratch_buffer = malloc(FRAME_SIZE * i_channels * sizeof(*p_sys->p_scratch_buffer));
+-    if (unlikely(!p_sys->p_scratch_buffer)) {
+-        Flush(p_filter);
+-        vlc_obj_free(VLC_OBJECT(p_filter), p_sys);
+-        return VLC_ENOMEM;
+-    }
+-
+-    p_filter->fmt_in.audio.i_format = VLC_CODEC_FL32;
+-    aout_FormatPrepare(&p_filter->fmt_in.audio);
+-    p_filter->fmt_out.audio = p_filter->fmt_in.audio;
+-
+-    static const struct vlc_filter_operations filter_ops =
+-    {
+-        .filter_audio = Process, .flush = Flush, .close = Close,
++    sys->next_pts = VLC_TICK_INVALID;
++    filter->p_sys = sys;
++    filter->fmt_in.audio.i_format = VLC_CODEC_FL32;
++    filter->fmt_in.audio.i_rate = 48000;
++    aout_FormatPrepare(&filter->fmt_in.audio);
++    filter->fmt_out.audio = filter->fmt_in.audio;
++    static const struct vlc_filter_operations ops = {
++        .filter_audio = Process, .drain_audio = Drain, .flush = Flush, .close = Close,
+     };
+-    p_filter->ops = &filter_ops;
+-
++    filter->ops = &ops;
++    var_SetBool(vlc_object_parent(filter), "rd-rnnoise-active", true);
+     return VLC_SUCCESS;
+ }
+ 
+--- a/src/audio_output/output.c
++++ b/src/audio_output/output.c
+@@ -366,6 +366,8 @@
+     }
+     free (str);
+ 
++    var_Create(aout, "rd-rnnoise-active", VLC_VAR_BOOL);
++    var_Create(aout, "rd-rnnoise-enabled", VLC_VAR_BOOL | VLC_VAR_DOINHERIT);
+     var_Create (aout, "audio-filter", VLC_VAR_STRING | VLC_VAR_DOINHERIT);
+     var_AddCallback (aout, "audio-filter", FilterCallback, NULL);
+     var_Change(aout, "audio-filter", VLC_VAR_SETTEXT, _("Audio filters"));
+--- a/contrib/src/rnnoise/rules.mak
++++ b/contrib/src/rnnoise/rules.mak
+@@ -16,6 +16,7 @@
+ 
+ rnnoise: rnnoise-$(RNNOISE_VERSION).tar.gz .sum-rnnoise
+ 	$(UNPACK)
++	$(APPLY) $(SRC)/rnnoise/rd-reset.patch
+ 	# $(call update_autoconfig,.)
+ 	$(MOVE)
+ 
+--- a/extras/tools/tools.mak
++++ b/extras/tools/tools.mak
+@@ -197,8 +197,8 @@
+ 	$(MOVE)
+ 
+ .buildzstd: zstd
+-	+$(MAKE) -C $</programs
+-	+$(MAKE) -C $</programs install prefix=$(PREFIX)
++	+$(MAKE) -C $</programs HAVE_LZ4=0 HAVE_LZMA=0
++	+$(MAKE) -C $</programs HAVE_LZ4=0 HAVE_LZMA=0 install prefix=$(PREFIX)
+ 	touch $@
+ 
+ CLEAN_PKG += zstd
+--- a/contrib/src/main.mak
++++ b/contrib/src/main.mak
+@@ -520,7 +520,7 @@
+ # When using a single command, make might take a shortcut and fork/exec
+ # itself instead of relying on a shell, but a bug in gnulib ends up
+ # trying to execute a cmake folder when one is found in the PATH
+-CMAKEBUILD = env cmake --build $(BUILD_DIR)
++CMAKEBUILD = env cmake --build $(BUILD_DIR) --parallel 4
+ CMAKEINSTALL = env cmake --install $(BUILD_DIR)
+ CMAKECLEAN = rm -f $(BUILD_DIR)/CMakeCache.txt
+ CMAKECONFIG = cmake -S $< -B $(BUILD_DIR) \
+@@ -621,7 +621,7 @@
+ 	-Dc_args="$(BUILDCFLAGS)" -Dc_link_args="$(BUILDLDFLAGS)" -Dcpp_args="$(BUILDCXXFLAGS)" -Dcpp_link_args="$(BUILDLDFLAGS)"
+ 
+ MESONCLEAN = rm -rf $(BUILD_DIR)/meson-private
+-MESONBUILD = meson compile -C $(BUILD_DIR) $(MESON_BUILD) $(MESONCOMPILEFLAGS) && meson install -C $(BUILD_DIR)
++MESONBUILD = meson compile -j4 -C $(BUILD_DIR) $(MESON_BUILD) $(MESONCOMPILEFLAGS) && meson install --no-rebuild -C $(BUILD_DIR)
+ 
+ # shared Qt config
+ ifeq ($(call system_tool_majmin, qmake6 -query QT_VERSION 2>/dev/null),$(QTBASE_VERSION_MAJOR))

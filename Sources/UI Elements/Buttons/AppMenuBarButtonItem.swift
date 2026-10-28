@@ -10,17 +10,52 @@
 
 import UIKit
 
+/// The branded app icon, drawn as a rounded square and kept full-colour.
+/// `LaunchIcon` is the Osho artwork exported with rounded corners; it is
+/// resized here so the bar button does not stretch the 480 px asset.
+enum AppIconArtwork {
+    static func rounded(pointSize: CGFloat) -> UIImage? {
+        guard let icon = UIImage(named: "LaunchIcon") else {
+            return nil
+        }
+        let rect = CGRect(x: 0, y: 0, width: pointSize, height: pointSize)
+        let renderer = UIGraphicsImageRenderer(size: rect.size)
+        let image = renderer.image { _ in
+            UIBezierPath(roundedRect: rect, cornerRadius: pointSize * 0.2237).addClip()
+            icon.draw(in: rect)
+        }
+        return image.withRenderingMode(.alwaysOriginal)
+    }
+}
+
 @objc(VLCAppMenuBarButtonItem)
 class AppMenuBarButtonItem: UIBarButtonItem {
 
+    enum Style {
+        /// The app icon plus the menu (the upstream bar-button shape).
+        case appIcon
+        /// A chevron that opens the same menu, used when the app icon is static.
+        case dropdown
+    }
+
     private weak var presenter: UIViewController?
 
-    @objc init(presenter: UIViewController) {
+    @objc convenience init(presenter: UIViewController) {
+        self.init(presenter: presenter, style: .appIcon)
+    }
+
+    init(presenter: UIViewController, style: Style) {
         self.presenter = presenter
         super.init()
 
-        image = UIImage(named: "MenuCone")
-        accessibilityLabel = NSLocalizedString("Settings", comment: "")
+        switch style {
+        case .appIcon:
+            image = AppIconArtwork.rounded(pointSize: 26) ?? UIImage(named: "MenuCone")
+            accessibilityLabel = NSLocalizedString("Settings", comment: "")
+        case .dropdown:
+            image = UIImage(systemName: "chevron.down")
+            accessibilityLabel = NSLocalizedString("MENU", comment: "Opens the app menu")
+        }
         accessibilityIdentifier = VLCAccessibilityIdentifier.settings
 
         menu = buildMenu()
@@ -32,21 +67,10 @@ class AppMenuBarButtonItem: UIBarButtonItem {
 
     private func buildMenu() -> UIMenu {
         let about = UIAction(title: NSLocalizedString("SETTINGS_ABOUT", comment: ""),
-                             image: UIImage(named: "MenuCone")) { [weak self] _ in
+                             image: AppIconArtwork.rounded(pointSize: 22) ?? UIImage(named: "MenuCone")) { [weak self] _ in
             self?.showAbout()
         }
         about.accessibilityIdentifier = VLCAccessibilityIdentifier.about
-
-        let documentation = UIAction(title: NSLocalizedString("SETTINGS_DOCUMENTATION", comment: ""),
-                                     image: UIImage(systemName: "book")) { [weak self] _ in
-            self?.showDocumentation()
-        }
-
-        let donation: UIMenuElement = UIAction(title: NSLocalizedString("SETTINGS_DONATE", comment: ""),
-                                               image: UIImage(systemName: "heart")) { [weak self] _ in
-            self?.showDonation()
-        }
-        donation.subtitle = NSLocalizedString("SETTINGS_DONATE_LONG", comment: "")
 
         let settings = UIAction(title: NSLocalizedString("Settings", comment: ""),
                                 image: UIImage(systemName: "gearshape")) { [weak self] _ in
@@ -55,30 +79,13 @@ class AppMenuBarButtonItem: UIBarButtonItem {
         settings.accessibilityIdentifier = VLCAccessibilityIdentifier.openSettings
 
         let settingsSection = UIMenu(title: "", options: .displayInline, children: [settings])
-        return UIMenu(title: "", children: [about, documentation, donation, settingsSection])
+        return UIMenu(title: "", children: [about, settingsSection])
     }
 
     private func showAbout() {
         let aboutController = AboutController()
         let aboutNavigationController = AboutNavigationController(rootViewController: aboutController)
         presenter?.present(aboutNavigationController, animated: true)
-    }
-
-    private func showDocumentation() {
-        UIApplication.shared.open(URL(string: "https://sandalbar.online")!)
-    }
-
-    private func showDonation() {
-        let donationController = VLCDonationViewController(nibName: "VLCDonationViewController", bundle: nil)
-        let donationNavigationController = VLCDonationNavigationController(rootViewController: donationController)
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            donationNavigationController.modalPresentationStyle = .popover
-            donationNavigationController.popoverPresentationController?.barButtonItem = self
-        } else {
-            donationNavigationController.modalPresentationStyle = .fullScreen
-        }
-        donationNavigationController.modalTransitionStyle = .flipHorizontal
-        presenter?.present(donationNavigationController, animated: true)
     }
 
     private func showSettings() {
@@ -92,5 +99,40 @@ class AppMenuBarButtonItem: UIBarButtonItem {
             let settingsNavigationController = UINavigationController(rootViewController: settingsController)
             presenter.present(settingsNavigationController, animated: true)
         })
+    }
+}
+
+/// The static app-logo header item. It deliberately has no action: the header
+/// menu lives on the right (`AppMenuBarButtonItem.Style.dropdown`).
+@objc(VLCAppLogoBarButtonItem)
+final class AppLogoBarButtonItem: UIBarButtonItem {
+
+    override init() {
+        super.init()
+
+        let iconView = UIImageView(image: AppIconArtwork.rounded(pointSize: 26))
+        iconView.contentMode = .scaleAspectFit
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.isUserInteractionEnabled = false
+
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.isUserInteractionEnabled = false
+        container.addSubview(iconView)
+        NSLayoutConstraint.activate([
+            container.widthAnchor.constraint(equalToConstant: 26),
+            container.heightAnchor.constraint(equalToConstant: 26),
+            iconView.topAnchor.constraint(equalTo: container.topAnchor),
+            iconView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            iconView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            iconView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        customView = container
+
+        isAccessibilityElement = false
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 }

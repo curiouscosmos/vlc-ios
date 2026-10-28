@@ -40,6 +40,10 @@
 #endif
 
 #if TARGET_OS_IOS
+    NSURL *_pendingDiscourseDeepLink;
+#endif
+
+#if TARGET_OS_IOS
     VLCRendererDiscovererManager *_rendererDiscovererManager;
 #endif
 }
@@ -167,6 +171,14 @@
     _tabBarController = tabBarController;
     _tabCoordinator = [[TabBarCoordinator alloc] initWithTabBarController:_tabBarController mediaLibraryService:self.mediaLibraryService];
 
+#if TARGET_OS_IOS
+    if (_pendingDiscourseDeepLink) {
+        NSURL *url = _pendingDiscourseDeepLink;
+        _pendingDiscourseDeepLink = nil;
+        [_tabCoordinator handleDiscourseDeepLink:url];
+    }
+#endif
+
     _playerDisplayController = [[VLCPlayerDisplayController alloc] init];
     [_tabBarController.view addSubview:_playerDisplayController.view];
     _playerDisplayController.view.directionalLayoutMargins = NSDirectionalEdgeInsetsMake(0, 0, tabBarController.tabBar.frame.size.height, 0);
@@ -200,6 +212,22 @@
 {
     [_tabCoordinator showTabForMedia:media];
 }
+
+#if TARGET_OS_IOS
+- (BOOL)handleDiscourseDeepLink:(NSURL *)url
+{
+    if (!url || ![VLCDiscourseDeepLink canHandle:url]) {
+        return NO;
+    }
+    if (_tabCoordinator) {
+        return [_tabCoordinator handleDiscourseDeepLink:url];
+    }
+    // The passcode screen can delay the tab bar setup; keep the link until
+    // `setTabBarController:` runs.
+    _pendingDiscourseDeepLink = url;
+    return YES;
+}
+#endif
 
 - (VLCMLMedia *)mediaForUserActivity:(NSUserActivity *)userActivity
 {

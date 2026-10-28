@@ -8,8 +8,8 @@
  * Rajneesh Discourse is free software under the GPLv2 (or later) and MPLv2,
  * like the upstream project it is derived from. See COPYING.
  *
- * The Audio Mixer's control panel: the follow switch, the current track with a
- * play/pause button, the loop switch and the mixer-only volume. It renders
+ * The Audio Mixer's collapsible control card: enable, loop, playback menu
+ * and mixer-only volume. It renders
  * `DiscourseAudioMixer` state and reports intent through closures, so the
  * screen owns every mutation.
  *****************************************************************************/
@@ -21,24 +21,22 @@ final class DiscourseMixerPanelView: UIView {
     var onTogglePlayback: (() -> Void)?
     var onToggleLoop: ((Bool) -> Void)?
     var onVolumeChange: ((Int) -> Void)?
+    var onLayoutChange: (() -> Void)?
 
     private let cardView = UIView()
     private let contentStack = UIStackView()
-
-    private let enabledSwitch = UISwitch()
-    private let enabledLabel = UILabel()
-    private let enabledDetailLabel = UILabel()
-
-    private let nowPlayingLabel = UILabel()
-    private let trackLabel = UILabel()
-    private let playButton = UIButton(type: .system)
-
-    private let loopSwitch = UISwitch()
-    private let loopLabel = UILabel()
-
-    private let volumeIconView = UIImageView()
-    private let volumeSlider = UISlider()
+    private let controlsStack = UIStackView()
+    private let headingButton = UIButton(type: .system)
+    private let enabledButton = UIButton(type: .system)
+    private let loopButton = UIButton(type: .system)
+    private let menuButton = UIButton(type: .system)
+    private let volumeTitle = UILabel()
     private let volumeLabel = UILabel()
+    private let volumeSlider = UISlider()
+    private let minusButton = UIButton(type: .system)
+    private let plusButton = UIButton(type: .system)
+    private var enabled = false
+    private var looping = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -49,178 +47,145 @@ final class DiscourseMixerPanelView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    // MARK: - Setup
-
     private func setup() {
-        backgroundColor = .clear
-
-        cardView.translatesAutoresizingMaskIntoConstraints = false
         cardView.layer.cornerRadius = 16
         cardView.layer.cornerCurve = .continuous
         cardView.layer.borderWidth = 1
-
-        contentStack.translatesAutoresizingMaskIntoConstraints = false
         contentStack.axis = .vertical
-        contentStack.spacing = 14
+        contentStack.spacing = 16
+        controlsStack.axis = .vertical
+        controlsStack.spacing = 12
 
-        enabledLabel.text = NSLocalizedString("MIXER_ENABLE_TITLE",
-                                              comment: "Switch that makes the Audio Mixer follow the main player")
-        enabledLabel.font = UIFont.preferredFont(forTextStyle: .body)
-        enabledLabel.adjustsFontForContentSizeCategory = true
+        var heading = UIButton.Configuration.plain()
+        heading.title = NSLocalizedString("MIXER_PANEL_TITLE", value: "Background Music Mixer", comment: "Mixer card heading")
+        heading.image = UIImage(systemName: "slider.horizontal.3")
+        heading.imagePadding = 12
+        heading.contentInsets = .zero
+        heading.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+            var attributes = attributes
+            attributes.font = UIFont.preferredFont(forTextStyle: .headline)
+            return attributes
+        }
+        headingButton.configuration = heading
+        headingButton.contentHorizontalAlignment = .leading
+        headingButton.addTarget(self, action: #selector(toggleExpanded), for: .touchUpInside)
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.up"))
+        chevron.tag = 1
+        chevron.contentMode = .scaleAspectFit
+        headingButton.addSubview(chevron)
+        chevron.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            chevron.trailingAnchor.constraint(equalTo: headingButton.trailingAnchor),
+            chevron.centerYAnchor.constraint(equalTo: headingButton.centerYAnchor),
+            chevron.widthAnchor.constraint(equalToConstant: 16)
+        ])
+        headingButton.configuration?.contentInsets.trailing = 24
 
-        enabledDetailLabel.text = NSLocalizedString("MIXER_ENABLE_DETAIL",
-                                                    comment: "Explanation under the Audio Mixer switch")
-        enabledDetailLabel.font = UIFont.preferredFont(forTextStyle: .footnote)
-        enabledDetailLabel.adjustsFontForContentSizeCategory = true
-        enabledDetailLabel.numberOfLines = 0
+        enabledButton.accessibilityIdentifier = "discourseMixerEnabled"
+        enabledButton.addTarget(self, action: #selector(enabledChanged), for: .touchUpInside)
+        loopButton.accessibilityLabel = NSLocalizedString("MIXER_LOOP_TITLE", comment: "Loop mixer track")
+        loopButton.addTarget(self, action: #selector(loopChanged), for: .touchUpInside)
+        menuButton.setImage(UIImage(systemName: "ellipsis"), for: .normal)
+        menuButton.transform = CGAffineTransform(rotationAngle: .pi / 2)
+        menuButton.accessibilityLabel = NSLocalizedString("MORE_OPTIONS", value: "More options", comment: "Mixer options")
+        menuButton.showsMenuAsPrimaryAction = true
+        let buttons = UIStackView(arrangedSubviews: [enabledButton, loopButton, menuButton])
+        buttons.spacing = 8
+        enabledButton.widthAnchor.constraint(equalTo: loopButton.widthAnchor).isActive = true
+        menuButton.widthAnchor.constraint(equalToConstant: 44).isActive = true
 
-        enabledSwitch.accessibilityLabel = enabledLabel.text
-        enabledSwitch.addTarget(self, action: #selector(enabledChanged), for: .valueChanged)
-
-        let enabledText = UIStackView(arrangedSubviews: [enabledLabel, enabledDetailLabel])
-        enabledText.axis = .vertical
-        enabledText.spacing = 2
-        let enabledRow = UIStackView(arrangedSubviews: [enabledText, enabledSwitch])
-        enabledRow.axis = .horizontal
-        enabledRow.alignment = .center
-        enabledRow.spacing = 12
-
-        nowPlayingLabel.text = NSLocalizedString("MIXER_NOW_PLAYING",
-                                                 comment: "Caption above the track currently in the Audio Mixer")
-        nowPlayingLabel.font = UIFont.preferredFont(forTextStyle: .caption1)
-        nowPlayingLabel.adjustsFontForContentSizeCategory = true
-
-        trackLabel.font = UIFont.preferredFont(forTextStyle: .body)
-        trackLabel.adjustsFontForContentSizeCategory = true
-        trackLabel.numberOfLines = 2
-        trackLabel.lineBreakMode = .byTruncatingTail
-
-        playButton.translatesAutoresizingMaskIntoConstraints = false
-        playButton.addTarget(self, action: #selector(playTapped), for: .touchUpInside)
-        playButton.tintColor = .white
-        playButton.layer.cornerRadius = 22
-        playButton.layer.cornerCurve = .continuous
-        playButton.widthAnchor.constraint(equalToConstant: 44).isActive = true
-        playButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
-
-        let nowPlayingText = UIStackView(arrangedSubviews: [nowPlayingLabel, trackLabel])
-        nowPlayingText.axis = .vertical
-        nowPlayingText.spacing = 2
-        let nowPlayingRow = UIStackView(arrangedSubviews: [nowPlayingText, playButton])
-        nowPlayingRow.axis = .horizontal
-        nowPlayingRow.alignment = .center
-        nowPlayingRow.spacing = 12
-
-        loopLabel.text = NSLocalizedString("MIXER_LOOP_TITLE",
-                                           comment: "Switch that repeats the Audio Mixer's track")
-        loopLabel.font = UIFont.preferredFont(forTextStyle: .body)
-        loopLabel.adjustsFontForContentSizeCategory = true
-        loopSwitch.accessibilityLabel = loopLabel.text
-        loopSwitch.addTarget(self, action: #selector(loopChanged), for: .valueChanged)
-        let loopRow = UIStackView(arrangedSubviews: [loopLabel, loopSwitch])
-        loopRow.axis = .horizontal
-        loopRow.alignment = .center
-        loopRow.spacing = 12
-
-        volumeIconView.translatesAutoresizingMaskIntoConstraints = false
-        volumeIconView.image = UIImage(systemName: "speaker.wave.2")
-        volumeIconView.contentMode = .scaleAspectFit
-        volumeIconView.setContentHuggingPriority(.required, for: .horizontal)
-        volumeIconView.widthAnchor.constraint(equalToConstant: 20).isActive = true
-
+        volumeTitle.text = NSLocalizedString("MIXER_VOLUME_TITLE", comment: "Mixer volume")
+        for label in [volumeTitle, volumeLabel] {
+            label.font = UIFont.preferredFont(forTextStyle: .subheadline)
+            label.adjustsFontForContentSizeCategory = true
+        }
+        volumeLabel.textAlignment = .right
+        let labels = UIStackView(arrangedSubviews: [volumeTitle, volumeLabel])
+        labels.spacing = 8
         volumeSlider.minimumValue = Float(DiscourseAudioMixer.minimumVolume)
         volumeSlider.maximumValue = Float(DiscourseAudioMixer.maximumVolume)
-        volumeSlider.isContinuous = true
-        volumeSlider.accessibilityLabel = NSLocalizedString("MIXER_VOLUME_TITLE",
-                                                            comment: "Accessibility label of the Audio Mixer volume slider")
+        volumeSlider.accessibilityLabel = volumeTitle.text
         volumeSlider.addTarget(self, action: #selector(volumeChanged), for: .valueChanged)
-
-        volumeLabel.font = UIFont.monospacedDigitSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .footnote).pointSize,
-                                                            weight: .medium)
-        volumeLabel.adjustsFontForContentSizeCategory = true
-        volumeLabel.textAlignment = .right
-        volumeLabel.setContentHuggingPriority(.required, for: .horizontal)
-        volumeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
-
-        let volumeRow = UIStackView(arrangedSubviews: [volumeIconView, volumeSlider, volumeLabel])
-        volumeRow.axis = .horizontal
-        volumeRow.alignment = .center
-        volumeRow.spacing = 10
-
-        contentStack.addArrangedSubview(enabledRow)
-        contentStack.addArrangedSubview(nowPlayingRow)
-        contentStack.addArrangedSubview(loopRow)
-        contentStack.addArrangedSubview(volumeRow)
-
+        minusButton.setImage(UIImage(systemName: "minus"), for: .normal)
+        plusButton.setImage(UIImage(systemName: "plus"), for: .normal)
+        minusButton.accessibilityLabel = NSLocalizedString("MIXER_VOLUME_DECREASE", value: "Decrease mixer volume", comment: "Volume button")
+        plusButton.accessibilityLabel = NSLocalizedString("MIXER_VOLUME_INCREASE", value: "Increase mixer volume", comment: "Volume button")
+        minusButton.addTarget(self, action: #selector(stepVolume(_:)), for: .touchUpInside)
+        plusButton.addTarget(self, action: #selector(stepVolume(_:)), for: .touchUpInside)
+        let sliderRow = UIStackView(arrangedSubviews: [minusButton, volumeSlider, plusButton])
+        sliderRow.spacing = 12
+        sliderRow.alignment = .center
+        for button in [headingButton, enabledButton, loopButton, minusButton, plusButton] {
+            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+        }
+        for button in [minusButton, plusButton] {
+            button.widthAnchor.constraint(equalToConstant: 44).isActive = true
+        }
+        [buttons, labels, sliderRow].forEach { controlsStack.addArrangedSubview($0) }
+        [headingButton, controlsStack].forEach { contentStack.addArrangedSubview($0) }
         addSubview(cardView)
         cardView.addSubview(contentStack)
-
+        cardView.translatesAutoresizingMaskIntoConstraints = false
+        contentStack.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             cardView.topAnchor.constraint(equalTo: topAnchor),
             cardView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             cardView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             cardView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
-
             contentStack.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 16),
-            contentStack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 16),
-            contentStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
-            contentStack.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -16)
+            contentStack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 12),
+            contentStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -12),
+            contentStack.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -12)
         ])
-
         updateTheme()
     }
 
-    // MARK: - Content
-
-    func configure(enabled: Bool,
-                   isPlaying: Bool,
-                   title: String?,
-                   isLooping: Bool,
-                   volume: Int,
-                   hasSelection: Bool) {
-        enabledSwitch.setOn(enabled, animated: false)
-        loopSwitch.setOn(isLooping, animated: false)
-
-        let placeholder = NSLocalizedString("MIXER_NO_TRACK",
-                                            comment: "Shown in the Audio Mixer panel when no track is selected")
-        trackLabel.text = title ?? placeholder
-        trackLabel.alpha = title == nil ? 0.6 : 1
-        playButton.isEnabled = hasSelection
-        updatePlayButton(isPlaying: isPlaying)
-        playButton.alpha = hasSelection ? 1 : 0.4
-
+    func configure(enabled: Bool, isPlaying: Bool, title: String?, isLooping: Bool,
+                   volume: Int, hasSelection: Bool) {
+        self.enabled = enabled
+        looping = isLooping
+        var primary = UIButton.Configuration.filled()
+        primary.title = enabled
+            ? NSLocalizedString("MIXER_ENABLE_TITLE", comment: "Mixer on")
+            : NSLocalizedString("MIXER_DISABLED_TITLE", value: "Mixer off", comment: "Mixer disabled")
+        primary.image = UIImage(systemName: isPlaying ? "pause.circle" : "play.circle")
+        primary.imagePadding = 8
+        primary.cornerStyle = .small
+        enabledButton.configuration = primary
+        enabledButton.accessibilityValue = enabled ? "1" : "0"
+        var loop = UIButton.Configuration.bordered()
+        loop.title = NSLocalizedString("MIXER_LOOP_BUTTON", value: "Loop", comment: "Loop button")
+        loop.image = UIImage(systemName: "repeat")
+        loop.imagePadding = 8
+        loop.cornerStyle = .small
+        loop.background.strokeWidth = 1
+        loopButton.configuration = loop
+        loopButton.accessibilityValue = isLooping ? "1" : "0"
+        let playTitle = isPlaying
+            ? NSLocalizedString("MIXER_PAUSE_ACCESSIBILITY", comment: "Pause mixer")
+            : NSLocalizedString("MIXER_PLAY_ACCESSIBILITY", comment: "Play mixer")
+        menuButton.menu = UIMenu(title: title ?? NSLocalizedString("MIXER_NO_TRACK", comment: "No track"), children: [
+            UIAction(title: playTitle, image: UIImage(systemName: isPlaying ? "pause" : "play"),
+                     attributes: hasSelection ? [] : .disabled) { [weak self] _ in self?.onTogglePlayback?() }
+        ])
         volumeSlider.value = Float(volume)
         volumeLabel.text = String(format: "%d%%", volume)
         volumeSlider.accessibilityValue = volumeLabel.text
-
         updateTheme()
     }
 
-    private func updatePlayButton(isPlaying: Bool) {
-        let symbol = isPlaying ? "pause.fill" : "play.fill"
-        playButton.setImage(UIImage(systemName: symbol,
-                                    withConfiguration: UIImage.SymbolConfiguration(pointSize: 16,
-                                                                                   weight: .bold)),
-                            for: .normal)
-        playButton.accessibilityLabel = isPlaying
-            ? NSLocalizedString("MIXER_PAUSE_ACCESSIBILITY",
-                                comment: "Accessibility label of the Audio Mixer pause button")
-            : NSLocalizedString("MIXER_PLAY_ACCESSIBILITY",
-                                comment: "Accessibility label of the Audio Mixer play button")
+    @objc private func toggleExpanded() {
+        controlsStack.isHidden.toggle()
+        (headingButton.viewWithTag(1) as? UIImageView)?.image = UIImage(systemName: controlsStack.isHidden ? "chevron.down" : "chevron.up")
+        onLayoutChange?()
     }
 
-    // MARK: - Actions
+    @objc private func enabledChanged() { onToggleEnabled?(!enabled) }
+    @objc private func loopChanged() { onToggleLoop?(!looping) }
 
-    @objc private func enabledChanged() {
-        onToggleEnabled?(enabledSwitch.isOn)
-    }
-
-    @objc private func loopChanged() {
-        onToggleLoop?(loopSwitch.isOn)
-    }
-
-    @objc private func playTapped() {
-        onTogglePlayback?()
+    @objc private func stepVolume(_ sender: UIButton) {
+        volumeSlider.value += sender === plusButton ? 1 : -1
+        volumeChanged()
     }
 
     @objc private func volumeChanged() {
@@ -230,23 +195,24 @@ final class DiscourseMixerPanelView: UIView {
         onVolumeChange?(value)
     }
 
-    // MARK: - Theme
-
     func updateTheme() {
         let colors = DiscourseColors.current
         cardView.backgroundColor = colors.trackSurface
         cardView.layer.borderColor = colors.trackBorder.cgColor
-        enabledLabel.textColor = colors.primaryText
-        enabledDetailLabel.textColor = colors.secondaryText
-        nowPlayingLabel.textColor = colors.secondaryText
-        trackLabel.textColor = colors.primaryText
-        loopLabel.textColor = colors.primaryText
-        playButton.backgroundColor = colors.accent
-        volumeIconView.tintColor = colors.secondaryText
+        headingButton.tintColor = colors.accent
+        headingButton.configuration?.baseForegroundColor = colors.primaryText
+        enabledButton.configuration?.baseBackgroundColor = colors.accent
+        enabledButton.configuration?.baseForegroundColor = .white
+        loopButton.configuration?.baseForegroundColor = colors.accent
+        loopButton.configuration?.baseBackgroundColor = looping ? colors.accent.withAlphaComponent(0.1) : .clear
+        loopButton.configuration?.background.strokeColor = colors.accent
+        menuButton.tintColor = colors.secondaryText
+        minusButton.tintColor = colors.accent
+        plusButton.tintColor = colors.accent
+        volumeTitle.textColor = colors.secondaryText
         volumeLabel.textColor = colors.secondaryText
         volumeSlider.minimumTrackTintColor = colors.accent
         volumeSlider.maximumTrackTintColor = colors.divider
-        enabledSwitch.onTintColor = colors.accent
-        loopSwitch.onTintColor = colors.accent
+        volumeSlider.thumbTintColor = colors.accent
     }
 }

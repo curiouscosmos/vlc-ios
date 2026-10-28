@@ -107,10 +107,8 @@ final class DiscourseLikeControl: UIControl {
         addSubview(stackView)
 
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: topAnchor),
-            stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stackView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
             heartView.widthAnchor.constraint(equalToConstant: 18),
             heartView.heightAnchor.constraint(equalToConstant: 18)
         ])
@@ -129,6 +127,7 @@ final class DiscourseLikeControl: UIControl {
         heartView.image = UIImage(systemName: isLiked ? "heart.fill" : "heart",
                                   withConfiguration: Self.symbolConfiguration)
         countLabel.text = DiscourseCountFormatter.string(for: likeCount)
+        countLabel.isHidden = likeCount == 0
         alpha = isPending ? 0.6 : 1
 
         updateAccessibility()

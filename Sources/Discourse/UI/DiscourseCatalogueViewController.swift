@@ -8,9 +8,10 @@
  * Rajneesh Discourse is free software under the GPLv2 (or later) and MPLv2,
  * like the upstream project it is derived from. See COPYING.
  *
- * The remote catalogue: a two-column grid of discourse cards with paging,
- * pull-to-refresh, a language filter and the most-liked sort. The last
- * language/sort selection is restored from DiscourseCatalogueFilterStore.
+ * The remote catalogue: a full-width list of discourse cards (artwork left,
+ * content right) with paging, pull-to-refresh, a language filter and the
+ * most-liked sort. The last language/sort selection is restored from
+ * DiscourseCatalogueFilterStore.
  *
  * Loading rules follow the brief: cached pages render instantly, a failed
  * request never erases rendered content, and a force refresh bypasses the cache.
@@ -155,18 +156,17 @@ final class DiscourseCatalogueViewController: UIViewController {
     }
 
     private func makeLayout() -> UICollectionViewCompositionalLayout {
-        let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(0.5),
-                                              heightDimension: .estimated(280))
+        let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
+                                              heightDimension: .estimated(112))
         let item = NSCollectionLayoutItem(layoutSize: itemSize)
-        item.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 8)
 
         let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
-                                               heightDimension: .estimated(280))
-        let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+                                               heightDimension: .estimated(112))
+        let group = NSCollectionLayoutGroup.vertical(layoutSize: groupSize, subitems: [item])
 
         let section = NSCollectionLayoutSection(group: group)
-        section.interGroupSpacing = 16
-        section.contentInsets = NSDirectionalEdgeInsets(top: 16, leading: 8, bottom: 24, trailing: 8)
+        section.interGroupSpacing = 12
+        section.contentInsets = NSDirectionalEdgeInsets(top: 16, leading: 16, bottom: 24, trailing: 16)
         return UICollectionViewCompositionalLayout(section: section)
     }
 
@@ -496,6 +496,7 @@ extension DiscourseCatalogueViewController: UICollectionViewDataSource {
             return cell
         }
         let discourse = discourses[indexPath.item]
+        card.layoutStyle = .list
         card.configure(with: discourse,
                        like: likeState(for: discourse),
                        downloads: downloadSummary(for: discourse))

@@ -423,6 +423,11 @@ class ActionSheetCell: UICollectionViewCell {
         icon.image = model.iconImage
         viewToPresent = model.viewToPresent
         identifier = model.cellIdentifier
+        if model.accessoryType == .toggleSwitch {
+            toggleSwitch.isEnabled = true
+            toggleSwitch.accessibilityLabel = model.title
+            toggleSwitch.accessibilityHint = model.cellIdentifier?.accessibilityHint
+        }
         accessibilityIdentifier = model.cellIdentifier?.rawValue
         // disclosure chevron is set as the default accessoryView if a viewController is present
         accessoryType = model.viewToPresent != nil && model.accessoryType != .popup && model.accessoryType != .none ? .disclosureChevron : model.accessoryType
@@ -450,9 +455,11 @@ class ActionSheetCell: UICollectionViewCell {
         stackView.backgroundColor = colors.background
     }
 
-    func setToggleSwitch(state: Bool) {
+    func setToggleSwitch(state: Bool, isEnabled: Bool = true, hint: String? = nil) {
         if accessoryType == .toggleSwitch {
             toggleSwitch.isOn = state
+            toggleSwitch.isEnabled = isEnabled
+            if let hint = hint { toggleSwitch.accessibilityHint = hint }
         }
     }
 

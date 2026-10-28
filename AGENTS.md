@@ -20,7 +20,7 @@ software under GPLv2+/GPLv3.
 
 - Product name: **Rajneesh Discourse**
 - Tagline: *"Your music-first local media player"*
-- Website / help: <https://sandalbar.online>
+- Website / help: <https://rajneeshdiscourse.com>
 - Android reference implementation: <https://github.com/curiouscosmos/mix-wave-android>
   (local checkout for comparison: `/Users/damanmehta/AI/vlc-android`, branch `master`).
   This iOS app is a **native reimplementation** of that behaviour, not a port.
@@ -80,6 +80,7 @@ export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 ```bash
 cd /Users/damanmehta/AI/vlc-ios
 export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+Buildsystem/RNNoise/build.sh # builds the local VLCKit artifact (long first build)
 pod install            # installs Pods/ and rewrites VLC.xcworkspace
 ```
 
@@ -137,9 +138,16 @@ latter belongs to the watch scheme and is refreshed by test runs, so installing 
 after a `-no-watch` build silently ships stale code. Check the timestamp and the
 scheme before reporting a visual regression.
 
-Bundle id default is `com.example.vlc-ios` (from
-`BUNDLE_IDENTIFIER_PREFIX=com.example` in `Buildsystem/SharedConfig.xcconfig`).
-Change that constant for device/distribution builds.
+The iOS app bundle id is `com.oshodiscourse`. Its Media Library widget uses
+`com.oshodiscourse.widget`, and the Share extension uses
+`com.oshodiscourse.shareextension`; both identifiers use one suffix after the
+app id for App Store validation. The Watch app uses
+`com.oshodiscourse.watchos` and declares `com.oshodiscourse` as its companion
+app. The shared app group is `group.com.oshodiscourse`. Other upstream targets
+may still derive identifiers from `BUNDLE_IDENTIFIER_PREFIX` in
+`Buildsystem/SharedConfig.xcconfig`. Podcast feed URL registration supports
+`feed`, `feeds`, and `itpc`; `pcast` is omitted because App Store validation
+rejects that scheme.
 
 > **Note on `pod install` and `project.pbxproj`.** New source files are registered
 > in `VLC.xcodeproj/project.pbxproj` (classic `PBXGroup`, *not* a synchronized
@@ -230,12 +238,13 @@ xcodebuild -workspace VLC.xcworkspace -scheme VLC-iOS-Tests -configuration Debug
 ```
 
 - Unit: `Buildsystem/Testing/Unit/` (`URLHandlerTests.swift`,
-  `PreferenceSettingTests.swift`, `GoogleDriveShortcutTests.m`,
+  `PreferenceSettingTests.swift`,
   `DiscourseAPITests.swift`, `DiscourseStoresTests.swift`,
   `DiscourseFormattingTests.swift`, `DiscoursePlaybackTests.swift`,
   `DiscourseSearchTests.swift`, `DiscourseHomeTests.swift`,
   `DiscoursePlaybackProgressTests.swift`, `DiscourseDownloadTests.swift`,
-  `DiscourseMixerTests.swift`).
+  `DiscourseMixerTests.swift`, `DiscourseDeepLinkTests.swift`,
+  `DiscourseNoiseReductionTests.m`).
 - UI: `Buildsystem/Testing/UI/` (`VLCTestMenu.swift` + helpers).
 - Screenshots: `Buildsystem/Testing/Screenshots/Screenshot.swift` +
   `take-screenshots.sh` (env `VLC_SCREENSHOTS_OUTPUT`).
@@ -243,10 +252,9 @@ xcodebuild -workspace VLC.xcworkspace -scheme VLC-iOS-Tests -configuration Debug
   the `VLC-iOSTests` target (`add_to_xcodeproj.rb … --target VLC-iOSTests`).
 
 > The `VLCTestMenu.swift` UI tests were rewritten in Phase 5 for the five-tab
-> shell (one test per destination, local library reachability, About via the
-> Settings menu). They assert tab-bar identifiers and per-tab nav-bar
-> identifiers, so they depend on English base strings only for the empty-state
-> action ("Browse local library") and the pushed library title ("Local library").
+> shell (one test per destination, catalogue navigation, About via the Settings
+> menu). The Mixer test opens **Add audio file** and cancels the system document
+> picker; it also asserts that the removed Local Library action is absent.
 
 ### 3.6 Lint & CI
 
@@ -255,9 +263,38 @@ xcodebuild -workspace VLC.xcworkspace -scheme VLC-iOS-Tests -configuration Debug
   CI installs it.
 - CI: `Buildsystem/gitlab-ci.yml` (GitLab). Stages: `lint`, `build`. **There is
   no test stage in CI** — run tests locally. The `before_script` runs
-  `pod update`.
+  `pod update`. When the local RNNoise dependency is activated, build jobs run
+  `Buildsystem/RNNoise/build.sh` before Swift package resolution.
 
 ---
+
+### 3.7 RNNoise native engine
+
+For RNNoise builds or dependency updates, read `Buildsystem/RNNoise/README.md`.
+`Buildsystem/RNNoise/build.sh` builds pinned, patched VLCKit/libvlc sources;
+`ruby Buildsystem/RNNoise/activate.rb` switches the project to its local binary
+package after the artifact exists. The project currently uses this local package;
+a clean checkout must build the ignored artifact before resolving packages.
+The app also supports upstream VLCKit with noise reduction unavailable. Never
+patch Xcode's generated dependency checkouts.
+
+### 3.8 Universal Links
+
+The website links `https://rajneeshdiscourse.com/discourses/{id}` and
+`.../tracks/{audioId}` open the app. The app-side pieces are:
+
+- `com.apple.developer.associated-domains` = `applinks:rajneeshdiscourse.com`
+  in all three iOS entitlements files;
+- `DiscourseDeepLink` (`Sources/Discourse/DeepLink/`) parsing and
+  `TabBarCoordinator.handleDiscourseDeepLink(_:)` routing;
+- `VLCAppDelegate`/`VLCAppCoordinator` queue the link until the tab bar
+  survives the passcode gate.
+
+The website must publish
+`https://rajneeshdiscourse.com/.well-known/apple-app-site-association`
+(`Content-Type: application/json`, no `.json` suffix, no redirects). The
+deployable file and the exact Team ID/bundle note live in
+`Buildsystem/DeepLinks/`. Without it, iOS opens Safari.
 
 ## 4. Architecture map
 
@@ -296,18 +333,19 @@ order, are:
 1. `DiscourseHomeViewController` — `HOME` — `Sources/Discourse/UI/DiscourseHomeViewController.swift`
    (the sectioned home screen arrives in Phase 9).
 2. `DiscourseCatalogueViewController` — `DISCOURSES` — `Sources/Discourse/UI/DiscourseCatalogueViewController.swift`
-   (the remote catalogue grid with filters and paging). The tab carries a
-   **Discourse | Local** segmented control in its navigation bar; Local swaps the
-   tab's navigation root to the upstream `AudioViewController` (see §4.9).
+   (the remote catalogue as a full-width list with filters and paging). The
+   catalogue is the tab root and has no Discourse/Local switch.
 3. `DiscourseSearchViewController` — `SEARCH` — `Sources/Discourse/UI/DiscourseSearchViewController.swift`
    (search field and results in Phase 8).
 4. `PlaylistViewController` — `PLAYLISTS` — `Sources/Media Library/MediaViewControllers/PlaylistViewController.swift`
    (the upstream playlist grid and creation flow, themed with the discourse
    accent in Phase 14; the empty-state copy now describes adding from the local
    library).
-5. `DiscourseAudioMixerViewController` — `AUDIO_MIXER` — `Sources/Discourse/UI/DiscourseAudioMixerViewController.swift`
-   (the control panel, the ordered track list with reorder/delete and the empty
-   state that opens the Local library; the engine is `DiscourseAudioMixer`, §4.12).
+5. `DiscourseAudioMixerViewController` — `AUDIO_MIXER` (rendered as **Mixer**) — `Sources/Discourse/UI/DiscourseAudioMixerViewController.swift`
+   (the control panel, the ordered track list with long-press drag reorder and
+   swipe delete, and an empty state whose **Add audio file** action opens the
+   system Files picker; the engine is `DiscourseAudioMixer`, §4.12. The removed
+   Local Library screen is never linked from the Mixer).
 
 `VideoViewController`, `VLCServerListViewController` and `VLCOnAirViewController`
 are **not deleted** — the engine may still open a video file — but they have no
@@ -316,21 +354,29 @@ tab and no browsing screen.
 Home, Search and the Audio Mixer share `DiscourseScreenViewController`
 (`Sources/Discourse/UI/DiscourseScreenViewController.swift`: themed background,
 Settings menu bar button, theme refresh) and `DiscourseEmptyStateView`
-(symbol, heading, copy, optional action); they show their empty state until their
-phase lands. The catalogue is a plain `UIViewController` with the same chrome
-(the `DiscourseEmptyStateView` is also its empty/error state) because it owns a
+(symbol, heading, copy, optional action). Home and the Audio Mixer deliberately
+carry **no navigation title**: their name lives in the tab bar, and both screens
+use `largeTitleDisplayMode = .never`, so content starts under a compact bar. The
+catalogue is a plain `UIViewController` with the same chrome (the
+`DiscourseEmptyStateView` is also its empty/error state) because it owns a
 collection view.
 
-The device media library is **not** a tab. The Discourses tab's **Local** segment
-(`TabBarCoordinator.installLibraryRoot(_:animated:)`) replaces the tab's
-navigation root with the upstream `AudioViewController` (pager of
-Artists/Songs/Albums/Genres/Folders), and switching back reinstates the
-catalogue. The library is never embedded as a child, precisely so its own
-navigation-bar actions (play all, select all, sort/regroup, renderer, Settings)
-keep working; the segmented control sits in the navigation bar of *both* roots.
-Both roots are retained, so the library keeps its pager and scroll position.
-`TabBarCoordinator.showLocalLibrary(pushing:)` (last-played shortcut, album deep
-links) selects the tab, installs the Local root and pushes the album.
+The device media library is **not** a tab. The mixer empty state and local
+media shortcuts open `DiscourseLocalLibraryViewController` above the catalogue
+in the Discourses navigation stack. It is an `AudioViewController` reduced to a
+Songs and Folders pages; its library actions and empty folder picker remain available.
+`TabBarCoordinator.showLocalLibrary(pushing:)` can also push an album from that
+page. Back returns to the catalogue.
+
+Website links (`/discourses/{id}` and `/discourses/{id}/tracks/{audioId}`) are
+Universal Links: `VLCAppCoordinator.handleDiscourseDeepLink:` queues the URL
+until `setTabBarController:` completes, then `TabBarCoordinator` selects the
+Discourses tab, installs the catalogue root, resolves the discourse from the
+history/registry cache (then a catalogue search by title, or its track list as a
+last resort; the API has no fetch-by-id route) and pushes
+`DiscourseDetailViewController`. A track link passes
+`highlightedAudioID`, which scrolls the loaded table to that row once. The
+website must serve the AASA file described in §3.8.
 
 The selected tab is persisted under `UserDefaults` key `TabBarIndex`
 (`kVLCTabBarIndex`) as the flat index (0 Home, 1 Discourses, 2 Search, 3 Playlists,
@@ -338,12 +384,21 @@ The selected tab is persisted under `UserDefaults` key `TabBarIndex`
 back. The iPad sidebar shows the same five entries — the audio sub-page
 flattening is gone. Settings is **not** a tab: it is presented modally from the
 left bar button (`AppMenuBarButtonItem`,
-`Sources/UI Elements/Buttons/AppMenuBarButtonItem.swift`), which also hosts
-**About**, **Help & Website** and **Donate**. The in-app screen is the fork's
-`SettingsController`/`SettingsSection` model (not the legacy
-InAppSettingsKit plists); Phase 15 added **Playback history** there and removed
-the video fullscreen, video resume, video decoding and subtitle rows from both
-the model and `Settings.bundle`.
+`Sources/UI Elements/Buttons/AppMenuBarButtonItem.swift`), whose menu offers only
+**About Rajneesh Discourse** and **Settings** (the upstream *Donate* item and the
+fork's former *Help & Website* link were removed). The bar button draws the
+rounded app icon (the Osho artwork from `LaunchIcon`), not the upstream VLC cone. On
+**Home** the logo is static and the same menu opens from a chevron on the right
+(`AppLogoBarButtonItem` + `AppMenuBarButtonItem.Style.dropdown`); the other tabs
+  keep the icon-as-menu button. About shows an **Acknowledgements & Disclaimer**
+  link directly under **Website and help**, jumping to the acknowledgements,
+  disclaimer, reporting contact and existing credits and license notices. The
+  in-app screen is the fork's `SettingsController`/
+`SettingsSection` model (not the legacy InAppSettingsKit plists); Phase 15 added
+**Playback history** there and removed the video fullscreen, video resume, video
+decoding and subtitle rows from both the model and `Settings.bundle`.
+Privacy, Video, Subtitles, Podcasts and Network sections are also omitted from
+the in-app settings section list; their underlying preferences remain unchanged.
 
 Screens are pushed with `navigationController?.pushViewController(_:animated:)`.
 There is **no main storyboard** (shell is programmatic); only
@@ -457,6 +512,13 @@ from the playback and likes notifications.
   (`Sources/Media Library/MediaLibraryService.swift`) — setup, discovery, all
   fetch/query methods, create/delete playlist, save playback state, and the
   `MediaLibraryObserver` fan-out.
+- The Discourses tab's Local Songs empty state checks for a resolvable external
+  folder bookmark. If one exists it says **No files found** and offers
+  **Add External Folder**; otherwise it prompts the user to add a folder. Both
+  use the library header's document picker and `addExternalFolder(at:)` flow.
+  iOS has no global permission for scanning local audio; access is granted per
+  external folder through the picker, so there is no separate system permission
+  prompt/status to display.
 - View models: `Sources/Media Library/MediaLibraryModel/` (`MLBaseModel` +
   `MediaModel`, `TrackModel`, `AlbumModel`, `ArtistModel`, `PlaylistModel`,
   `GenreModel`, `FolderModel`, `HistoryModel`, …).
@@ -478,10 +540,14 @@ from the playback and likes notifications.
 - **Downloads:** `VLCTransferController` / `VLCHTTPFileDownloader` /
   `VLCMediaFileDownloader` (`Sources/Network/Download/`).
 - **Images:** `VLCThumbnailsCache` (memory + disk), `VLCNetworkImageView`.
-- **Crash/error reporting: none.** No Sentry/Crashlytics/Firebase in this repo.
+- **Analytics:** Firebase Analytics (without advertising ID support) initializes
+  in `VLCAppDelegate` and collects its automatic events. Place the Firebase
+  `GoogleService-Info.plist` for `com.oshodiscourse` at
+  `Resources/iOS/GoogleService-Info.plist` before building; it is gitignored.
+- **Crash/error reporting: none.** No Sentry or Crashlytics in this repo.
   Logging is `APLog(...)` → `NSLog` (`Sources/Headers/VLC-iOS-Prefix-Header.pch`).
   The discourse layer adds a small `DiscourseDiagnostics` logger (§9) instead of a
-  telemetry SDK — see §11.
+  crash reporting SDK — see §11.
 - **UserDefaults** for all app settings; keys are `#define`s in
   `Sources/Headers/VLCConstants.h` and registered in `VLCAppDelegate.m`.
 - **Keychain** via `KeychainCoordinator`
@@ -504,8 +570,10 @@ from the playback and likes notifications.
   asset wired.
 - **About:** `Sources/About/AboutController.swift` renders
   `Sources/About/iOS/About Contents.html` in a `WKWebView`, substituting
-  `VLCICONIMAGESOURCE`, `VLCFORIOSVERSION`, `VLCKITVERSION`, `TEXTCOLOR`,
-  `BACKGROUNDCOLOR`. Links open externally. Presented from `AppMenuBarButtonItem`.
+  `VLCICONIMAGESOURCE` (now `AppIcon-480x480.png`, the branded app icon),
+  `VLCFORIOSVERSION`, `VLCKITVERSION`, `TEXTCOLOR`, `BACKGROUNDCOLOR`. The old
+  VLC wordmark navigation title is removed. Links open externally. Presented
+  from `AppMenuBarButtonItem`.
   (tvOS uses `Sources/About/VLCAboutViewController.m` + `Sources/About/tvOS/About Contents.html`.)
 - **Localisation:** plain `NSLocalizedString` over
   `Resources/<lang>.lproj/Localizable.strings` (~65 languages). Base language `en`
@@ -517,13 +585,12 @@ from the playback and likes notifications.
 
 ### 4.6 Dependencies (pinned)
 
-- **SPM** (`Package.resolved`): **VLCKit `4.0.0-a25`**, **VLCMediaLibraryKit
-  `0.15.0-b2`**, XKKeychain `1.0.3`, pcloud-sdk-swift `3.2.3`,
+- **VLCKit**: local binary package `Buildsystem/RNNoise`, built from patched
+  `4.0.0-a25` sources; exact revisions and commands are in §3.7.
+- **SPM** (`Package.resolved`): **VLCMediaLibraryKit `0.15.0-b2`**, XKKeychain `1.0.3`, pcloud-sdk-swift `3.2.3`,
   CocoaHTTPServer `2.4.2`, InAppSettingsKit `3.7.1`, OBSlider `1.1.3`,
   GRKArrayDiff `1.1.2`, MarqueeLabel `4.5.3`.
-- **CocoaPods** (`Podfile.lock`): ADAL, box-ios-sdk-v2, GoogleAPIClientForREST/Drive,
-  GoogleSignIn, GTMAppAuth, ObjectiveDropboxOfficial, OneDriveSDK (+ transitive
-  AppAuth, AppCheckCore, GoogleUtilities, GTMSessionFetcher, Promises).
+- **CocoaPods** (`Podfile.lock`): ADAL, box-ios-sdk-v2, ObjectiveDropboxOfficial, OneDriveSDK (plus their transitive dependencies).
   Targets: `VLC-iOS`, `VLC-iOS-no-watch`, `VLC-iOSTests`.
 
 ### 4.7 Discourse API layer (`Sources/Discourse/API/`)
@@ -581,7 +648,7 @@ accepts an injected `DiscourseSettings`, service, date provider and
 | Store | Responsibility |
 |---|---|
 | `DiscourseSettings` | JSON / primitive / string-set access, defensive decoding. |
-| `DiscourseNotifications` | The change/route notification names (likes, history, playback progress, downloads, mixer, local-library shortcut). |
+| `DiscourseNotifications` | The change notification names (likes, history, playback progress, downloads, mixer). |
 | `DiscourseLikesStore` | Liked sets, optimistic toggles with rollback, pending map, 7-day `GET /likes` gate. |
 | `DiscourseHistoryStore` | Recently played discourses/tracks, newest first, deduped, max 24. |
 | `DiscourseStatsStore` | 24 h `POST /stats` dedupe, marked only after success. |
@@ -617,8 +684,8 @@ Fork-only, UIKit, dark-first. Every screen paints `DiscourseColors.current`
 |---|---|
 | Shell base (background, Settings bar button, theme refresh) | `DiscourseScreenViewController.swift` |
 | Empty state (symbol, heading, copy, optional action) | `DiscourseEmptyStateView.swift` |
-| Catalogue grid, paging, filters, loading/empty/error states | `DiscourseCatalogueViewController.swift` |
-| Catalogue card (artwork ×1 aspect, title ≤2 lines, language, track count, heart) | `DiscourseCardCell.swift` |
+| Catalogue list, paging, filters, loading/empty/error states | `DiscourseCatalogueViewController.swift` |
+| Discourse card (tile and list layouts: artwork, title ≤2 lines, language, track count, heart) | `DiscourseCardCell.swift` |
 | Compact counts (`999` / `1.2k` / `12k` / `1m`) | `DiscourseCountFormatter.swift` |
 | Language names, track/like counts, summary line, durations | `DiscourseTextFormatting.swift` |
 | Discourse detail (header, track rows, play all, track menu) | `DiscourseDetailViewController.swift`, `DiscourseDetailHeaderView.swift`, `DiscourseTrackCell.swift` |
@@ -631,19 +698,23 @@ Fork-only, UIKit, dark-first. Every screen paints `DiscourseColors.current`
 | One like toggle + failure alert for every surface | `DiscourseLikeActions.swift` |
 | Transparent VoiceOver "open" element for cards/rows | `DiscourseAccessibilityButton.swift` |
 | Home (four sections, states, stats) | `DiscourseHomeViewController.swift`, `DiscourseHomeContent.swift`, `DiscourseHomeSectionHeaderView.swift`, `DiscourseHomeTrackCell.swift` |
-| Audio Mixer placeholder | `DiscourseAudioMixerViewController.swift` |
+| Audio Mixer screen (panel, ordered list, clear, empty state) | `DiscourseAudioMixerViewController.swift` |
 
-**Catalogue behaviour.** Two-column `UICollectionViewCompositionalLayout`
-(half-width items with 8 pt inner insets, so the visual gutter is 16 pt) and
-self-sizing cards driven by the cell's own Auto Layout chain. `DiscourseCardCell`
-loads artwork through the upstream `VLCNetworkImageView` (`VLCThumbnailsCache`
-memory + disk cache), so no new image pipeline exists.
+**Catalogue behaviour.** One-column `UICollectionViewCompositionalLayout`: each
+item is full width (16 pt section insets) and the row is a self-sizing
+`DiscourseCardCell` in its `.list` layout — 88 pt artwork on the left, title
+(two lines), language and a footer with the track count, the download badge and
+the like control on the right. `DiscourseCardCell` also keeps its `.tile`
+layout for the Home carousel (square artwork above the same content); the two
+share the heart, badge state and VoiceOver overlay. The cell loads artwork
+through the upstream `VLCNetworkImageView` (`VLCThumbnailsCache` memory + disk
+cache), so no new image pipeline exists.
 
 - First page loads from the 24 h `DiscourseAPICache` when fresh, from the network
   otherwise; pull-to-refresh is a force refresh (`Cache-Control: no-cache`).
 - Paging: the next page is requested when the scroll is within 400 pt of the
   bottom and `page < meta.total_pages`; appended items are deduped by id and
-  inserted with `insertItems(at:)` so the grid does not flash.
+  inserted with `insertItems(at:)` so the list does not flash.
 - Filters: a bar-button `UIMenu` with Language (all/English/Hindi) and Sort
   (default/most liked), persisted through `DiscourseCatalogueFilterStore`;
   "Clear filters" appears only while a filter is active. Changing a filter drops
@@ -655,17 +726,18 @@ memory + disk cache), so no new image pipeline exists.
 - A request token invalidates stale answers when filters change or a retry races
   an in-flight load.
 
-**Cards today** show artwork, title, language, the track count and the like
+**Cards today** reserve two title lines for consistent heights and show artwork, title, language, the track count and the like
 control (heart + compact count) in the footer, and the title's counts are seeded
 from the payload so the heart is correct before the first tap. While a discourse
-has downloads, a small badge over the artwork counts them (`3/11`: green when
-finished, accent while downloading); a card with none shows no badge.
+has downloads, a small badge counts them (`3/11`: green when finished, accent
+while downloading); a card with none shows no badge. In the catalogue's `.list`
+layout the badge sits in the footer, between the track count and the heart; the
+Home carousel's `.tile` cards keep it over the artwork's corner.
 
 **Detail screen.** Selecting a card pushes `DiscourseDetailViewController`:
 
 - It fetches `discourse-audios?discourse_id=` (no pagination upstream) and sorts
-  by `track_number`, then title. The nav bar shows the discourse title and the
-  segment disappears (it lives on the tab's root only).
+  by `track_number`, then title. The nav bar shows the discourse title.
 - The table header shows artwork (128 pt, radius 8), the title, the
   `language · tracks · likes` summary, a filled **Play all** button
   (`discoursePlayAll`) and the discourse's like control. Rows lead with the track
@@ -694,7 +766,7 @@ finished, accent while downloading); a card with none shows no badge.
   refresh with rows already rendered keeps them. Pull-to-refresh is a force
   refresh, and a request token drops stale answers.
 - The table's bottom inset grows by `AudioMiniPlayer.height` while the mini player
-  is visible (the catalogue grid does the same), so the last row scrolls clear of
+  is visible (the catalogue list does the same), so the last row scrolls clear of
   it. Both screens observe the `VLCPlayerDisplayController{Display,Hide}MiniPlayer`
   notifications.
 
@@ -790,7 +862,8 @@ stores' payloads into sections, in product order, dropping empty ones:
   exposes the `discourseHome` identifier and track rows `discourseHomeTrack` for
   UI tests.
 
-**Likes behaviour.** `DiscourseLikeControl` (heart + compact count) is the one
+**Likes behaviour.** `DiscourseLikeControl` shows the heart and a compact count
+only when the count is positive; discourse metadata summaries also omit zero likes. It is the one
 renderer; `DiscourseLikeState.resolve(target:payloadLikes:store:)` decides what it
 shows (the store's optimistic count wins over the payload count). It is drawn on:
 
@@ -806,7 +879,7 @@ shows (the store's optimistic count wins over the payload count). It is drawn on
 Every list seeds counts with `DiscourseLikesStore.updateCount` when a payload
 arrives. A tap calls `DiscourseLikeActions.toggleDiscourse`/`toggleAudio`, which
 uses the store's optimistic toggle; `.discourseLikesDidChange` then reconfigures
-only the visible cards/rows (the catalogue grid, the detail header + visible rows,
+only the visible cards/rows (the catalogue list, the detail header + visible rows,
 the search rows, the Home cells) and a failed request rolls the store back and
 shows `DiscourseErrorCopy.likeFailure` in an alert. Likes are independent of the
 playback-history switch. `TabBarCoordinator` refreshes `GET /likes` on launch and
@@ -974,7 +1047,8 @@ player's notifications.
 | Engine: membership, follow logic, fades, audio session | `DiscourseAudioMixer.swift` |
 | Control panel (on switch, now playing, play/pause, loop, volume) | `DiscourseMixerPanelView.swift` |
 | Track row (title, selected checkmark, "Playing in the mixer") | `DiscourseMixerTrackCell.swift` |
-| Screen: panel header, ordered list, reorder/delete, empty state | `Sources/Discourse/UI/DiscourseAudioMixerViewController.swift` |
+| Document-picker import into app-owned storage | `DiscourseMixerFileImporter.swift` |
+| Screen: panel header, ordered list (long-press drag reorder, swipe delete), empty state | `Sources/Discourse/UI/DiscourseAudioMixerViewController.swift` |
 
 **Storage.** The documented keys (§7): `audio_mixer_files` is the ordered array
 of file URL strings, `audio_mixer_selected` the selected URL, and
@@ -998,8 +1072,8 @@ notifications:
 - a track end (`VLCMediaPlayerStateStopped` without a requested stop) loops when
   **Loop track** is on, else leaves the mixer stopped.
 
-The panel's play button is the one explicit override: it enables the mixer and
-plays the selection even when the main player is stopped.
+The panel's play button enables the mixer but only plays while the main player
+is playing audio. Delayed starts and restarts recheck the main player's state.
 
 **Audio session.** The mixer shares the app's single playback session (VLCKit
 owns `AVAudioSession`). Interruptions pause it and resume after
@@ -1008,11 +1082,18 @@ it; a media-services reset pauses the main player, drops the mixer's player and
 lets the follow logic rebuild it. Volume 1…100 maps straight onto VLC's 0…200
 scale and is only ever written by the mixer.
 
-**Entry point.** `MediaCategoryViewController`'s long-press menu appends
-**Add to Audio Mixer** for local audio media (before the editing actions), so the
-mixer only ever contains explicitly added files. The empty state's **Open local
-library** action posts `.discourseShowLocalLibrary`; `TabBarCoordinator` selects
-the Discourses tab, installs the Local root and pops to the library root.
+**Entry point.** The Mixer's **+** button and its empty-state **Add audio file**
+action present `UIDocumentPickerViewController` for `.audio` files.
+`DiscourseMixerFileImporter` copies the selection into
+`Application Support/AudioMixer/<source-id>/<original filename>` (with security
+scope balanced around the copy), so the persisted URL stays playable after
+relaunch and needs no bookmark. Reimporting the same source reuses its copy;
+identical filenames from different sources stay distinct. `DiscourseAudioMixer`
+then persists the copied URL through `audio_mixer_files`. Removing a row or
+clearing the mixer deletes only copies under that directory, never the source
+or a library file. The removed Local Library screen is not linked from the
+Mixer. The legacy library context-menu action **Add to Audio Mixer** remains
+available on upstream library surfaces, but is not required by this flow.
 
 ---
 
@@ -1105,8 +1186,7 @@ Exactly five bottom destinations, in order:
    (`/stats?by=discourse_audio&time=7_days` — the deployed API rejects `by=audio`;
    `DiscourseStatsDimension.audio` maps to `discourse_audio`). Recently-played
    lists cap at **24**.
-2. **Discourses** — segmented into **Discourse** (remote catalogue) and **Local**
-   (device audio only).
+2. **Discourses** — remote catalogue with filters and paging.
 3. **Search** — remote catalogue only.
 4. **Playlists** — existing local playlist functionality, restyled.
 5. **Audio Mixer** — second simultaneous local audio channel.
@@ -1122,8 +1202,7 @@ opaque icons, theme-aware background; the mini player floats *above* the tab bar
 
 **Implementation status (Phase 6).** All five destinations exist, each with an SF
 Symbol tab item, a themed navigation bar and a Settings menu button. The
-Discourses tab carries the **Discourse | Local** segment and shows the live
-catalogue with 24-row paging, pull-to-refresh and language/sort filters (§4.9).
+Discourses tab shows the live catalogue with 24-row paging, pull-to-refresh and language/sort filters (§4.9).
 The tab bar itself still uses the upstream appearance and tint; the
 floating-capsule styling, the discourse accent tint and the translucent
 mini-player capsule are deferred to the styling pass (§10.18).
@@ -1241,7 +1320,8 @@ device check (§8).
 ### 6.7 Audio Mixer
 
 A **second** `VLCMediaPlayer` playing one local file simultaneously with the main
-player. Only files explicitly added via **Add to Audio Mixer** appear. Order
+player. Only files explicitly added through **Add audio file** (or the legacy
+library **Add to Audio Mixer** action) appear. Order
 persisted; add/remove/reorder/clear. Defaults: enabled **false**, loop **true**,
 volume **50** (clamped 1…100). Follows the main player: start/resume ~250 ms after
 main `Playing` (audio only), pause on main pause, stop on main stop/end, stop on
@@ -1253,9 +1333,11 @@ changes and media-services resets by pausing both and restoring mixer state.
 **Implementation status (Phase 13).** Live (§4.12): `DiscourseAudioMixer` owns a
 second `VLCMediaPlayer` gated by `audio_mixer_enabled`; the Audio Mixer tab shows
 the panel (on switch, now playing with play/pause, loop, 1…100 volume) and the
-ordered track list (select, reorder, swipe delete, **Clear all** with
-confirmation). Tracks are added from the local library's long-press menu
-(**Add to Audio Mixer**) — the only entry point, as the brief requires. The mixer
+ordered track list (select, long-press drag reorder, swipe delete, **Clear all**
+with confirmation). The **+** button and empty-state **Add audio file** action
+open the system Files picker; selected files are copied into app-owned storage
+(§4.12) and remain playable after relaunch. The removed Local Library screen is
+not linked from the Mixer. The mixer
 joins the main player 250 ms after it starts (audio only), pauses/resumes with it,
 stops on stop/fail and on video, loops when asked, reloads on a loop change, fades
 in/out and keeps its own volume. Verified live in the simulator: a generated local
@@ -1269,8 +1351,10 @@ accents. Dark is the default; a light palette with equivalent semantics is
 provided. Token values are exactly those in the brief (Accent, App background,
 Detail background, Surface, Border, Primary/Secondary text, Divider, Liked/Unliked
 heart, Downloaded; plus Audio Mixer, Mini player palettes). Corner radius: 8 pt
-thumbnails, 8–16 pt cards, 16 pt mixer panel. Catalogue cards: 160×160 artwork,
-title ≤ 2 lines, language, counts, download row, like control. Track rows: 48×48
+thumbnails, 8–16 pt cards, 16 pt mixer panel. The Home carousel keeps the
+brief's 160×160 artwork tiles; the catalogue renders the same card as a
+full-width list row (88 pt artwork) with title ≤ 2 lines, language, track count,
+download badge and like control. Track rows: 48×48
 thumbnail, title ≤ 2 lines, metadata, like, played/download indicators, overflow.
 Artwork aspect-fill + rounded corners. Controls are theme-aware — never hard-code
 black text on dark surfaces.
@@ -1290,8 +1374,8 @@ artwork and header/logo are Rajneesh Discourse assets (header mark 8 pt rounded)
 About text: *"Rajneesh Discourse is a local media player distributed by Sandalbar
 Enterprises, Inc. It is built from open-source software; upstream authors and
 licenses are listed below."* Website/help links point to
-<https://sandalbar.online>. Upstream feedback/bug-tracker/source links are removed.
-Upstream licence acknowledgements stay.
+<https://rajneeshdiscourse.com>. Upstream feedback/bug-tracker/source links are
+removed. Upstream licence acknowledgements stay.
 
 ---
 
@@ -1324,11 +1408,12 @@ or write the key.
 | `osho_api_discourse_downloads` | JSON `[audioId: filename]` | `DiscourseDownloadStore` | Local file records. |
 | `osho_api_discourse_download_discourses` | JSON `[audioId: discourseId]` | `DiscourseDownloadStore` | Reverse index. |
 | `playback_history` | `Bool` (absent = `true`) | `DiscoursePlaybackSettings` | Fork playback-history switch, same key as the Android reference. Not yet exposed in Settings (§10.30). |
-| `audio_mixer_files` | `[String]` (bookmark/URL strings) | `DiscourseAudioMixer` | Ordered membership. |
+| `audio_mixer_files` | `[String]` (URL strings) | `DiscourseAudioMixer` | Ordered membership; normally app-owned import copies, or legacy library URLs added through the context action. |
 | `audio_mixer_selected` | `String?` | `DiscourseAudioMixer` | Selected track. |
 | `audio_mixer_enabled` | `Bool` (default `false`) | `DiscourseAudioMixer` | Persisted. |
 | `audio_mixer_loop` | `Bool` (default `true`) | `DiscourseAudioMixer` | Persisted. |
 | `audio_mixer_volume` | `Int` (default `50`, 1…100) | `DiscourseAudioMixer` | Persisted; never reset by main player. |
+| Mixer imports | files under Application Support `AudioMixer/<source-id>/` | `DiscourseMixerFileImporter` | Document-picker copies; original filename preserved, removed with the mixer item. |
 | Downloaded files | files under Application Support `Discourses/` | `DiscourseDownloadStore` | Named `<audioId>.audio`. |
 | API responses | `Caches/DiscourseAPI/*.json` (≈10 MB) | `DiscourseAPICache` | 24 h freshness, `/likes` excluded, oldest evicted first. |
 
@@ -1353,13 +1438,13 @@ Run everything listed in §3.5 plus the manual matrix:
 |---|---|
 | Build | Clean build via the documented command; no new correctness warnings. |
 | Regression | VLC local playback, playlists, background audio, lock-screen controls still work. |
-| Navigation | Exactly 5 tabs; no Browse/Videos; branding correct; site link `sandalbar.online`; dark on first launch; light usable. |
+| Navigation | Exactly 5 tabs; no Browse/Videos; branding correct; site link `rajneeshdiscourse.com`; dark on first launch; light usable. |
 | Catalogue | Load, paginate (16/page), refresh, search, language filter, `most_liked` sort; detail loads all tracks; Play all / track tap queue correctly; queue continues past a single fetched track. |
 | Home | Four sections in order, each hidden while empty; opening a discourse adds it to *Recently played*; pull-to-refresh forces the weekly lists; empty, error and history-only states; recently played tracks hidden while playback history is off. |
 | Likes | Independent discourse/track likes; optimistic counts reconcile; persist across relaunch and offline failures; 7-day refresh TTL; correct failure message + revert. |
 | Stats/history | 60 s qualification; pause/buffering excluded; next/previous transitions; 24 h dedupe; recently-played cap 24; weekly cache 3 h; history setting gates everything. |
 | Downloads | One/all, progress, cancel, remove, remove-all; offline playback; icon/counts; missing file → stream; survive backgrounding. |
-| Audio Mixer | Membership only via Add to Audio Mixer; select/reorder/remove/clear; start/pause/stop follows main; stops on video; loop default on and restarts; volume default 50 and persistent; enable/loop/volume persist; no click on fade; survives interruption/route change/relaunch; no crash when the selected file is deleted. |
+| Audio Mixer | Add audio through **+**/the empty-state action and the Files picker (copied into the app); select/drag-reorder/swipe-remove/clear; removal deletes only imported copies; start/pause/stop follows main; stops on video; loop default on and restarts; volume default 50 and persistent; enable/loop/volume persist; no click on fade; survives interruption/route change/relaunch; no crash when the selected file is deleted. |
 | A11y/l10n | VoiceOver identifies artwork, like buttons, toggles, sliders, rows; Dynamic Type does not clip; all new strings localisable. |
 
 Offline, background, interruption (phone call/Siri), route change (headphones),
@@ -1397,18 +1482,21 @@ single/whole-discourse/all removal, pruning of records whose file vanished and
 deletion of orphan files. Two more playback cases pin the mapping preference (a
 verified download becomes the media URL; a deleted file streams again), so the
 unit suite covers the whole download path except the transfer itself.
-`DiscourseMixerTests` (11 cases) pins the Audio Mixer without a player: the
+`DiscourseMixerTests` (18 cases) pins the Audio Mixer without a player: the
 documented defaults (off, looping, volume 50), ordered membership with duplicate
 and non-file rejection, selection and reorder persistence, the selection falling
 back after a removal, clear, switch persistence, 1…100 volume clamping and
-file-name titles. Four Home cases pin the merge: library entries follow the
-discourse history, both sides hide while history is off, library entries dedupe
-by file URL, and the merged list caps at 24. **112 unit tests, 0 failures.**
+file-name titles, plus document-picker imports (copy and relaunch persistence,
+same-source dedupe, same-name/different-source separation, unreadable and empty
+file failures, and deletion of app-owned copies only). Four Home cases pin the
+merge: library entries follow the discourse history, both sides hide while
+history is off, library entries dedupe by file URL, and the merged list caps at
+24. **132 unit tests, 0 failures.**
 The catalogue's paging and filter flow, the card → detail → back navigation, the
 Search tab (both sections, discourse → detail, track → full player), Home
 (recently played → detail), the detail header's like → unlike → like round trip
 the download → menu → remove-all round trip and the Audio Mixer panel plus its
-library shortcut are covered by `VLCTestMenu` (15 tests) plus the manual matrix
+file-picker flow are covered by `VLCTestMenu` (15 tests) plus the manual matrix
 above. The like test waits for each request to settle before the next tap because
 the store ignores a second tap while one is in flight, and it restores the
 unliked state. The download test fetches one real track (~40 MB), asserts the
@@ -1427,6 +1515,14 @@ they found it.
 
 ## 9. Current implementation status
 
+Google Drive and Google Sign-In are removed from the app: no cloud-list entry,
+Drive favourite routing, OAuth URL handler, URL scheme, or Google pods remain.
+Upstream Google Drive source files and shortcut tests remain as unbuilt references.
+Verified: `VLC-iOS-no-watch` simulator build passes; the focused
+`VLC-iOSTests/URLHandlerTests` suite passes both tests, including absence of
+Google OAuth handler and URL-scheme registration.
+
+
 > Updated in the same commit as the change. Legend: **Done**, **Partial**, **Missing**.
 
 ### Phase 1 — repository discovery
@@ -1434,16 +1530,19 @@ they found it.
 
 ### Phase 2 — branding, theme, remove Browse/Videos — **Done (text/theme) · artwork pending**
 - **Done.** App `CFBundleDisplayName`/`CFBundleName` = *Rajneesh Discourse*;
-  About page rebranded (Sandalbar paragraph, `sandalbar.online` website/help link,
-  upstream source and feedback links removed, licence acknowledgements kept);
-  menu = *About Rajneesh Discourse* / *Help & Website* (→ `sandalbar.online`);
-  English base strings updated; dark registered as the first-launch default;
+  About page rebranded (Sandalbar paragraph, `rajneeshdiscourse.com` website/help
+  link, upstream source and feedback links removed, licence acknowledgements
+  kept); menu = *About Rajneesh Discourse* (the *Help & Website* item added here
+  was removed in the later header polish, so the menu is now About + Settings);
+  English base strings updated; dark registered as
+  the first-launch default;
   `DiscourseColors` added with the brief's exact light/dark tokens (catalogue,
   track, playlist, audio-mixer and mini-player palettes); Videos and Browse tabs
   and the video quick action removed; Media Library shortcut renamed accordingly.
-- **Partial — artwork.** The launcher icon, onboarding illustrations, About title
-  mark and the VLC-cone placeholders (empty library, passcode, donation) are still
-  upstream assets; see §10.9.
+- **Partial — artwork.** The onboarding illustrations and the VLC-cone
+  placeholders (passcode, donation screens) are still upstream assets; see
+  §10.9. The launcher icon, launch screen, header button, About icon and
+  empty-library / playlists artwork are branded.
 
 ### Phase 3 — API client, models, identity, cache — **Done**
 - **Done.** `Sources/Discourse/API/` (§4.7): Codable models exactly matching
@@ -1494,7 +1593,8 @@ they found it.
   `DiscourseCatalogueViewController`, `DiscourseSearchViewController` and
   `DiscourseAudioMixerViewController`. Home, Search and the Audio Mixer show their
   legitimate empty state until their own phase; no fake interactions. (The
-  catalogue left the shared base in Phase 6 when it gained its grid.)
+  catalogue left the shared base in Phase 6 when it gained its grid, which a
+  later polish pass turned into a one-column list.)
 - **Done — local library.** The device audio browser (upstream
   `AudioViewController`) is pushed from the Discourses empty state, so local
   playback, playlists and background audio remain reachable; the last-played
@@ -1504,9 +1604,11 @@ they found it.
   iPhone 16 Pro simulator.
 - **Pending.** The floating-capsule tab bar and discourse accent tint (§10.18).
 
-### Phase 6 — catalogue, filters, paging, Discourse/Local segment — **Done**
+### Phase 6 — catalogue, filters and paging — **Done**
 - **Done — catalogue.** `DiscourseCatalogueViewController` (§4.9) renders the
-  remote catalogue in a two-column grid of `DiscourseCardCell`s: artwork through
+  remote catalogue as a full-width list of `DiscourseCardCell`s (one column,
+  artwork left, content right; the two-column grid of this phase was replaced
+  during the UI polish pass): artwork through
   `VLCNetworkImageView`/`VLCThumbnailsCache`, title (two lines), language and
   track/like counts (`DiscourseCountFormatter`: 999 / 1.2k / 12k / 1m), with
   singular forms for one track and one like.
@@ -1518,15 +1620,16 @@ they found it.
   sort (default/most liked), persisted in `DiscourseCatalogueFilterStore`, with
   *Clear filters* while a filter is active. The chosen language also drives
   `DiscourseLanguage` display names on the cards.
-- **Done — segment.** The Discourses tab shows a **Discourse | Local**
-  `UISegmentedControl` in the navigation bar of both roots; Local swaps the tab's
-  navigation root to the upstream `AudioViewController` (all library bar actions,
-  edit mode and pager keep working) and back. Last-played shortcuts and album
-  deep links select the tab, install the Local root and push the album.
+- **Local library.** The earlier Discourse/Local switch was removed. Local media
+  shortcuts push the Songs and Folders pages above the catalogue; the Mixer
+  imports files directly through the document picker and never links to this
+  screen. Its empty state offers the external folder picker and says **No files
+  found** when an external folder is accessible.
 - **Done — tests.** `DiscourseFormattingTests` (6 cases) plus 39 existing =
-  **45 unit tests, 0 failures**; `VLCTestMenu` now has 8 UI tests (local library
-  through the segment, filter menu apply/clear) — all green on the iPhone 16 Pro
-  simulator. Paging verified manually to page 3 (page-3 rows visible after
+  **45 unit tests, 0 failures**; `VLCTestMenu` then had 8 UI tests (local library
+  reachability, filter menu apply/clear) — all green on the iPhone 16 Pro
+  simulator. The mixer's local-library action was later replaced by the file
+  picker (§9, post-phase polish). Paging verified manually to page 3 (page-3 rows visible after
   scrolling; the grid never duplicates rows).
 - **Deferred.** Card like control (landed in Phase 11) and download row
   (Phase 12); the footer had no reserved space for them, so neither shifted the
@@ -1550,7 +1653,7 @@ they found it.
   URL → `{discourseID, audioID}` index so a queue restored from the last-played
   playlist keeps its attribution; the media also carries `rd.discourseID` /
   `rd.audioID` meta extras for the same lookup in memory.
-- **Done — mini player inset.** The detail table and the catalogue grid add
+- **Done — mini player inset.** The detail table and the catalogue list add
   `AudioMiniPlayer.height` to their bottom inset while the mini player is
   visible, so the last row/cards scroll clear of it.
 - **Done — tests.** `Buildsystem/Testing/Unit/DiscoursePlaybackTests.swift`
@@ -1699,7 +1802,7 @@ they found it.
   discourse payload).
 - **Done — live counts.** Every list seeds `DiscourseLikesStore.updateCount` from
   its payload, and `.discourseLikesDidChange` reconfigures only the visible
-  cards/rows (the catalogue grid, the detail header plus visible rows, the search
+  cards/rows (the catalogue list, the detail header plus visible rows, the search
   rows, the Home cells) so taps settle without a reload or a scroll jump.
 - **Done — refresh.** `TabBarCoordinator` refreshes `GET /likes` on launch and on
   every foreground; the store's seven-day window decides whether that is a
@@ -1741,8 +1844,9 @@ they found it.
   semantics. The detail nav-bar menu offers **Download all**, **Cancel
   downloads** and **Remove all downloads** (confirming with the brief's copy);
   the row context menu offers the state-appropriate download action. Catalogue
-  and Home cards show the `3/11` badge over the artwork. All screens observe
-  `.discourseDownloadsDidChange` and reconfigure only visible rows/cards.
+  rows show the `3/11` badge in the footer and Home cards over the artwork. All
+  screens observe `.discourseDownloadsDidChange` and reconfigure only visible
+  rows/cards.
 - **Done — playback.** `DiscourseMediaFactory` prefers
   `DiscourseDownloadStore.localURL(for:)` over the remote URL, so a verified
   download plays offline through the same queue path; a missing file falls back
@@ -1775,17 +1879,19 @@ they found it.
   media-services reset.
 - **Done — UI.** `DiscourseAudioMixerViewController` is now a real screen: the
   panel (on switch, now playing, play/pause, loop, volume) plus the ordered list
-  with selection, reorder, swipe delete, **Clear all** (confirmed) and the empty
-  state that opens the Local library. `DiscourseMixerPanelView` and
-  `DiscourseMixerTrackCell` carry the content.
-- **Done — entry point.** The local library's long-press menu gains **Add to Audio
-  Mixer** for audio media, so the mixer only contains explicitly added files.
-  `TabBarCoordinator` initialises the engine at launch and handles the empty
-  state's library shortcut.
+  with selection, long-press drag reorder, swipe delete, **Clear all** (confirmed)
+  and an empty state whose **Add audio file** action opens the system Files
+  picker. `DiscourseMixerPanelView` and `DiscourseMixerTrackCell` carry the
+  content.
+- **Done — entry point.** The **+** button and empty-state action import audio
+  through `UIDocumentPickerViewController`; `DiscourseMixerFileImporter` copies
+  the file into app-owned storage and `DiscourseAudioMixer` persists its URL.
+  The removed Local Library screen is not linked. The legacy library context
+  action **Add to Audio Mixer** also remains on upstream library surfaces.
 - **Done — tests.** `Buildsystem/Testing/Unit/DiscourseMixerTests.swift`
-  (11 cases) pins the mixer state without a player (**108 unit tests, 0
-  failures**), and `testAudioMixerShowsThePanelAndOpensTheLibrary` covers the
-  panel, the clear path and the library shortcut (**15 UI tests, 0 failures**).
+  (18 cases) pins the mixer state and file imports without a player, and
+  `testAudioMixerShowsThePanelAndOpensTheAudioPicker` covers the panel, clear
+  path and document picker.
 - **Verified live.** A generated local track, added through the library menu,
   joined a playing discourse 250 ms after Play all, paused and resumed with the
   mini player's play/pause and showed the right panel state each time; the panel,
@@ -1870,6 +1976,128 @@ they found it.
 - **Tests.** 112 unit tests and 16 UI tests (download test skipped on a slow-CDN
   run) on the iOS 18.3 reference device, 0 failures.
 
+### Post-phase polish — titles and segment tint — **Done**
+- The Audio Mixer tab reads **Mixer** (`AUDIO_MIXER` key unchanged); the Home and
+  Audio Mixer screens no longer show a navigation title, so their content starts
+  under a compact bar (§4.1).
+- The navigation-bar settings button (`AppMenuBarButtonItem`) shows the rounded
+  app icon instead of the VLC cone, and the shared empty state
+  (`VLCEmptyLibraryView`, used by the Playlists tab, local library, history and
+  folders) shows the app logo. Both reuse `LaunchIcon`; the passcode and donation
+  cones remain upstream (§10.9).
+- The **Home** header uses the static app logo on the left and a chevron
+  dropdown on the right that opens the app menu; the logo has no action and is
+  hidden from VoiceOver. The Home section headers lost their top padding, so
+  *Top discourses this week* sits directly under the compact navigation bar. The
+  other screens keep their existing icon-as-menu button.
+- The header menu offered **Help & Website** (opening
+  `https://rajneeshdiscourse.com`) and the upstream **Donate to VideoLAN** item
+  was removed; a later polish pass removed **Help & Website** too, so the app
+  menu is now **About Rajneesh Discourse** and **Settings** only. The About page
+  uses the branded app icon (no old VLC wordmark title),
+  its website link points to `rajneeshdiscourse.com`, and **Contact us** mails
+  `support@marfells.com`.
+
+### Post-phase polish — catalogue as a one-column list — **Done**
+- The Discourses tab renders the catalogue as a full-width list instead of a
+  two-column grid: one `DiscourseCardCell` per row with 88 pt artwork on the
+  left and the title, language, track count, download badge and heart on the
+  right, 16 pt section insets and 12 pt row spacing.
+- `DiscourseCardCell` gained a `Layout` (`.tile` / `.list`). Home's
+  *Recently played* and *Top discourses* carousels keep the 160 pt square tile;
+  the catalogue sets `.list`. Both layouts share the like control, the badge
+  state and the VoiceOver overlay. The list badge lives in the footer so it
+  cannot cover the smaller thumbnail (§4.9, §10.20, §10.35).
+- Verified on the iPhone 17 Pro simulator (iOS 26.4): the catalogue shows one
+  full-width card per row, the row height self-sizes around the 88 pt artwork,
+  and the Home carousels are unchanged.
+
+### Post-phase polish — Local library offers Songs and Folders — **Done**
+- The local library opened from local-media shortcuts uses a Songs and Folders
+  pages (the Mixer no longer opens it; see the file-picker polish below).
+  `TabBarCoordinator` pushes `DiscourseLocalLibraryViewController` (`Sources/Discourse/UI/`), an
+  `AudioViewController` subclass whose pager has Songs and Folders pages; the library's own navigation-bar actions (search, select all,
+  sort, history, add external folder, Settings) and edit mode are unchanged.
+- The upstream `AudioViewController` is untouched (upstream sync stays cheap).
+  Its sub-tab index is ignored: the subclass pins `currentIndex` to 0 because
+  `TrackCategoryViewController.viewWillAppear` still writes the old Songs index
+  (2) to `kVLCAudioTabIndex`.
+- The last-played shortcut's *open album* now pushes the album's
+  `CollectionCategoryViewController` from the Songs page when no
+  `AlbumCategoryViewController` exists (`TabBarCoordinator.showLocalLibrary(pushing:)`),
+  so the quick action keeps working with the album page gone.
+- Verified on the iPhone 17 Pro simulator (iOS 26.4) with a local `.m4a`: the
+  library opens straight onto the Songs list, with no strip and no gap
+  under the navigation bar; the empty library still shows the shared empty
+  state.
+
+### Post-phase polish — Mixer without an Edit button — **Done**
+- The Audio Mixer's navigation bar no longer carries **Edit**; only the app menu
+  remains on the left. The list keeps both interactions: long-press a row and
+  drag it to reorder (UITableView drag & drop, `UITableViewDragDelegate` /
+  `UITableViewDropDelegate`), and swipe a row to delete it (the existing
+  `commit editingStyle`). The mixer's change notification is suppressed while a
+  drop animates the move, so the table is not reloaded mid-drag.
+- Edit mode, its `setEditing` wiring and `allowsSelectionDuringEditing` are gone
+  from `DiscourseAudioMixerViewController`; taps always select/play a row.
+- Verified on the iPhone 17 Pro simulator (iOS 26.4) with two seeded mixer
+  tracks: the header shows no Edit button and both rows render with the
+  selected checkmark, hint and **Clear all** footer.
+
+### Post-phase polish — Mixer file picker — **Done**
+- The Mixer adds files directly: **+** and the empty-state **Add audio file**
+  open a single-selection `.audio` document picker. The previous **Open local
+  library** action, its empty-state link, hint, notification and coordinator
+  observer are removed; the removed Local Library screen is not referenced by
+  the Mixer.
+- `DiscourseMixerFileImporter` copies selections into
+  `Application Support/AudioMixer/<source-id>/<original filename>`, balancing
+  security scope and cleaning partial copies on failure. Reimports reuse the
+  same copy, identical names from different sources stay separate, and row
+  titles still show the original filename. `DiscourseAudioMixer` removes only
+  app-owned copies on delete/clear; source and library files are untouched.
+- **Verification.** `VLC-iOS-no-watch` builds. `DiscourseMixerTests` passes all
+  18 cases, seven of them new import/cleanup cases.
+  `testAudioMixerShowsThePanelAndOpensTheAudioPicker` passes on the iPhone 17
+  Pro simulator (iOS 26.4), including opening/cancelling the real document
+  picker and asserting no Local Library action exists.
+
+### Universal Links — **Done (AASA deployment required)**
+- `https://rajneeshdiscourse.com/discourses/{id}` opens the discourse detail;
+  `/tracks/{audioId}` opens it and scrolls to that track (§3.8, §4.1).
+- `DiscourseDeepLink` + `TabBarCoordinator.handleDiscourseDeepLink(_:)` handle
+  parsing and routing; `VLCAppCoordinator` queues the URL until the passcode
+  gate releases the tab bar.
+- Associated Domains is in all three iOS entitlements files. The website must
+  deploy `Buildsystem/DeepLinks/apple-app-site-association`; the live AASA
+  returned 404 during implementation, so links still open Safari until it is
+  published.
+- `DiscourseDeepLinkTests` cover the parser. The route itself needs a signed
+  device build because the simulator does not fetch the AASA.
+
+### RNNoise — integrated and simulator-verified
+
+- The audio player's options sheet has an accessible **Noise reduction** switch,
+  off by default, persisted as `RDNoiseReductionEnabled`. The main
+  `VLCPlaybackService` applies it through the custom VLCKit public selectors and
+  posts `VLCPlaybackServiceNoiseReductionDidChange` after successful changes.
+- The switch is disabled with upstream VLCKit or while casting. Failure retains
+  the previous preference. Mixer playback never prepares or enables RNNoise.
+- Native patches and artifact build/activation tools live in
+  `Buildsystem/RNNoise/`. The filter negotiates 48 kHz input, buffers complete
+  frames, resets on seeks, drains its tail and crossfades wet/dry audio without
+  rebuilding the filter chain. Equalizer changes retain the RNNoise filter.
+- Native device/Intel simulator/Apple Silicon simulator builds and the no-watch
+  app build pass. All six `DiscourseNoiseReductionTests` pass against the activated
+  engine, including real 44.1 kHz stereo playback, live toggling, equalizer
+  coexistence, progress and paused switching. Native sanitizer checks cover
+  framing, the real RNNoise model, allocation failures and 10,000 allocation-free
+  resets; artifact packaging/activation checks also pass.
+- All 132 unit tests pass with the activated engine. Unit-test installation
+  currently needs temporary Watch identifier overrides (§10.45); the native
+  README records the verified command. Physical-device
+  listening/performance acceptance remains pending before release.
+
 Reference files present for the contract: `api/docs.md`,
 `api/types/discourse.type.ts`, `api/edge.ts`, `api/migrations/`, `api/tests/`
 (backend reference material; **never wire `/seed` into the app**).
@@ -1877,6 +2105,10 @@ Reference files present for the contract: `api/docs.md`,
 ---
 
 ## 10. Known gaps and intentional deviations from Android
+
+Google Drive is intentionally unavailable. Existing downloaded local files remain
+usable; saved Drive favourites cannot open the removed browser.
+
 
 Record every deviation here; never hide a gap.
 
@@ -1886,7 +2118,7 @@ Record every deviation here; never hide a gap.
    `UserDefaults` and Keychain. Keys keep the `osho_api_*` names; the storage
    *mechanism* differs by design.
 2. **Crash/error reporting.** Android uses `ErrorReporter` (Sentry). This fork has
-   no telemetry SDK upstream and will not add one; unexpected errors are logged via
+   no crash reporting SDK; unexpected errors are logged via
    `APLog` under a `DiscourseDiagnostics` category with screen/context tags and no
    secrets. Expected offline/cancellation/4xx are not logged as errors.
 3. **Downloads.** Android's `DownloadManager` gives system UI and external storage;
@@ -1920,11 +2152,15 @@ Record every deviation here; never hide a gap.
    `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`; `Launch Screen.storyboard`
    shows `LaunchIcon.imageset` on `#0D0D0D`). The layered `VLC26*.icon` Icon
    Composer bundles stay in the project for upstream sync but are no longer
-   selected. The onboarding illustrations, the About title mark (`AboutTitle`)
-   and the VLC-cone artwork used by the empty library, playlists, passcode and
-   donation screens are still upstream assets. Replacing them needs real design
-   files. The About "Contact us" action now mails `support@sandalbar.online`
-   (was `ios-support@videolan.org`) — confirm the address before distribution.
+   selected. The onboarding illustrations and the VLC-cone artwork used by the
+   passcode and donation screens are still upstream assets. Replacing them needs
+   real design files. The About title mark is gone; the About page shows the
+   branded app icon (`AppIcon-480x480.png`), and its "Contact us" action now
+   mails `support@marfells.com` (was `support@sandalbar.online`). The
+   navigation-bar settings button now draws the rounded app icon, and
+   `VLCEmptyLibraryView` (the shared empty state behind the local library,
+   playlists, history and folders) shows the app logo instead of the VLC cone.
+   The menu no longer offers the upstream *Donate to VideoLAN* action.
 
 10. **Branding scope after Phase 2.** Navigation is now complete (Phase 5) with the
     five destinations; what remains from branding is the artwork (§10.9). Local
@@ -1946,8 +2182,8 @@ Record every deviation here; never hide a gap.
 13. **Page size.** The brief says 16 per page, but the deployed API returns 24
     rows per `/discourses` page and exposes no `page_size` parameter (see
     `api/docs.md`). The catalogue paginates with `page` and `meta.total_pages`
-    only; there is no client-side page-size control. Cards still render on a
-    2-column grid, so the extra rows change the scroll length, not the layout.
+    only; there is no client-side page-size control. The list is one card per
+    row, so the extra rows change the scroll length, not the layout.
 
 14. **Identity storage.** `DiscourseIdentity` talks to
     `XKKeychainGenericPasswordItem` directly instead of going through
@@ -1969,20 +2205,10 @@ Record every deviation here; never hide a gap.
     memory (`DiscourseLikesStore.counts`) so optimistic toggles can show a count
     immediately, and a completed refresh clears pending toggles in one step.
 
-17. **Local library entry point.** The five-tab shell has no Library tab, and
-    Android's Discourses screen is a `TabLayout` of *Discourse* and *Local*
-    (`AudioBrowserFragment`). iOS reaches the same shape with a
-    `UISegmentedControl` in the navigation bar, but selecting **Local** *replaces
-    the tab's navigation root* with the upstream `AudioViewController` instead of
-    embedding it as a child: a child loses its navigation-bar items (play all,
-    select all, sort/regroup, renderer, Settings) and its edit mode, and mirroring
-    them would duplicate upstream logic. The segment sits in the title view of both
-    roots, so it disappears on screens pushed from either root (discourse detail,
-    album list) and returns on pop — the same behaviour as Android's app bar. A
-    consequence is that the Local root has no navigation title of its own (the
-    segment occupies the title view); the pager's own tabs name the library. Both
-    roots are retained, so a switch keeps the catalogue's rows/scroll position and
-    the library's pager position, and no network reload happens on return.
+17. **Local library entry point.** The Discourses tab shows the catalogue
+    without the Android Discourse/Local switch. The mixer empty state and local
+    media shortcuts push the local library with Songs and Folders above the catalogue, and
+    Back returns to the catalogue.
 
 18. **Tab bar: the capsule is the system's, not a custom one.** The shell keeps
     `UITabBarController` (no custom geometry) and now selects the default tab-bar
@@ -2001,17 +2227,15 @@ Record every deviation here; never hide a gap.
     podcast URLs. Podcasts are not part of this product's surface; the classes stay
     for upstream sync and would need a new host if podcasts ever return.
 
-20. **Catalogue cards show downloads as a badge, not a footer row.** The brief
-    draws a download row under the card metadata; the Home carousel gives its
-    cards a fixed height, so a conditional row would clip there. Both catalogue
-    and Home cards instead show a small `3/11` badge over the artwork (green when
-    finished, accent while downloading). Counts and states match the brief and
+20. **Cards show downloads as a badge, not a footer row.** The brief draws a
+    download row under the card metadata; the Home carousel gives its cards a
+    fixed height, so a conditional row would clip there. The Home tiles show a
+    small `3/11` badge over the artwork, while the catalogue's full-width list
+    row puts the same badge in its footer. Counts and states match the brief and
     the card never resizes (§10.35).
 
-21. **Catalogue bar-button tint.** The Discourses tab still inherits the upstream
-    orange `tintColor` for its bar buttons (Settings, filter) while the segment
-    uses the discourse accent. The per-tab accent tint is part of the styling pass
-    (§10.18) and lands with the tab bar, so the two are re-tinted together.
+21. **Catalogue bar-button tint.** The Discourses tab inherits the upstream
+    orange `tintColor` for its Settings and filter buttons.
 
 22. **Media duration hint.** The brief's mapping multiplies `duration_seconds` by
     1000 and stores it on the media; iOS writes it to `VLCMedia.length`. libvlc
@@ -2039,7 +2263,7 @@ Record every deviation here; never hide a gap.
 25. **Mini player inset.** Upstream library screens grow their bottom content
     inset by `AudioMiniPlayer.height` while the mini player is visible
     (`VLCPlayerDisplayController{Display,Hide}MiniPlayer`). The fork screens do the
-    same (detail table and catalogue grid) instead of leaving the last row under
+    same (detail table and catalogue list) instead of leaving the last row under
     the mini player. Because the mini player is only shown after the full player
     closes, the inset changes then, not when playback starts.
 
@@ -2131,16 +2355,16 @@ Record every deviation here; never hide a gap.
 
 35. **The card download badge replaces the brief's footer row.** A conditional
     footer row cannot work on the Home carousel, whose cards have a fixed height.
-    Catalogue and Home cards show a `3/11` pill over the artwork (green when
-    finished, accent while downloading) and keep their size; the detail screen
-    owns the per-discourse download actions.
+    Home tiles show a `3/11` pill over the artwork (green when finished, accent
+    while downloading) and keep their size; the catalogue list row places the
+    same pill in its footer; the detail screen owns the per-discourse download
+    actions.
 
-36. **Downloads are removed from menus, never by tapping the arrow.** The brief's
-    row has one download affordance; turning the green tick into a delete button
-    would make an accidental tap destructive. The arrow downloads, cancels and
-    retries, while removal lives in the track's context menu and the discourse's
-    nav-bar menu (which confirms). The states are the same; only the destructive
-    path moved.
+36. **Download arrows toggle completed downloads.** Tapping downloads, cancels,
+    retries or removes a completed download. The shared action applies to detail,
+    Home and search track rows; VoiceOver announces completed arrows as removal
+    buttons. Removing all downloads still asks for confirmation. Detail track
+    cards use 14 pt vertical content padding.
 
 37. **Failed downloads are reported by their icon, not an alert.** A failure
     leaves an exclamation arrow (accessibility label *Download failed … Tap to try
@@ -2168,11 +2392,8 @@ Record every deviation here; never hide a gap.
     it requested (`isStopping`) and treats an unrequested `.stopped` as the end
     of the track, which is where loop/stop applies.
 
-41. **The panel's play button is an explicit override.** The brief only describes
-    following the main player. On the mixer screen, pressing play enables the
-    mixer and starts the selection even when the main player is stopped — a
-    visible play button that cannot play would be a dead control. Every other
-    path follows the main player unchanged.
+41. **The mixer always follows main playback.** The panel's play button arms
+    the mixer while the main player is idle; it cannot start standalone playback.
 
 42. **Video detection uses the player's track list.** The mixer stops when
     `numberOfVideoTracks > 0` and `playAsAudio` is false, the same test the player
@@ -2183,11 +2404,68 @@ Record every deviation here; never hide a gap.
     iOS screen asks ("Remove every track from the Audio Mixer?") because it is a
     destructive, irreversible action, matching the download remove-all pattern.
 
+44. **RNNoise requires the custom engine.** The upstream VLCKit binary contains
+    RNNoise but lacks a public live-toggle API. Until the custom artifact is built
+    and activated, the switch is disabled. Seamless switching keeps the denoiser
+    warm while bypassed and adds a fixed 20 ms delay to main-player audio; CPU and
+    battery cost remain when the switch is off. Physical-device acceptance is
+    required before release. Native build details and source pins are in
+    `Buildsystem/RNNoise/README.md`.
+
+45. **Watch signing identifiers.** The app uses bundle ID `com.oshodiscourse`;
+    the Watch app uses `com.oshodiscourse.watchos` and names the app as its
+    companion in all configurations. Earlier simulator verification used a
+    temporary `XCODE_XCCONFIG_FILE`; the repository settings now carry the same
+    IDs directly. A valid team profile is still required for signed builds.
+
+46. **Deep links use Universal Links, not a custom scheme.** The website links
+    are `https://rajneeshdiscourse.com/...`; Android uses an https intent filter,
+    iOS uses Associated Domains plus the AASA file. The API has no fetch-by-id
+    route, so a cold deep link reconstructs the discourse metadata from
+    `/discourse-audios?discourse_id=` (history/registry cache first, then a
+    catalogue search by title, then the track payload; the Android reference
+    uses the same track-list fallback). The detail screen then loads the tracks
+    from the 24 h cache. If the AASA is missing, iOS opens Safari; the deployable
+    file is `Buildsystem/DeepLinks/apple-app-site-association`.
+
+47. **Donation nag.** The recurring “Donate today” launch modal, its monthly and
+    launch-count gate, controller, XIB and localized strings were removed. The
+    separate first-run onboarding flow and underlying donation support remain.
+
+48. **Local audio access is folder-scoped.** iOS has no app-wide authorization
+    status for scanning audio files. The Local Songs empty state uses a resolvable
+    external-folder bookmark to distinguish the add-folder prompt from “No files
+    found”; both offer the picker, which grants access to a selected folder. This
+    is not a system-wide permission-denied check.
+
+49. **Local library has one pager page.** `AudioViewController` normally restores
+    the saved five-page audio index. `DiscourseLocalLibraryViewController` resets
+    the index before entering the inherited appearance lifecycle and pins it to 0,
+    because the Discourses/Local root contains only the Songs page. After the
+    view appears, it lays out and refreshes the pager so the Songs page is attached
+    even if the initial layout had zero width. The empty check uses the model:
+    an empty grouped collection can have zero sections.
+
+50. **Mixer imports are app-owned copies.** A `UIDocumentPickerViewController`
+    URL is security-scoped and may stop resolving after relaunch unless a
+    bookmark is persisted. `DiscourseMixerFileImporter` instead copies each
+    selection to `Application Support/AudioMixer/<source-id>/<filename>` and
+    stores that plain file URL, so playback needs no bookmark and survives a
+    missing original. The copy is idempotent per source, identical filenames
+    from different sources stay distinct, and removing a mixer track or clearing
+    the list deletes only the copy. The removed Local Library screen is not a
+    Mixer destination.
+
 *(Add new deviations here as they are discovered during implementation.)*
 
 ---
 
 ## 11. Upstream sync policy
+
+Keep Google Drive sources and tests out of target build phases when syncing
+upstream; do not restore Google Sign-In pods, cloud entries or OAuth registration.
+Upstream licence notices and source attribution are retained.
+
 
 This fork tracks VLC for iOS `master`. To merge upstream without losing fork
 behaviour:
@@ -2201,13 +2479,35 @@ behaviour:
 2. Maintain a short list of "fork touch points" — upstream files we intentionally
    edit — and update it whenever a new one is added. Keep the list here:
 
+   - `Sources/Playback/Control/VLCPlaybackService.{h,m}` — main-player RNNoise
+     capability checks, preference, live switching and renderer transitions.
+   - `Sources/Playback/Player/VideoPlayer-iOS/MediaMoreOptionsActionSheet.swift`,
+     its `Subviews/MediaPlayerActionSheet.swift`, and
+     `Sources/UI Elements/ActionSheet/ActionSheetCell.swift` — audio-only noise
+     reduction switch, status, availability and accessibility.
+   - `Buildsystem/RNNoise/` — pinned native patches, tests, local binary package
+     and artifact build/activation commands. Rebase these patches explicitly
+     when upgrading VLCKit/libvlc; do not drop the equalizer preservation change.
    - `Sources/App/iOS/TabBarCoordinator.swift` — five-tab Rajneesh navigation,
-     tab-index persistence, the Discourses/Local segment and root swap, shortcut
+     tab-index persistence, catalogue navigation, local library shortcuts,
      and album deep-link routing, the one-time `DiscoursePlaybackTracker` start,
      the launch/foreground `GET /likes` refresh, the launch-time
-     `DiscourseAudioMixer` singleton, the `.discourseShowLocalLibrary` shortcut
-     used by the mixer's empty state and the `MediaLibraryService` handed to the
-     Home screen for its library history.
+     `DiscourseAudioMixer` singleton and the `MediaLibraryService` handed to the
+     Home screen for its library history. The Mixer no longer routes to the
+     removed Local Library screen. It also handles the website Universal
+     Links (`handleDiscourseDeepLink:`) and pushes the detail screen.
+   - `Sources/App/iOS/VLCAppDelegate.m` — `NSUserActivityTypeBrowsingWeb` and
+     direct https URLs are routed to the discourse deep link; the tab bar can be
+     behind the passcode gate.
+   - `Sources/App/VLCAppCoordinator.{h,m}` — queues a deep link received before
+     `setTabBarController:` and releases it once the tab coordinator exists.
+   - `Resources/iOS/VLC.entitlements`, `VLC-iOSDebug.entitlements`,
+     `VLC-iOS-no-watchDebug.entitlements` — Associated Domains
+     (`applinks:rajneeshdiscourse.com`).
+   - `Sources/Discourse/DeepLink/DiscourseDeepLink.swift` and
+     `Buildsystem/DeepLinks/` — the URL parser, its tests, the deployable AASA
+     and the website deployment note. The detail screen's
+     `highlightedAudioID` scrolls to the linked track.
    - `Sources/Media Library/MediaViewControllers/PlaylistViewController.swift` —
      the fork accent on the Playlists tab's navigation bar (applied on launch and
      on theme changes).
@@ -2217,6 +2517,14 @@ behaviour:
    - `Sources/Discourse/UI/DiscourseFloatingTabBar.swift` — the covered-height
      helper (`discourseFloatingTabBarInset`) used by the fork scroll views on
      iOS 26.
+   - `Sources/Discourse/UI/DiscourseSegmentControl.swift` — the Discourses tab's
+     former Discourses switcher; retained as an unused fork component.
+   - `Sources/Discourse/UI/DiscourseLocalLibraryViewController.swift` — the
+     fork's Local library: an `AudioViewController` subclass reduced to one
+     Songs page, so the upstream sub-tab strip is gone while the library's bar
+     actions and edit mode keep working. It marks that page for the Local empty
+     state and resets the inherited audio index before appearance. `TabBarCoordinator`
+     pushes it and uses the Songs page when an album deep link needs a push.
    - `Resources/iOS/Images.xcassets/AppIcon.appiconset` and the
      `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon` setting on `VLC-iOS` and
      `VLC-iOS-no-watch` (Debug/Release/Distribution) — the Rajneesh launcher
@@ -2224,7 +2532,27 @@ behaviour:
    - `Resources/iOS/Launch Screen.storyboard` and
      `Resources/iOS/Images.xcassets/LaunchScreen/LaunchIcon.imageset` — the
      branded splash (rounded icon on `#0D0D0D`), covered by
-     `DiscourseLaunchScreenTests`.
+     `DiscourseLaunchScreenTests`. `LaunchIcon` is also the source for the
+     navigation-bar settings icon and the shared empty-state artwork.
+   - `Sources/UI Elements/Buttons/AppMenuBarButtonItem.swift` — the settings bar
+     button and its About menu item draw the rounded app icon instead of
+     `MenuCone`; the file also carries `AppLogoBarButtonItem` (the non-interactive
+     Home logo) and the `.dropdown` style used for Home's right-hand menu
+     chevron. The menu is **About Rajneesh Discourse** + **Settings** only: the
+     upstream donation item and the fork's **Help & Website** link were removed.
+   - `Sources/About/AboutController.swift`, `Sources/About/iOS/About Contents.html`
+     and `Resources/iOS/AppIcon-480x480.png` — the About page removes the old VLC
+     wordmark header, shows the branded app icon, links to
+     `rajneeshdiscourse.com` and mails `support@marfells.com`.
+   - `Sources/Discourse/UI/DiscourseHomeViewController.swift` and
+     `DiscourseHomeSectionHeaderView.swift` — the Home header uses the static
+     logo plus the right dropdown, and the section headers are tightened so the
+     first title sits directly under the compact bar.
+   - `Sources/Media Library/VLCEmptyLibraryView.{h,m,xib}`,
+     `Sources/Media Library/MediaCategories/MediaCategoryViewController.swift`
+     and `Sources/Media Library/MediaViewControllers/MediaViewController.swift` —
+     the shared empty state shows the app logo; the Discourses/Local Songs empty
+     state reflects external-folder access and reuses the existing folder picker.
    - `Resources/en.lproj/Localizable.strings` — `EMPTY_NO_PLAYLISTS_DESCRIPTION`
      and `EMPTY_PLAYLIST_DESCRIPTION` rewritten for this fork (no Video/Audio
      tabs; add from the local library).
@@ -2243,8 +2571,10 @@ behaviour:
      local audio media (inserted before the editing actions).
    - `Sources/Discourse/Mixer/` — the Audio Mixer engine and its panel/row views
      (`DiscourseAudioMixer`, `DiscourseMixerPanelView`,
-     `DiscourseMixerTrackCell`). New fork-only folder; the engine only listens to
-     the main player's notifications and never edits it.
+     `DiscourseMixerTrackCell`) plus `DiscourseMixerFileImporter`, which copies
+     document-picker files into app-owned storage. New fork-only folder; the
+     engine only listens to the main player's notifications and never edits it.
+     Removing a mixer item deletes only its own imported copy.
    - `Sources/Playback/Player/AudioPlayer/AudioPlayerViewController.swift` — the
      fork-only discourse like control in the audio player's `MediaNavigationBar`
      (inserted before the more-options button, hidden unless the current media has
@@ -2253,7 +2583,7 @@ behaviour:
      `discourses`, `search`, `audioMixer` identifiers, plus `discourseLike` for
      the player's heart.
    - `Buildsystem/Testing/UI/VLCTestMenu.swift` — rewritten for the five-tab shell
-     and the catalogue segment; carries the like round-trip test and waits for
+     and catalogue navigation; carries the like round-trip test and waits for
      each toggle to settle before the next tap.
    - `Sources/App/VLCAppCoordinator.{h,m}` — register discourse/mixer services.
    - `Sources/UI Elements/PresentationTheme.swift` — dark default + fork palette.
@@ -2277,10 +2607,12 @@ behaviour:
      to the download manager, so background downloads can finish while the app
      is suspended.
    - `Sources/Discourse/UI/DiscourseCatalogueViewController.swift` and
-     `DiscourseCardCell.swift` — card selection pushes the detail, the grid
-     observes the mini-player notifications for its bottom inset, seeds the like
-     counts and reconfigures its visible cards on `.discourseLikesDidChange`, and
-     draws the `3/11` download badge on `.discourseDownloadsDidChange`.
+     `DiscourseCardCell.swift` — the one-column catalogue list (full-width rows,
+     artwork left) and the card's `.tile`/`.list` layouts; card selection pushes
+     the detail, the collection observes the mini-player notifications for its
+     bottom inset, seeds the like counts and reconfigures its visible rows on
+     `.discourseLikesDidChange`, and draws the `3/11` download badge on
+     `.discourseDownloadsDidChange`.
    - `Sources/Discourse/UI/DiscourseLikeControl.swift`,
      `DiscourseLikeActions.swift` and `DiscourseAccessibilityButton.swift` — the
      one heart renderer, the shared toggle/failure helper and the transparent
@@ -2307,7 +2639,10 @@ behaviour:
      artwork slot and the controls for library entries.
    - `Sources/Discourse/UI/DiscourseAudioMixerViewController.swift` — the Audio
      Mixer tab's real screen (panel header, track list, clear confirmation, empty
-     state); replaces the Phase 5 placeholder.
+     state); replaces the Phase 5 placeholder. No Edit button: the list reorders
+     by long-press drag and deletes by swipe. The **+** button and empty-state
+     **Add audio file** action open the document picker; no Local Library link
+     remains.
    - `Sources/Discourse/Stores/DiscoursePlaybackSettings.swift` — the
      `playback_history` switch (no upstream key exists).
      `Sources/Discourse/Stores/DiscourseStatsCache.swift` — `DiscourseStatsService`
@@ -2350,3 +2685,32 @@ behaviour:
 
 Phases 1–4 must not be skipped. The Audio Mixer is never implemented before the
 main playback state is stable.
+
+### Mixer file import
+
+Mixer always offers **Add audio file** through its **+** navigation button and
+its empty-state action, including when its saved track list is populated. The
+system document picker accepts audio files from Files and installed document
+providers. `DiscourseMixerFileImporter` copies each selection into
+`Application Support/AudioMixer/` so playback survives relaunch without a
+security-scoped bookmark. The original file is untouched; removing a row or
+clearing the list deletes only the app-owned copy. The removed Local Library
+screen is not linked from Mixer.
+
+### Mixer control card design
+
+The mixer header uses a collapsible Background Music Mixer card with Mixer on/off
+and Loop buttons, an options menu containing the selected track and play/pause,
+and a labelled volume slider with one-percent minus/plus buttons. The panel stays
+in its existing table-header position; the track list and playback engine are unchanged.
+
+Detail track rows support swiping left to reveal Add to Playlist. The action opens
+the existing VLC playlist picker (or playlist creation when none exist) and saves
+the streaming URL plus discourse identity so removing a download preserves the entry.
+
+Expanded audio player: portrait has a Like / Discourse / Playlist / Noise action
+row above the timeline, circular accent play button, and 30-second backward/forward
+jumps in place of previous/next. Artwork blur is supported on iOS 15 and later.
+Discourse dismisses the player and routes to the current discourse; Playlist uses
+the existing picker presented from the player. Noise uses the existing RNNoise toggle.
+The action row is hidden in landscape to preserve the compact controls.

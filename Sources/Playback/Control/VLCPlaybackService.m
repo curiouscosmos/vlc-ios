@@ -43,6 +43,14 @@
 #import "VLC-Swift.h"
 #import "VLCMediaList+M3U.h"
 
+// Public selectors supplied by the pinned RNNoise-enabled VLCKit build.
+// Runtime checks keep upstream VLCKit usable while rebuilding native artifacts.
+@interface VLCMediaPlayer (RDNoiseReduction)
+- (BOOL)prepareNoiseReduction;
+- (BOOL)noiseReductionReady;
+- (BOOL)applyNoiseReductionEnabled:(BOOL)enabled;
+@end
+
 NSString *const VLCPlaybackServicePlaybackDidStart = @"VLCPlaybackServicePlaybackDidStart";
 NSString *const VLCPlaybackServicePlaybackDidPause = @"VLCPlaybackServicePlaybackDidPause";
 NSString *const VLCPlaybackServicePlaybackDidResume = @"VLCPlaybackServicePlaybackDidResume";
@@ -57,6 +65,8 @@ NSString *const VLCPlaybackServiceShuffleModeUpdated = @"VLCPlaybackServiceShuff
 NSString *const VLCPlaybackServicePlaybackDidMoveOnToNextItem = @"VLCPlaybackServicePlaybackDidMoveOnToNextItem";
 NSString *const VLCPlaybackServiceSleepTimerDidChange = @"VLCPlaybackServiceSleepTimerDidChange";
 NSString *const VLCLastPlaylistPlayedMedia = @"LastPlaylistPlayedMedia";
+NSString *const VLCPlaybackServiceNoiseReductionDidChange = @"VLCPlaybackServiceNoiseReductionDidChange";
+static NSString *const kRDNoiseReductionEnabled = @"RDNoiseReductionEnabled";
 
 static const float kVLCPlaybackRateMinimum = 0.25f;
 static const float kVLCPlaybackRateMaximum = 8.0f;
@@ -76,6 +86,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     VLCMediaPlayer *_mediaPlayer;
     VLCMediaListPlayer *_listPlayer;
     BOOL _shouldResumePlaying;
+    BOOL _noiseReductionPrepared;
     BOOL _sessionWillRestart;
     VLCMedia *_openedMedia;
     VLCMediaPlayerTrack *videoTrack;
@@ -378,6 +389,19 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
             _listPlayer = [[VLCMediaListPlayer alloc] initWithDrawable:self];
         }
         _mediaPlayer = _listPlayer.mediaPlayer;
+#if TARGET_OS_IOS
+        _noiseReductionPrepared = [_mediaPlayer respondsToSelector:@selector(prepareNoiseReduction)]
+            && [_mediaPlayer respondsToSelector:@selector(noiseReductionReady)]
+            && [_mediaPlayer respondsToSelector:@selector(applyNoiseReductionEnabled:)]
+            && [_mediaPlayer prepareNoiseReduction];
+        if (_noiseReductionPrepared) {
+            BOOL enabled = !_renderer && [userDefaults boolForKey:kRDNoiseReductionEnabled];
+            if (![_mediaPlayer applyNoiseReductionEnabled:enabled]) {
+                _noiseReductionPrepared = NO;
+                APLog(@"RNNoise initialization failed");
+            }
+        }
+#endif
         [_mediaPlayer addObserver:self forKeyPath:@"time" options:0 context:nil];
     } else {
         APLog(@"Reusing exising list player %@ with media player %@", _listPlayer, _mediaPlayer);
@@ -1611,6 +1635,32 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     return -1;
 }
 
+#pragma mark - Noise reduction
+
+- (BOOL)noiseReductionAvailable
+{
+#if TARGET_OS_IOS
+    return _noiseReductionPrepared && _renderer == nil && [_mediaPlayer noiseReductionReady];
+#else
+    return NO;
+#endif
+}
+
+- (BOOL)noiseReductionEnabled
+{
+    return self.noiseReductionAvailable && [[NSUserDefaults standardUserDefaults] boolForKey:kRDNoiseReductionEnabled];
+}
+
+- (BOOL)applyNoiseReductionEnabled:(BOOL)enabled
+{
+    NSAssert([NSThread isMainThread], @"Noise reduction is controlled on the main thread");
+    if (!self.noiseReductionAvailable || ![_mediaPlayer applyNoiseReductionEnabled:enabled])
+        return NO;
+    [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:kRDNoiseReductionEnabled];
+    [[NSNotificationCenter defaultCenter] postNotificationName:VLCPlaybackServiceNoiseReductionDidChange object:self];
+    return YES;
+}
+
 #pragma mark - equalizer
 
 - (void)setAmplification:(CGFloat)amplification forBand:(unsigned int)index
@@ -2440,6 +2490,11 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 {
     _renderer = renderer;
     [_mediaPlayer setRendererItem:_renderer];
+    if (_noiseReductionPrepared) {
+        BOOL enabled = !_renderer && [[NSUserDefaults standardUserDefaults] boolForKey:kRDNoiseReductionEnabled];
+        if (![_mediaPlayer applyNoiseReductionEnabled:enabled]) APLog(@"RNNoise renderer transition failed");
+    }
+    [[NSNotificationCenter defaultCenter] postNotificationName:VLCPlaybackServiceNoiseReductionDidChange object:self];
 }
 #endif
 

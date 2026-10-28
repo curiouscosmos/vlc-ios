@@ -105,7 +105,7 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
 
     private lazy var backwardButton: UIButton = {
         let backwardButton = UIButton(type: .system)
-        backwardButton.setImage(controlImage(symbol: "gobackward", fallback: "iconSkipBack", pointSize: 18), for: .normal)
+        backwardButton.setImage(controlImage(symbol: "gobackward.30", fallback: "iconSkipBack", pointSize: 18), for: .normal)
         backwardButton.contentMode = .scaleAspectFit
         backwardButton.imageView?.contentMode = .scaleAspectFit
         backwardButton.tintColor = .white
@@ -149,6 +149,9 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
         playButton.contentMode = .scaleAspectFit
         playButton.imageView?.contentMode = .scaleAspectFit
         playButton.tintColor = .white
+        playButton.backgroundColor = DiscourseColors.current.accent
+        playButton.layer.cornerRadius = 30
+        playButton.widthAnchor.constraint(equalToConstant: 60).isActive = true
         playButton.addTarget(self, action: #selector(handlePlayButton(_:)), for: .touchUpInside)
         playButton.accessibilityLabel = NSLocalizedString("PLAY_PAUSE_BUTTON", comment: "")
         playButton.accessibilityHint = NSLocalizedString("PLAY_PAUSE_HINT", comment: "")
@@ -169,7 +172,7 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
 
     private lazy var forwardButton: UIButton = {
         let forwardButton = UIButton(type: .system)
-        forwardButton.setImage(controlImage(symbol: "goforward", fallback: "iconSkipForward", pointSize: 18), for: .normal)
+        forwardButton.setImage(controlImage(symbol: "goforward.30", fallback: "iconSkipForward", pointSize: 18), for: .normal)
         forwardButton.contentMode = .scaleAspectFit
         forwardButton.imageView?.contentMode = .scaleAspectFit
         forwardButton.tintColor = .white
@@ -191,6 +194,8 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
         repeatButton.accessibilityHint = NSLocalizedString("REPEAT_HINT", comment: "")
         return repeatButton
     }()
+
+    lazy var actionStackView = UIStackView()
 
     lazy var progressionView: UIView = UIView()
 
@@ -334,21 +339,8 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
             VLCPlaceholderArtwork.backgroundColor(forName: $0)
         } : nil
 
-        if #available(iOS 26.0, *) {
-            backgroundImageView.image = image
-            backgroundImageView.backgroundColor = placeholderColor
-            return
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            let averageColor = placeholderColor ?? image?.averageColor()
-
-            DispatchQueue.main.async {
-                UIView.animate(withDuration: 0.25) {
-                    self.backgroundView.backgroundColor = averageColor
-                }
-            }
-        }
+        backgroundImageView.image = image
+        backgroundImageView.backgroundColor = placeholderColor
     }
 
     func setupLabels() {
@@ -591,18 +583,19 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
 
     func shouldEnableSeekButtons(_ enabled: Bool) {
         backwardButton.isEnabled = enabled
-        backwardButton.isHidden = !enabled
+        backwardButton.isHidden = false
         forwardButton.isEnabled = enabled
-        forwardButton.isHidden = !enabled
+        forwardButton.isHidden = false
 
         previousButton.isEnabled = !enabled
-        previousButton.isHidden = enabled
+        previousButton.isHidden = true
         nextButton.isEnabled = !enabled
-        nextButton.isHidden = enabled
+        nextButton.isHidden = true
     }
 
     func updateLayout(isLandscape: Bool) {
         isLandscapeLayout = isLandscape
+        actionStackView.isHidden = isLandscape
 
         if isLandscape {
             NSLayoutConstraint.deactivate(portraitConstraints)
@@ -680,7 +673,7 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
             backgroundView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
-        if #available(iOS 26.0, *) {
+        do {
             blurView.translatesAutoresizingMaskIntoConstraints = false
             themeDidChange()
 
@@ -700,10 +693,8 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
     }
 
     @objc private func themeDidChange() {
-        if #available(iOS 26.0, *) {
-            let style: UIBlurEffect.Style = PresentationTheme.current.isDark ? .systemUltraThinMaterialDark : .systemUltraThinMaterialLight
-            blurView.effect = UIBlurEffect(style: style)
-        }
+        let style: UIBlurEffect.Style = PresentationTheme.current.isDark ? .systemUltraThinMaterialDark : .systemUltraThinMaterialLight
+        blurView.effect = UIBlurEffect(style: style)
     }
 
     private func setupOverlayView() {
@@ -910,7 +901,7 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
         controlsStackViewTrailing.priority = .defaultHigh
 
         sharedConstraints.append(contentsOf: [
-            controlsStackView.heightAnchor.constraint(equalToConstant: 50.0),
+            controlsStackView.heightAnchor.constraint(equalToConstant: 60.0),
             controlsStackViewLeading,
             controlsStackViewTrailing,
             secondaryControlStackView.topAnchor.constraint(equalTo: controlsStackView.bottomAnchor, constant: topPadding/4),
@@ -960,6 +951,10 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
 
         addSubview(progressionView)
 
+        actionStackView.translatesAutoresizingMaskIntoConstraints = false
+        actionStackView.distribution = .fillEqually
+        actionStackView.alignment = .fill
+        addSubview(actionStackView)
         sharedConstraints.append(progressionViewHeightConstraint)
 
         let portraitProgressionLeading = progressionView.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor)
@@ -968,7 +963,11 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
         portraitProgressionTrailingConstraint = portraitProgressionTrailing
 
         portraitConstraints.append(contentsOf: [
-            progressionView.topAnchor.constraint(greaterThanOrEqualTo: thumbnailView.bottomAnchor, constant: 16),
+            actionStackView.topAnchor.constraint(equalTo: thumbnailView.bottomAnchor, constant: 8),
+            actionStackView.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 20),
+            actionStackView.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -20),
+            actionStackView.heightAnchor.constraint(equalToConstant: 64),
+            progressionView.topAnchor.constraint(greaterThanOrEqualTo: actionStackView.bottomAnchor, constant: 8),
             portraitProgressionLeading,
             portraitProgressionTrailing,
         ])

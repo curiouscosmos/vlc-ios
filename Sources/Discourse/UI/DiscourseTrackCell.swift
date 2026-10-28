@@ -107,8 +107,8 @@ final class DiscourseTrackCell: UITableViewCell {
             progressView.topAnchor.constraint(greaterThanOrEqualTo: containerView.topAnchor, constant: 8),
 
             titleLabel.leadingAnchor.constraint(equalTo: progressView.trailingAnchor, constant: 10),
-            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 10),
-            titleLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -10),
+            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 14),
+            titleLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -14),
             titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingStack.leadingAnchor, constant: -10),
 
             trailingStack.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -12),

@@ -36,12 +36,14 @@ final class DiscourseHomeSectionHeaderView: UICollectionReusableView {
         titleLabel.numberOfLines = 1
         titleLabel.isAccessibilityElement = true
         titleLabel.accessibilityTraits = .header
+        titleLabel.setContentHuggingPriority(.required, for: .vertical)
+        titleLabel.setContentCompressionResistancePriority(.required, for: .vertical)
 
         addSubview(titleLabel)
         NSLayoutConstraint.activate([
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 4),
             titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16),
-            titleLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8)
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16)
         ])
 
         updateTheme()

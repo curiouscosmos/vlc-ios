@@ -129,15 +129,59 @@ class AudioPlayerViewController: PlayerViewController {
 #if os(iOS)
     // MARK: - Fork: discourse likes
 
+    private var playlistActions: EditActions?
+    private lazy var discourseButton = playerAction(symbol: "text.bubble", action: #selector(openDiscourse))
+    private lazy var noiseButton = playerAction(symbol: "waveform.slash", action: #selector(toggleNoise))
+
+    private func playerAction(symbol: String, action: Selector) -> UIButton {
+        let button = UIButton(type: .system)
+        var configuration = UIButton.Configuration.plain()
+        configuration.image = UIImage(systemName: symbol)
+        configuration.baseForegroundColor = .white
+        configuration.contentInsets = .zero
+        button.configuration = configuration
+        button.addTarget(self, action: action, for: .touchUpInside)
+        return button
+    }
+
+    @objc private func openDiscourse() {
+        guard let media = playbackService.currentlyPlayingMedia,
+              let identity = DiscourseMediaFactory.identity(of: media),
+              let url = URL(string: "https://rajneeshdiscourse.com/discourses/\(identity.discourseID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? identity.discourseID)") else { return }
+        dismiss(animated: true) {
+            _ = VLCAppCoordinator.sharedInstance().handleDiscourseDeepLink(url)
+        }
+    }
+
+    @objc private func addCurrentTrackToPlaylist() {
+        guard let url = playbackService.currentlyPlayingMedia?.url,
+              let media = mediaLibraryService.fetchOrCreateMedia(with: url) else { return }
+        let actions = EditActions(model: PlaylistModel(medialibrary: mediaLibraryService), mediaLibraryService: mediaLibraryService, presentingViewController: self)
+        actions.objects = [media]
+        playlistActions = actions
+        actions.addToPlaylist()
+    }
+
+    @objc private func toggleNoise() {
+        _ = playbackService.setNoiseReduction(enabled: !playbackService.noiseReductionEnabled)
+        noiseButton.configuration?.baseForegroundColor = playbackService.noiseReductionEnabled ? DiscourseColors.current.accent : .white
+        noiseButton.accessibilityValue = playbackService.noiseReductionEnabled ? "On" : "Off"
+    }
+
     private func setupDiscourseLikeButton() {
-        let insertIndex = max(0, mediaNavigationBar.arrangedSubviews.count - 1)
-        mediaNavigationBar.insertArrangedSubview(discourseLikeButton, at: insertIndex)
+        discourseLikeButton.contentHorizontalAlignment = .center
+        audioPlayerView.actionStackView.addArrangedSubview(discourseLikeButton)
+        audioPlayerView.actionStackView.addArrangedSubview(discourseButton)
+        audioPlayerView.actionStackView.addArrangedSubview(playerAction(symbol: "text.badge.plus", action: #selector(addCurrentTrackToPlaylist)))
+        audioPlayerView.actionStackView.addArrangedSubview(noiseButton)
         NSLayoutConstraint.activate([
-            discourseLikeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 44)
+            discourseLikeButton.widthAnchor.constraint(equalTo: audioPlayerView.actionStackView.widthAnchor,
+                                                       multiplier: 0.25)
         ])
 
         let center = NotificationCenter.default
-        for name in [VLCPlaybackServicePlaybackDidStart,
+        for name in [VLCPlaybackServiceNoiseReductionDidChange,
+                     VLCPlaybackServicePlaybackDidStart,
                      VLCPlaybackServicePlaybackDidMoveOnToNextItem,
                      VLCPlaybackServicePlaybackWillStop,
                      VLCPlaybackServicePlaybackDidStop,
@@ -155,6 +199,10 @@ class AudioPlayerViewController: PlayerViewController {
     }
 
     @objc private func updateDiscourseLike() {
+        discourseButton.isEnabled = currentDiscourseTrack() != nil
+        noiseButton.isEnabled = playbackService.noiseReductionAvailable
+        noiseButton.configuration?.baseForegroundColor = playbackService.noiseReductionEnabled ? DiscourseColors.current.accent : .white
+        noiseButton.accessibilityValue = playbackService.noiseReductionEnabled ? "On" : "Off"
         guard let track = currentDiscourseTrack() else {
             discourseLikeButton.isHidden = true
             return
@@ -427,7 +475,7 @@ class AudioPlayerViewController: PlayerViewController {
     }
 
     @objc override func updatePlayerControls() {
-        audioPlayerView.shouldEnableSeekButtons(playbackService.mediaList.count == 1)
+        audioPlayerView.shouldEnableSeekButtons(true)
     }
 }
 
@@ -447,10 +495,10 @@ extension AudioPlayerViewController: AudioPlayerViewDelegate {
     }
 
     func audioPlayerViewDelegateDidTapBackwardButton(_ audioPlayerView: AudioPlayerView) {
-        totalSeekDuration = previousSeekState == .forward ? -seekBackwardBy : totalSeekDuration - seekBackwardBy
+        totalSeekDuration = previousSeekState == .forward ? -30 : totalSeekDuration - 30
         previousSeekState = .backward
 
-        displayAndApplySeekDuration(seekBackwardBy)
+        displayAndApplySeekDuration(30)
     }
 
     func audioPlayerViewDelegateDidTapPreviousButton(_ audioPlayerView: AudioPlayerView) {
@@ -467,10 +515,10 @@ extension AudioPlayerViewController: AudioPlayerViewDelegate {
     }
 
     func audioPlayerViewDelegateDidTapForwardButton(_ audioPlayerView: AudioPlayerView) {
-        totalSeekDuration = previousSeekState == .backward ? seekForwardBy : totalSeekDuration + seekForwardBy
+        totalSeekDuration = previousSeekState == .backward ? 30 : totalSeekDuration + 30
         previousSeekState = .forward
 
-        displayAndApplySeekDuration(seekForwardBy)
+        displayAndApplySeekDuration(30)
     }
 
     func audioPlayerViewDelegateDidTapRepeatButton(_ audioPlayerView: AudioPlayerView) {
@@ -521,7 +569,7 @@ extension AudioPlayerViewController {
                                       for: playbackService)
 
         audioPlayerView.updatePlayButton(isPlaying: isPlaying)
-        audioPlayerView.shouldEnableSeekButtons(playbackService.mediaList.count == 1)
+        audioPlayerView.shouldEnableSeekButtons(true)
 
         let image: UIImage? = isPlaying ? UIImage(named: "minimize") : UIImage(named: "close")
         let accessibilityLabel: String = isPlaying ? NSLocalizedString("MINIMIZE_BUTTON", comment: "") : NSLocalizedString("STOP_BUTTON", comment: "")

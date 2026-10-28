@@ -26,6 +26,4 @@ extension Notification.Name {
     static let discourseDownloadsDidChange = Notification.Name("discourseDownloadsDidChange")
     /// The Audio Mixer's membership, selection, switches or playback changed.
     static let discourseMixerDidChange = Notification.Name("discourseMixerDidChange")
-    /// A fork screen asked to reveal the Discourses tab's Local library.
-    static let discourseShowLocalLibrary = Notification.Name("discourseShowLocalLibrary")
 }

@@ -13,9 +13,6 @@
 
 import Foundation
 import UIKit
-#if os(iOS)
-import GoogleSignIn
-#endif
 
 enum VLCXCallbackType {
     case url
@@ -218,11 +215,8 @@ extension VLCURLHandler {
 
 @objc class URLHandlers: NSObject {
     #if os(iOS)
-    @objc static let googleURLHandler = GoogleURLHandler()
-
     @objc static let handlers =
         [
-            googleURLHandler,
             DropBoxURLHandler(),
             PodcastFeedURLHandler(),
             FileURLHandler(),
@@ -317,25 +311,6 @@ class DropBoxURLHandler: NSObject, VLCURLHandler {
             return true
         }
         return false
-    }
-}
-
-class GoogleURLHandler: NSObject, VLCURLHandler {
-    var movieURL: URL?
-    var subURL: URL?
-    var successCallback: URL?
-    var errorCallback: URL?
-    var fileName: String?
-    var loop = false
-    var shuffle = false
-
-    @objc func canHandleOpen(url: URL, options: [UIApplication.OpenURLOptionsKey: AnyObject]) -> Bool {
-        // the scheme is the reversed client ID, which is injected at build time
-        return url.scheme?.hasPrefix("com.googleusercontent.apps") == true
-    }
-
-    @objc func performOpen(url: URL, options: [UIApplication.OpenURLOptionsKey: AnyObject]) -> Bool {
-        return GIDSignIn.sharedInstance.handle(url)
     }
 }
 

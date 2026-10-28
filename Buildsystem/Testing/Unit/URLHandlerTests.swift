@@ -15,6 +15,13 @@ import XCTest
 
 class URLHandlerTests: XCTestCase {
 
+    func testGoogleSignInIsNotRegistered() {
+        XCTAssertFalse(URLHandlers.handlers.contains { String(describing: type(of: $0)).contains("Google") })
+        let urlTypes = Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]] ?? []
+        let schemes = urlTypes.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }
+        XCTAssertFalse(schemes.contains { $0.hasPrefix("com.googleusercontent.apps") })
+    }
+
     func testVLCHandler() {
         let handler = VLCCallbackURLHandler()
         let transformURLString = { handler.transformVLCURL(URL(string: $0)!) }

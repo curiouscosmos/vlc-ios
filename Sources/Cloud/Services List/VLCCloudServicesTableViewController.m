@@ -13,7 +13,6 @@
 
 #import "VLCCloudServicesTableViewController.h"
 #import "VLCDropboxTableViewController.h"
-#import "VLCGoogleDriveTableViewController.h"
 #import "VLCBoxTableViewController.h"
 #import "VLCBoxController.h"
 #import "VLCOneDriveTableViewController.h"
@@ -21,13 +20,11 @@
 #import "VLCDocumentPickerController.h"
 #import "VLCCloudServiceCell.h"
 
-#import "VLCGoogleDriveController.h"
 #import "VLC-Swift.h"
 
 @interface VLCCloudServicesTableViewController ()
 
 @property (nonatomic) VLCDropboxTableViewController *dropboxTableViewController;
-@property (nonatomic) VLCGoogleDriveTableViewController *googleDriveTableViewController;
 @property (nonatomic) VLCBoxTableViewController *boxTableViewController;
 @property (nonatomic) VLCOneDriveTableViewController *oneDriveTableViewController;
 @property (nonatomic) VLCPCloudViewController *pcloudTableViewController;
@@ -46,7 +43,6 @@
     [self themeDidChange];
 
     self.dropboxTableViewController = [[VLCDropboxTableViewController alloc] initWithNibName:@"VLCCloudStorageTableViewController" bundle:nil];
-    self.googleDriveTableViewController = [[VLCGoogleDriveTableViewController alloc] initWithNibName:@"VLCCloudStorageTableViewController" bundle:nil];
     self.boxTableViewController = [[VLCBoxTableViewController alloc] initWithNibName:@"VLCCloudStorageTableViewController" bundle:nil];
     self.oneDriveTableViewController = [[VLCOneDriveTableViewController alloc] initWithNibName:@"VLCCloudStorageTableViewController" bundle:nil];
     self.pcloudTableViewController = [[VLCPCloudViewController alloc] initWithNibName:@"VLCCloudStorageTableViewController" bundle:nil];
@@ -85,7 +81,7 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return 6;
+    return 5;
 }
 
 - (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath
@@ -112,16 +108,6 @@
             break;
         }
         case 1: {
-            //GoogleDrive
-            BOOL isAuthorized = [[VLCGoogleDriveController sharedInstance] isAuthorized];
-            cell.icon.image = [UIImage imageNamed:@"DriveCell"];
-            cell.cloudTitle.text = @"Google Drive";
-            cell.cloudInformation.text = isAuthorized ? NSLocalizedString(@"LOGGED_IN", "") : NSLocalizedString(@"LOGIN", "");
-            cell.cloudInformation.textColor = isAuthorized ? PresentationTheme.current.colors.orangeUI : PresentationTheme.current.colors.cellDetailTextColor;
-            cell.lonesomeCloudTitle.text = @"";
-            break;
-        }
-        case 2: {
             //Box
             BOOL isAuthorized = [[VLCBoxController sharedInstance] isAuthorized];
             cell.icon.image = [UIImage imageNamed:@"BoxCell"];
@@ -131,7 +117,7 @@
             cell.lonesomeCloudTitle.text = @"";
             break;
         }
-        case 3: {
+        case 2: {
             //OneDrive
             BOOL isAuthorized = [[VLCOneDriveController sharedInstance] isAuthorized];
             cell.icon.image = [UIImage imageNamed:@"OneDriveCell"];
@@ -141,7 +127,7 @@
             cell.lonesomeCloudTitle.text = @"";
             break;
         }
-        case 4: {
+        case 3: {
             // pCloud
             BOOL isAuthorized =  [[VLCPCloudController pCloudInstance] isAuthorized];
             cell.icon.image = [UIImage imageNamed:@"pCloudCell"];
@@ -151,7 +137,7 @@
             cell.lonesomeCloudTitle.text = @"";
             break;
         }
-        case 5: {
+        case 4: {
             // Cloud Drives
             cell.icon.image = [UIImage imageNamed:@"iCloudCell"];
             cell.lonesomeCloudTitle.text = @"iCloud";
@@ -181,22 +167,18 @@
             [self.navigationController pushViewController:self.dropboxTableViewController animated:YES];
             break;
         case 1:
-            //GoogleDrive
-            [self.navigationController pushViewController:self.googleDriveTableViewController animated:YES];
-            break;
-        case 2:
             //Box
            [self.navigationController pushViewController:self.boxTableViewController animated:YES];
             break;
-        case 3:
+        case 2:
             //OneDrive
             [self.navigationController pushViewController:self.oneDriveTableViewController animated:YES];
             break;
-        case 4:
+        case 3:
            // P Cloud
             [self.navigationController pushViewController:self.pcloudTableViewController animated:YES];
             break;
-        case 5: {
+        case 4: {
             // iCloud
             // with a nil parameter, this method returns the first container listed in the
             // com.apple.developer.ubiquity-container-identifiers entitlement array

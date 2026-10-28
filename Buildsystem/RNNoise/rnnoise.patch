@@ -1,0 +1,53 @@
+diff --git a/include/rnnoise.h b/include/rnnoise.h
+index c4215d9..81834a3 100644
+--- a/include/rnnoise.h
++++ b/include/rnnoise.h
+@@ -70,6 +70,9 @@ RNNOISE_EXPORT int rnnoise_get_frame_size();
+  */
+ RNNOISE_EXPORT int rnnoise_init(DenoiseState *st, RNNModel *model);
+ 
++/** Reset an initialized state without allocating or changing its model. */
++RNNOISE_EXPORT void rnnoise_reset(DenoiseState *st);
++
+ /**
+  * Allocate and initialize a DenoiseState
+  *
+diff --git a/src/denoise.c b/src/denoise.c
+index ec9bc41..924f2cb 100644
+--- a/src/denoise.c
++++ b/src/denoise.c
+@@ -270,13 +270,33 @@ int rnnoise_init(DenoiseState *st, RNNModel *model) {
+   st->rnn.vad_gru_state = calloc(sizeof(float), st->rnn.model->vad_gru_size);
+   st->rnn.noise_gru_state = calloc(sizeof(float), st->rnn.model->noise_gru_size);
+   st->rnn.denoise_gru_state = calloc(sizeof(float), st->rnn.model->denoise_gru_size);
++  if (!st->rnn.vad_gru_state || !st->rnn.noise_gru_state || !st->rnn.denoise_gru_state) {
++    free(st->rnn.vad_gru_state);
++    free(st->rnn.noise_gru_state);
++    free(st->rnn.denoise_gru_state);
++    memset(st, 0, sizeof(*st));
++    return -1;
++  }
+   return 0;
+ }
+ 
++void rnnoise_reset(DenoiseState *st) {
++  RNNState rnn = st->rnn;
++  memset(st, 0, sizeof(*st));
++  st->rnn = rnn;
++  memset(rnn.vad_gru_state, 0, sizeof(float) * rnn.model->vad_gru_size);
++  memset(rnn.noise_gru_state, 0, sizeof(float) * rnn.model->noise_gru_size);
++  memset(rnn.denoise_gru_state, 0, sizeof(float) * rnn.model->denoise_gru_size);
++}
++
+ DenoiseState *rnnoise_create(RNNModel *model) {
+   DenoiseState *st;
+   st = malloc(rnnoise_get_size());
+-  rnnoise_init(st, model);
++  if (!st) return NULL;
++  if (rnnoise_init(st, model) != 0) {
++    free(st);
++    return NULL;
++  }
+   return st;
+ }
+ 

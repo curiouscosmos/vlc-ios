@@ -86,6 +86,7 @@ class MediaCategoryViewController: UICollectionViewController, UISearchBarDelega
     }
 
     var isSectionable: Bool = false
+    var showsLocalAudioEmptyState = false
 
     var isSectioned: Bool {
         guard isSectionable else {
@@ -230,6 +231,14 @@ class MediaCategoryViewController: UICollectionViewController, UISearchBarDelega
         let name = String(describing: VLCEmptyLibraryView.self)
         let nib = Bundle.main.loadNibNamed(name, owner: self, options: nil)
         guard let emptyView = nib?.first as? VLCEmptyLibraryView else { fatalError("Can't find nib for \(name)") }
+
+#if os(iOS)
+        if showsLocalAudioEmptyState {
+            emptyView.addExternalFolderHandler = { [weak self] in
+                (self?.parent as? MediaViewController)?.handleAddExternalFolder()
+            }
+        }
+#endif
 
         // Check if no playlists
         if model is PlaylistModel {
@@ -789,29 +798,6 @@ class MediaCategoryViewController: UICollectionViewController, UISearchBarDelega
             navigationController.modalPresentationStyle = .formSheet
             self.present(navigationController, animated: true)
             userDefaults.set(true, forKey: kVLCHasLaunchedBefore)
-        } else {
-            if userDefaults.bool(forKey: kVLCHasActiveSubscription) {
-                return
-            }
-
-            var lastNagMonth = userDefaults.integer(forKey: kVLCHasNaggedThisMonth)
-            let numberOfLaunches = userDefaults.integer(forKey: kVLCNumberOfLaunches)
-            let currentMonth = NSCalendar.current.component(.month, from: Date())
-
-            if lastNagMonth == 12 && currentMonth < 12 {
-                lastNagMonth = 0
-            }
-
-            if lastNagMonth < currentMonth && numberOfLaunches >= 5 {
-                userDefaults.setValue(currentMonth, forKey: kVLCHasNaggedThisMonth)
-                userDefaults.setValue(0, forKey: kVLCNumberOfLaunches)
-                let donationVC = VLCDonationNagScreenViewController(nibName: "VLCDonationNagScreenViewController", bundle: nil)
-                let donationNC = UINavigationController(rootViewController: donationVC)
-                donationNC.navigationBar.isHidden = true
-                donationNC.modalTransitionStyle = .crossDissolve
-                donationNC.modalPresentationStyle = .overFullScreen
-                self.present(donationNC, animated: true)
-            }
         }
     }
 
@@ -1296,6 +1282,10 @@ extension MediaCategoryViewController {
             cell.scaleUpCell(with: 0.75, and: 1.1)
         }
     }
+
+    func updateEmptyState() {
+        updateUIForContent()
+    }
 }
 
 // MARK: - MediaCategoryViewController - Private Helpers
@@ -1343,6 +1333,11 @@ private extension MediaCategoryViewController {
         let isEmpty = isEmptyCollectionView()
         if isEmpty {
             collectionView?.setContentOffset(.zero, animated: false)
+        }
+        if isEmpty, showsLocalAudioEmptyState {
+            let externalFolders = mediaLibraryService.medialib.externalFolders(with: .default, desc: false)
+            let hasAccessibleExternalFolder = externalFolders.contains { $0.mrl != nil }
+            emptyView.contentType = hasAccessibleExternalFolder ? .noLocalAudio : .addLocalAudioFolder
         }
         searchBar.isHidden = isEmpty
         collectionView?.backgroundView = isEmpty ? emptyView : nil

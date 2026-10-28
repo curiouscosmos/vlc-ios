@@ -34,6 +34,11 @@
 
 - (IBAction)learnMore:(id)sender
 {
+    if (self.addExternalFolderHandler) {
+        self.addExternalFolderHandler();
+        return;
+    }
+
       UIViewController *firstStepsVC = [[VLCFirstStepsViewController alloc] initWithNibName:nil bundle:nil];
       UINavigationController *navCon = [[UINavigationController alloc] initWithRootViewController:firstStepsVC];
       navCon.modalPresentationStyle = UIModalPresentationFormSheet;
@@ -48,11 +53,12 @@
     _emptyLibraryLabel.backgroundColor = colors.background;
     _emptyLibraryLongDescriptionLabel.textColor = colors.lightTextColor;
     _emptyLibraryLongDescriptionLabel.backgroundColor = colors.background;
-    if (colors.isDark) {
-        _iconView.image = [UIImage imageNamed:@"VLCCone26-dark-512x512"];
-    } else {
-        _iconView.image = [UIImage imageNamed:@"VLCCone26-512x512"];
-    }
+    // The empty state carries the branded app icon (the Osho artwork), not the
+    // upstream VLC cone. Keep the cone as a fallback for targets without the
+    // iOS asset catalog (tvOS).
+    UIImage *appIcon = [UIImage imageNamed:@"LaunchIcon"];
+    _iconView.image = appIcon ?: [UIImage imageNamed:(colors.isDark ? @"VLCCone26-dark-512x512"
+                                                                   : @"VLCCone26-512x512")];
 }
 
 - (void)setContentType:(VLCEmptyLibraryViewContentType)contentType
@@ -96,6 +102,18 @@
             description = _isAudioFolder ? NSLocalizedString(@"EMPTY_FOLDER_DES_AUDIO", nil)
                                          : NSLocalizedString(@"EMPTY_FOLDER_DES_VIDEO", nil);
             _learnMoreButton.hidden = YES;
+            break;
+        case VLCEmptyLibraryViewContentTypeNoLocalAudio:
+            title = NSLocalizedString(@"LOCAL_AUDIO_EMPTY_TITLE", nil);
+            description = NSLocalizedString(@"LOCAL_AUDIO_EMPTY_DESCRIPTION", nil);
+            [_learnMoreButton setTitle:NSLocalizedString(@"ADD_EXTERNAL_FOLDER", nil) forState:UIControlStateNormal];
+            _learnMoreButton.hidden = NO;
+            break;
+        case VLCEmptyLibraryViewContentTypeAddLocalAudioFolder:
+            title = NSLocalizedString(@"LOCAL_AUDIO_ACCESS_TITLE", nil);
+            description = NSLocalizedString(@"LOCAL_AUDIO_ACCESS_DESCRIPTION", nil);
+            [_learnMoreButton setTitle:NSLocalizedString(@"ADD_EXTERNAL_FOLDER", nil) forState:UIControlStateNormal];
+            _learnMoreButton.hidden = NO;
             break;
     }
     _emptyLibraryLabel.text = title;

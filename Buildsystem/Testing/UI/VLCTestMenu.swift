@@ -52,14 +52,19 @@ class VLCTestMenu: XCTestCase {
         XCTAssertTrue(app.navigationBars[VLCAccessibilityIdentifier.audioMixer].waitForExistence(timeout: 5))
     }
 
-    func testAudioMixerShowsThePanelAndOpensTheLibrary() {
+    func testAudioMixerShowsThePanelAndOpensTheAudioPicker() {
         helper.tapTabBarItem(VLCAccessibilityIdentifier.audioMixer)
         XCTAssertTrue(app.navigationBars[VLCAccessibilityIdentifier.audioMixer].waitForExistence(timeout: 5))
 
-        XCTAssertTrue(app.switches["Mixer on"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.switches["Loop track"].exists)
+        XCTAssertTrue(app.buttons["discourseMixerEnabled"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Loop track"].exists)
         XCTAssertTrue(app.sliders["Mixer volume"].exists)
-        XCTAssertTrue(app.buttons["Play the mixer"].exists)
+        XCTAssertTrue(app.buttons["More options"].exists)
+        let heading = app.buttons["Background Music Mixer"]
+        heading.tap()
+        XCTAssertFalse(app.sliders["Mixer volume"].exists)
+        heading.tap()
+        XCTAssertTrue(app.sliders["Mixer volume"].exists)
 
         // Tracks persist between runs; clear them so the empty state is
         // deterministic (and so the test leaves no mixer state behind).
@@ -70,26 +75,23 @@ class VLCTestMenu: XCTestCase {
             app.buttons["Remove all"].tap()
         }
 
-        let openLibrary = app.buttons["Open local library"]
-        XCTAssertTrue(openLibrary.waitForExistence(timeout: 5))
-        openLibrary.tap()
+        // The removed Local Library screen must not be offered anywhere here.
+        XCTAssertFalse(app.buttons["Open local library"].exists)
+        let addAudio = app.buttons["Add audio file"].firstMatch
+        XCTAssertTrue(addAudio.waitForExistence(timeout: 5))
+        addAudio.tap()
 
-        let local = app.buttons["Local"]
-        XCTAssertTrue(local.waitForExistence(timeout: 10))
-        XCTAssertTrue(local.isSelected)
+        let cancel = app.buttons["Cancel"].firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 10))
+        cancel.tap()
+        XCTAssertTrue(app.buttons["discourseMixerEnabled"].waitForExistence(timeout: 5))
     }
 
-    func testLocalLibraryIsReachableFromDiscourses() {
+    func testDiscoursesShowsCatalogueWithoutSegments() {
         helper.tapTabBarItem(VLCAccessibilityIdentifier.discourses)
-
-        // UI tests run against the English base localisation.
-        let localSegment = app.segmentedControls.buttons["Local"]
-        XCTAssertTrue(localSegment.waitForExistence(timeout: 5))
-        localSegment.tap()
-        XCTAssertTrue(app.staticTexts["Artists"].waitForExistence(timeout: 10))
-
-        app.segmentedControls.buttons["Discourse"].tap()
         XCTAssertTrue(app.buttons["Filter"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Local"].exists)
+        XCTAssertFalse(app.buttons["Discourse"].exists)
     }
 
     func testCatalogueFilterMenu() {

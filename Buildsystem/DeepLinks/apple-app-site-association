@@ -1,0 +1,21 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "5TD3Z8LZ2H.com.oshodiscourse"
+        ],
+        "components": [
+          {
+            "/": "/discourses/*/tracks/*",
+            "comment": "Discourse track"
+          },
+          {
+            "/": "/discourses/*",
+            "comment": "Discourse"
+          }
+        ]
+      }
+    ]
+  }
+}

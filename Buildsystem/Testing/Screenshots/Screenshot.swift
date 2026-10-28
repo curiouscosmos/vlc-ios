@@ -22,8 +22,7 @@ class Screenshot: XCTestCase {
         super.setUp()
         continueAfterFailure = false
 
-        var arguments = ["-kVLCHasActiveSubscription", "YES",
-                         "-hasLaunchedBefore", "YES",
+        var arguments = ["-hasLaunchedBefore", "YES",
                          "-darkMode", "2"]
         if let language = environment["VLC_SCREENSHOTS_LANGUAGE"], !language.isEmpty {
             arguments += ["-AppleLanguages", "(\(language))"]

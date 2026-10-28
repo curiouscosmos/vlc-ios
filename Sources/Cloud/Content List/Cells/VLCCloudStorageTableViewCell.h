@@ -14,7 +14,6 @@
 #import "VLCDropboxController.h"
 #import <BoxSDK/BoxSDK.h>
 #if TARGET_OS_IOS
-#import <GoogleAPIClientForREST/GTLRDrive.h>
 #import <OneDriveSDK/OneDriveSDK.h>
 #endif
 
@@ -37,9 +36,6 @@
 @property (nonatomic, retain) DBFILESMetadata *dropboxFile;
 @property (nonatomic, retain) ODItem *oneDriveFile;
 @property (nonatomic, retain) BoxItem *boxFile;
-#if TARGET_OS_IOS
-@property (nonatomic, retain) GTLRDrive_File *driveFile;
-#endif
 
 @property (nonatomic, readwrite) BOOL isDownloadable;
 @property (nonatomic, readwrite) BOOL isFavourite;

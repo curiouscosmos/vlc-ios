@@ -17,7 +17,7 @@
                 <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" alignment="center" spacing="20" translatesAutoresizingMaskIntoConstraints="NO" id="141-gp-zTI" userLabel="Empty View">
                     <rect key="frame" x="46.666666666666657" y="280.66666666666669" width="300" height="341.00000000000006"/>
                     <subviews>
-                        <imageView userInteractionEnabled="NO" contentMode="scaleAspectFill" image="VLCCone26-512x512.png" translatesAutoresizingMaskIntoConstraints="NO" id="115">
+                        <imageView userInteractionEnabled="NO" contentMode="scaleAspectFill" image="LaunchIcon" translatesAutoresizingMaskIntoConstraints="NO" id="115">
                             <rect key="frame" x="87.333333333333343" y="0.0" width="125" height="125"/>
                             <constraints>
                                 <constraint firstAttribute="width" secondItem="115" secondAttribute="height" multiplier="1:1" id="CBD-GI-kch"/>
@@ -76,6 +76,6 @@
         </view>
     </objects>
     <resources>
-        <image name="VLCCone26-512x512.png" width="512" height="512"/>
+        <image name="LaunchIcon" width="480" height="480"/>
     </resources>
 </document>

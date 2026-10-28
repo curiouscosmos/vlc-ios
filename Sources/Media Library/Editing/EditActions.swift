@@ -30,8 +30,8 @@ class EditActions {
         return label
     }()
 
-    init(model: MediaLibraryBaseModel, mediaLibraryService: MediaLibraryService) {
-        self.rootViewController = (UIApplication.shared.delegate?.window??.rootViewController!)!
+    init(model: MediaLibraryBaseModel, mediaLibraryService: MediaLibraryService, presentingViewController: UIViewController? = nil) {
+        self.rootViewController = presentingViewController ?? (UIApplication.shared.delegate?.window??.rootViewController!)!
         self.model = model
         self.mediaLibraryService = mediaLibraryService
         updateActionStatusLabelPresentingView()

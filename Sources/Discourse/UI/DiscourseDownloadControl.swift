@@ -11,8 +11,8 @@
  * The per-track download affordance for track rows: an outlined arrow when the
  * track streams, a determinate ring while it downloads, a filled green arrow
  * once the file is verified on disk, and an exclamation when the last attempt
- * failed. Tapping downloads, cancels or retries; removing is a menu action so a
- * tap can never delete a file by accident. Like `DiscourseLikeControl`, it is a
+ * failed. Tapping downloads, cancels, retries or removes a completed download.
+ * Like `DiscourseLikeControl`, it is a
  * pure renderer of `DiscourseDownloadState` and the hosting screen owns the
  * action.
  *****************************************************************************/
@@ -20,9 +20,9 @@
 import UIKit
 
 /// Downloaded/active counts for one discourse, shown on catalogue and Home
-/// cards. A card has a fixed height (the Home carousel especially), so the
-/// counts live in a badge over the artwork instead of a row that would resize
-/// the card.
+/// cards. The Home carousel has a fixed height, so its tiles show the counts in
+/// a badge over the artwork; the catalogue's full-width list row puts the same
+/// badge in its footer instead of resizing.
 struct DiscourseDownloadSummary: Equatable {
     let downloaded: Int
     let active: Int
@@ -208,9 +208,8 @@ final class DiscourseDownloadControl: UIControl {
                                         trimmed)
             accessibilityValue = String(format: "%d%%", Int((min(1, max(0, progress)) * 100).rounded()))
         case .downloaded:
-            accessibilityLabel = String(format: NSLocalizedString("DISCOURSE_DOWNLOADED_ACCESSIBILITY",
-                                                                  comment: "Accessibility label of a downloaded track: track title"),
-                                        trimmed)
+            accessibilityLabel = NSLocalizedString("DISCOURSE_DOWNLOAD_REMOVE_MENU",
+                                                   comment: "Delete a downloaded track") + ", " + trimmed
             accessibilityValue = nil
         case .failed:
             accessibilityLabel = String(format: NSLocalizedString("DISCOURSE_DOWNLOAD_FAILED_ACCESSIBILITY",
@@ -219,13 +218,7 @@ final class DiscourseDownloadControl: UIControl {
             accessibilityValue = nil
         }
 
-        // A finished download has no action, so it is announced as status
-        // text instead of a button that appears to do nothing.
-        if case .downloaded = downloadState {
-            accessibilityTraits = .staticText
-        } else {
-            accessibilityTraits = .button
-        }
+        accessibilityTraits = .button
     }
 
     // MARK: - Theme

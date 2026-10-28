@@ -19,7 +19,7 @@ class AboutController: UIViewController, MFMailComposeViewControllerDelegate, UI
 
     private let webView = WKWebView()
     private let notificationCenter = NotificationCenter.default
-    private let feedbackEmail = "support@sandalbar.online"
+    private let feedbackEmail = "support@marfells.com"
     private var hasLoadedContent = false
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -73,8 +73,8 @@ class AboutController: UIViewController, MFMailComposeViewControllerDelegate, UI
     }
 
     private func setupNavigationBar() {
-        self.navigationItem.titleView = UIImageView(image: UIImage(named: "AboutTitle"))
-        self.navigationItem.titleView?.tintColor = PresentationTheme.current.colors.navigationbarTextColor
+        // The old VLC wordmark title is gone; the branded app icon is shown in
+        // the About content instead.
         self.navigationController?.navigationBar.isOpaque = true
         setupBarButtons()
     }
@@ -108,12 +108,7 @@ class AboutController: UIViewController, MFMailComposeViewControllerDelegate, UI
             return
         }
 
-        var vlcIconImageSource: String
-        if colors.isDark {
-            vlcIconImageSource = "VLCCone26-dark-512x512.png"
-        } else {
-            vlcIconImageSource = "VLCCone26-512x512.png"
-        }
+        let appIconImageSource = "AppIcon-480x480.png"
         let version = String(format: NSLocalizedString("VERSION_FORMAT", comment: ""),
                              bundleShortVersionString)
         let versionBuildNumberAndCodeName = version.appendingFormat(" (%@)", bundleVersion)
@@ -133,7 +128,7 @@ class AboutController: UIViewController, MFMailComposeViewControllerDelegate, UI
             let searchRange = NSRange(location: 0, length: lengthOfStringToSearch)
 
             htmlString = htmlString.replacingOccurrences(of: "VLCICONIMAGESOURCE",
-                                                         with: vlcIconImageSource,
+                                                         with: appIconImageSource,
                                                          options: .literal,
                                                          range: searchRange) as NSString
             htmlString = htmlString.replacingOccurrences(of: "VLCFORIOSVERSION",

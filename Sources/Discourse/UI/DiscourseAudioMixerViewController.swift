@@ -10,14 +10,16 @@
  *
  * The Audio Mixer tab: the panel (switch, play/pause, loop, volume) plus the
  * ordered list of added local files, with reorder and delete. Tracks are added
- * from the local library's context menu, so the mixer never plays anything the
- * user did not choose.
+ * explicitly through the system Files picker and copied into app-owned storage,
+ * so they remain playable after relaunch. There is no Local Library destination.
  *****************************************************************************/
 
 import UIKit
+import UniformTypeIdentifiers
 
 final class DiscourseAudioMixerViewController: UIViewController {
     private let mixer: DiscourseAudioMixer
+    private let fileImporter: DiscourseMixerFileImporter
 
     private let panel = DiscourseMixerPanelView()
     private let emptyStateView = DiscourseEmptyStateView(
@@ -26,8 +28,8 @@ final class DiscourseAudioMixerViewController: UIViewController {
                                    comment: "Empty state heading on the Audio Mixer tab"),
         message: NSLocalizedString("MIXER_EMPTY_MESSAGE",
                                    comment: "Empty state message on the Audio Mixer tab"),
-        actionTitle: NSLocalizedString("MIXER_OPEN_LIBRARY",
-                                       comment: "Action that opens the local library from the Audio Mixer"))
+        actionTitle: NSLocalizedString("MIXER_ADD_FILE",
+                                       comment: "Add an audio file to the Audio Mixer"))
     private let hintLabel = UILabel()
     private let clearButton = UIButton(type: .system)
 
@@ -35,10 +37,14 @@ final class DiscourseAudioMixerViewController: UIViewController {
     /// Width the current footerView was laid out for.
     private var footerWidth: CGFloat = 0
 
-    init(mixer: DiscourseAudioMixer = .shared) {
+    init(mixer: DiscourseAudioMixer = .shared,
+         fileImporter: DiscourseMixerFileImporter = DiscourseMixerFileImporter()) {
         self.mixer = mixer
+        self.fileImporter = fileImporter
         super.init(nibName: nil, bundle: nil)
-        title = NSLocalizedString("AUDIO_MIXER", comment: "Audio Mixer tab title")
+        // The tab carries the name; the screen shows its content without a
+        // navigation title.
+        title = nil
     }
 
     required init?(coder: NSCoder) {
@@ -51,16 +57,23 @@ final class DiscourseAudioMixerViewController: UIViewController {
         super.viewDidLoad()
 
         view.backgroundColor = DiscourseColors.current.appBackground
-        navigationItem.largeTitleDisplayMode = .always
+        navigationItem.largeTitleDisplayMode = .never
         navigationItem.leftBarButtonItem = AppMenuBarButtonItem(presenter: self)
-        navigationItem.rightBarButtonItem = editButtonItem
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "plus"),
+            style: .plain,
+            target: self,
+            action: #selector(presentAudioPicker))
+        navigationItem.rightBarButtonItem?.accessibilityLabel = NSLocalizedString(
+            "MIXER_ADD_FILE", comment: "Add an audio file to the Audio Mixer")
+        navigationItem.rightBarButtonItem?.accessibilityIdentifier = "discourseMixerAddAudio"
 
         setupTableView()
         setupPanel()
         setupFooter()
 
-        emptyStateView.actionHandler = {
-            NotificationCenter.default.post(name: .discourseShowLocalLibrary, object: nil)
+        emptyStateView.actionHandler = { [weak self] in
+            self?.presentAudioPicker()
         }
 
         NotificationCenter.default.addObserver(self,
@@ -87,14 +100,14 @@ final class DiscourseAudioMixerViewController: UIViewController {
         }
     }
 
-    override func setEditing(_ editing: Bool, animated: Bool) {
-        super.setEditing(editing, animated: animated)
-        if isViewLoaded {
-            tableView.setEditing(editing, animated: animated)
-        }
-    }
-
     // MARK: - Setup
+
+    @objc private func presentAudioPicker() {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.audio])
+        picker.delegate = self
+        picker.allowsMultipleSelection = false
+        present(picker, animated: true)
+    }
 
     private func setupTableView() {
         tableView = UITableView(frame: .zero, style: .plain)
@@ -103,9 +116,13 @@ final class DiscourseAudioMixerViewController: UIViewController {
         tableView.separatorStyle = .none
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 64
-        tableView.allowsSelectionDuringEditing = true
         tableView.dataSource = self
         tableView.delegate = self
+        // No Edit button: rows reorder by long-press drag and are removed by
+        // swiping.
+        tableView.dragInteractionEnabled = true
+        tableView.dragDelegate = self
+        tableView.dropDelegate = self
         tableView.register(DiscourseMixerTrackCell.self,
                            forCellReuseIdentifier: DiscourseMixerTrackCell.reuseIdentifier)
 
@@ -131,6 +148,7 @@ final class DiscourseAudioMixerViewController: UIViewController {
         panel.onVolumeChange = { [weak self] volume in
             self?.mixer.setVolume(volume)
         }
+        panel.onLayoutChange = { [weak self] in self?.sizeHeaderIfNeeded() }
         tableView.tableHeaderView = panel
     }
 
@@ -151,7 +169,12 @@ final class DiscourseAudioMixerViewController: UIViewController {
 
     // MARK: - Content
 
+    /// A drag reorder updates the table with its own animation, so the mixer's
+    /// change notification must not reload it in the middle of the drop.
+    private var isApplyingReorder = false
+
     @objc private func mixerDidChange() {
+        guard !isApplyingReorder else { return }
         update()
     }
 
@@ -165,10 +188,6 @@ final class DiscourseAudioMixerViewController: UIViewController {
                         hasSelection: selected != nil)
 
         tableView.reloadData()
-        navigationItem.rightBarButtonItem?.isEnabled = !mixer.items.isEmpty
-        if isEditing, mixer.items.isEmpty {
-            setEditing(false, animated: true)
-        }
 
         sizeHeaderIfNeeded()
         updateFooterView()
@@ -185,7 +204,8 @@ final class DiscourseAudioMixerViewController: UIViewController {
                                                  verticalFittingPriority: .fittingSizeLevel)
         if panel.frame.size != size {
             panel.frame = CGRect(origin: .zero, size: size)
-            tableView.tableHeaderView = panel
+            panel.onLayoutChange = { [weak self] in self?.sizeHeaderIfNeeded() }
+        tableView.tableHeaderView = panel
         }
     }
 
@@ -237,6 +257,18 @@ final class DiscourseAudioMixerViewController: UIViewController {
     }
 
     // MARK: - Actions
+
+    private func showImportError() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("MIXER_IMPORT_FAILED_TITLE",
+                                     comment: "Could not add an audio file to the Audio Mixer"),
+            message: NSLocalizedString("MIXER_IMPORT_FAILED_MESSAGE",
+                                       comment: "The selected audio file could not be copied"),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("BUTTON_OK", comment: ""),
+                                      style: .default))
+        present(alert, animated: true)
+    }
 
     @objc private func clearTapped() {
         let alert = UIAlertController(
@@ -300,10 +332,6 @@ extension DiscourseAudioMixerViewController: UITableViewDataSource {
         return true
     }
 
-    func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool {
-        return true
-    }
-
     func tableView(_ tableView: UITableView,
                    commit editingStyle: UITableViewCell.EditingStyle,
                    forRowAt indexPath: IndexPath) {
@@ -312,11 +340,56 @@ extension DiscourseAudioMixerViewController: UITableViewDataSource {
         }
         mixer.remove(at: indexPath.row)
     }
+}
+
+// MARK: - UITableViewDragDelegate
+
+extension DiscourseAudioMixerViewController: UITableViewDragDelegate {
+    func tableView(_ tableView: UITableView,
+                   itemsForBeginning session: UIDragSession,
+                   at indexPath: IndexPath) -> [UIDragItem] {
+        let items = mixer.items
+        guard items.indices.contains(indexPath.row) else {
+            return []
+        }
+        let url = items[indexPath.row]
+        let itemProvider = NSItemProvider(object: url.absoluteString as NSString)
+        let dragItem = UIDragItem(itemProvider: itemProvider)
+        dragItem.localObject = url
+        return [dragItem]
+    }
+}
+
+// MARK: - UITableViewDropDelegate
+
+extension DiscourseAudioMixerViewController: UITableViewDropDelegate {
+    func tableView(_ tableView: UITableView, canHandle session: UIDropSession) -> Bool {
+        // Reordering only; the mixer never accepts files dragged in from outside.
+        return session.localDragSession != nil
+    }
 
     func tableView(_ tableView: UITableView,
-                   moveRowAt sourceIndexPath: IndexPath,
-                   to destinationIndexPath: IndexPath) {
+                   dropSessionDidUpdate session: UIDropSession,
+                   withDestinationIndexPath destinationIndexPath: IndexPath?) -> UITableViewDropProposal {
+        return UITableViewDropProposal(operation: .move, intent: .insertAtDestinationIndexPath)
+    }
+
+    func tableView(_ tableView: UITableView, performDropWith coordinator: UITableViewDropCoordinator) {
+        guard let item = coordinator.items.first,
+              let sourceIndexPath = item.sourceIndexPath,
+              let destinationIndexPath = coordinator.destinationIndexPath,
+              sourceIndexPath.row != destinationIndexPath.row else {
+            return
+        }
+
+        isApplyingReorder = true
         mixer.move(from: sourceIndexPath.row, to: destinationIndexPath.row)
+        isApplyingReorder = false
+
+        tableView.performBatchUpdates {
+            tableView.moveRow(at: sourceIndexPath, to: destinationIndexPath)
+        }
+        coordinator.drop(item.dragItem, toRowAt: destinationIndexPath)
     }
 }
 
@@ -325,9 +398,6 @@ extension DiscourseAudioMixerViewController: UITableViewDataSource {
 extension DiscourseAudioMixerViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        guard !tableView.isEditing else {
-            return
-        }
         let items = mixer.items
         guard items.indices.contains(indexPath.row) else {
             return
@@ -336,6 +406,23 @@ extension DiscourseAudioMixerViewController: UITableViewDelegate {
         if !mixer.isPlaying {
             // Tapping a track is an explicit request to hear it.
             mixer.togglePlayback()
+        }
+    }
+}
+
+// MARK: - UIDocumentPickerDelegate
+
+extension DiscourseAudioMixerViewController: UIDocumentPickerDelegate {
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let sourceURL = urls.first else {
+            return
+        }
+        do {
+            let importedURL = try fileImporter.import(sourceURL)
+            // Membership, persistence and the row refresh already live here.
+            mixer.add(importedURL)
+        } catch {
+            showImportError()
         }
     }
 }

@@ -1,46 +1,67 @@
 PODS:
   - ADAL (1.2.10)
-  - AppAuth (2.1.0):
-    - AppAuth/Core (= 2.1.0)
-    - AppAuth/ExternalUserAgent (= 2.1.0)
-  - AppAuth/Core (2.1.0)
-  - AppAuth/ExternalUserAgent (2.1.0):
-    - AppAuth/Core
-  - AppCheckCore (11.3.1):
-    - GoogleUtilities/Environment (~> 8.0)
-    - GoogleUtilities/UserDefaults (~> 8.0)
-    - PromisesObjC (~> 2.4)
-    - PromisesSwift (~> 2.4)
-    - RecaptchaInterop (~> 101.0)
   - Base32 (1.1.2)
   - box-ios-sdk-v2 (1.2.3):
     - box-ios-sdk-v2/no-arc (= 1.2.3)
   - box-ios-sdk-v2/no-arc (1.2.3)
-  - GoogleAPIClientForREST/Core (4.2.0):
-    - GTMSessionFetcher/Full (< 5.0, >= 1.6.1)
-  - GoogleAPIClientForREST/Drive (4.2.0):
-    - GoogleAPIClientForREST/Core
-    - GTMSessionFetcher/Full (< 5.0, >= 1.6.1)
-  - GoogleSignIn (9.2.0):
-    - AppAuth (~> 2.1)
-    - AppCheckCore (~> 11.0)
-    - GTMAppAuth (~> 5.0)
-    - GTMSessionFetcher/Core (~> 3.3)
-  - GoogleUtilities/Environment (8.1.2):
+  - FirebaseAnalytics/Core (12.19.0):
+    - FirebaseCore (~> 12.19.0)
+    - FirebaseInstallations (~> 12.19.0)
+    - GoogleAppMeasurement/Core (= 12.19.0)
+    - GoogleUtilities/AppDelegateSwizzler (~> 8.1)
+    - GoogleUtilities/MethodSwizzler (~> 8.1)
+    - GoogleUtilities/Network (~> 8.1)
+    - "GoogleUtilities/NSData+zlib (~> 8.1)"
+    - nanopb (~> 3.30910.0)
+  - FirebaseCore (12.19.0):
+    - FirebaseCoreInternal (~> 12.19.0)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GoogleUtilities/Logger (~> 8.1)
+  - FirebaseCoreInternal (12.19.0):
+    - "GoogleUtilities/NSData+zlib (~> 8.1)"
+  - FirebaseInstallations (12.19.0):
+    - FirebaseCore (~> 12.19.0)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GoogleUtilities/UserDefaults (~> 8.1)
+    - PromisesObjC (~> 2.4)
+  - GoogleAppMeasurement/Core (12.19.0):
+    - GoogleUtilities/AppDelegateSwizzler (~> 8.1)
+    - GoogleUtilities/MethodSwizzler (~> 8.1)
+    - GoogleUtilities/Network (~> 8.1)
+    - "GoogleUtilities/NSData+zlib (~> 8.1)"
+    - nanopb (~> 3.30910.0)
+  - GoogleUtilities/AppDelegateSwizzler (8.1.5):
+    - GoogleUtilities/Environment
+    - GoogleUtilities/Logger
+    - GoogleUtilities/Network
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Logger (8.1.2):
+  - GoogleUtilities/Environment (8.1.5):
+    - GoogleUtilities/Privacy
+  - GoogleUtilities/Logger (8.1.5):
     - GoogleUtilities/Environment
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Privacy (8.1.2)
-  - GoogleUtilities/UserDefaults (8.1.2):
+  - GoogleUtilities/MethodSwizzler (8.1.5):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
-  - GTMAppAuth (5.0.0):
-    - AppAuth/Core (~> 2.0)
-    - GTMSessionFetcher/Core (< 4.0, >= 3.3)
-  - GTMSessionFetcher/Core (3.5.0)
-  - GTMSessionFetcher/Full (3.5.0):
-    - GTMSessionFetcher/Core
+  - GoogleUtilities/Network (8.1.5):
+    - GoogleUtilities/Logger
+    - "GoogleUtilities/NSData+zlib"
+    - GoogleUtilities/Privacy
+    - GoogleUtilities/Reachability
+  - "GoogleUtilities/NSData+zlib (8.1.5)":
+    - GoogleUtilities/Privacy
+  - GoogleUtilities/Privacy (8.1.5)
+  - GoogleUtilities/Reachability (8.1.5):
+    - GoogleUtilities/Logger
+    - GoogleUtilities/Privacy
+  - GoogleUtilities/UserDefaults (8.1.5):
+    - GoogleUtilities/Logger
+    - GoogleUtilities/Privacy
+  - nanopb (3.30910.0):
+    - nanopb/decode (= 3.30910.0)
+    - nanopb/encode (= 3.30910.0)
+  - nanopb/decode (3.30910.0)
+  - nanopb/encode (3.30910.0)
   - ObjectiveDropboxOfficial (7.4.2)
   - OneDriveSDK (1.3.0):
     - OneDriveSDK/Auth (= 1.3.0)
@@ -62,33 +83,26 @@ PODS:
   - OneDriveSDK/OneDriveCoreSDK (1.3.0):
     - OneDriveSDK/Common
   - PromisesObjC (2.4.1)
-  - PromisesSwift (2.4.1):
-    - PromisesObjC (= 2.4.1)
-  - RecaptchaInterop (101.0.0)
 
 DEPENDENCIES:
   - ADAL (from `https://code.videolan.org/fkuehne/azure-activedirectory-library-for-objc.git`, commit `348e94df`)
   - box-ios-sdk-v2 (from `https://github.com/fkuehne/box-ios-sdk-v2.git`, commit `08161e74`)
-  - GoogleAPIClientForREST/Drive (~> 4.2)
-  - GoogleSignIn (~> 9.2)
-  - GTMAppAuth (~> 5.0)
+  - FirebaseAnalytics/Core
   - ObjectiveDropboxOfficial
   - OneDriveSDK (from `https://code.videolan.org/fkuehne/onedrive-sdk-ios.git`, commit `810f82da`)
 
 SPEC REPOS:
   trunk:
-    - AppAuth
-    - AppCheckCore
     - Base32
-    - GoogleAPIClientForREST
-    - GoogleSignIn
+    - FirebaseAnalytics
+    - FirebaseCore
+    - FirebaseCoreInternal
+    - FirebaseInstallations
+    - GoogleAppMeasurement
     - GoogleUtilities
-    - GTMAppAuth
-    - GTMSessionFetcher
+    - nanopb
     - ObjectiveDropboxOfficial
     - PromisesObjC
-    - PromisesSwift
-    - RecaptchaInterop
 
 EXTERNAL SOURCES:
   ADAL:
@@ -114,21 +128,19 @@ CHECKOUT OPTIONS:
 
 SPEC CHECKSUMS:
   ADAL: f2eb2158b9bcd2c8416ff2d026c176b98ea6651f
-  AppAuth: ef4da5a3fc2e10b90c09a0a94a9baeaedc0341d5
-  AppCheckCore: e215d35177a9cf469927863e69c13e220df32a8b
   Base32: 163c298644d184e89ca4e00a996bad6bf5166390
   box-ios-sdk-v2: 9423bd75373350ea40b92f3d2d6e89f81d96d634
-  GoogleAPIClientForREST: 4503b3d1f2f36caea7145bdba50e46ec6afb21b2
-  GoogleSignIn: e449a40a92e9f2eea56e98b5214d13725dc5a00a
-  GoogleUtilities: 766ace00c6b10d8148408f329d10c4f051931850
-  GTMAppAuth: 217a876b249c3c585a54fd6f73e6b58c4f5c4238
-  GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
+  FirebaseAnalytics: e9f8c369447e453da23f0455a06e4910bad10de0
+  FirebaseCore: c990214798d7c568ad436a15ba7da25c7a278c9a
+  FirebaseCoreInternal: 656b1c2fd5a1c5976183dc54b73deda78fb26ee3
+  FirebaseInstallations: f70a49eed611f5602f373e40974b3b01556ac217
+  GoogleAppMeasurement: f2f676480e4c97936df934aa181bc29caea46975
+  GoogleUtilities: 7dc09b3fa9ecb5c2298b952313d14628b61b9da3
+  nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   ObjectiveDropboxOfficial: 1645cbc5a542831173425b00ed6929d5a07d0a95
-  OneDriveSDK: fbb41c73c36a23a580d172657c67c47dbb8f8e24
+  OneDriveSDK: 17f6861ca3e224c38e7637b5fa93b03c97906006
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
-  PromisesSwift: 217dea0fd5d2ad65222a109c48698add13cc1c5b
-  RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
 
-PODFILE CHECKSUM: 50cc5053daedc9c984ae64a760647e165e258232
+PODFILE CHECKSUM: 6d910df6b2cc9ca6e2abfe375048369306861b4b
 
 COCOAPODS: 1.16.2

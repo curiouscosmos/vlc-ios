@@ -29,6 +29,7 @@ extern NSString *const VLCPlaybackServiceShuffleModeUpdated;
 extern NSString *const VLCPlaybackServicePlaybackDidMoveOnToNextItem;
 extern NSString *const VLCPlaybackServiceSleepTimerDidChange;
 extern NSString *const VLCLastPlaylistPlayedMedia;
+extern NSString *const VLCPlaybackServiceNoiseReductionDidChange;
 
 @class VLCPlaybackService;
 @class VLCMetaData;
@@ -92,6 +93,9 @@ NS_SWIFT_NAME(PlaybackService)
 @property (nonatomic, assign, getter=isShuffleMode) BOOL shuffleMode;
 @property (nonatomic, readwrite) float playbackRate; // default = 1.0
 @property (nonatomic, readonly) CGFloat defaultPlaybackRate; // user-configured default speed
+@property (nonatomic, readonly) BOOL noiseReductionAvailable;
+@property (nonatomic, readonly) BOOL noiseReductionEnabled;
+- (BOOL)applyNoiseReductionEnabled:(BOOL)enabled NS_SWIFT_NAME(setNoiseReduction(enabled:));
 @property (nonatomic, readwrite) float audioDelay; // in milliseconds, default = 0.0
 @property (nonatomic, readwrite) float playbackPosition; // in seconds, default = 0.0
 @property (nonatomic, readwrite) float startPosition; // [0;1] applied when the next media opens, negative to enforce none

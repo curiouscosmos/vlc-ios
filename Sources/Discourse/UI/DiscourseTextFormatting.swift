@@ -77,7 +77,9 @@ enum DiscourseMetadataText {
             parts.append(languageName)
         }
         parts.append(tracks(trackCount))
-        parts.append(likes(likeCount))
+        if likeCount > 0 {
+            parts.append(likes(likeCount))
+        }
         return parts.joined(separator: " · ")
     }
 }

@@ -47,7 +47,6 @@
 #import "VLCPhotoLibraryController.h"
 #import "VLCDonationViewController.h"
 #import "VLCDonationNavigationController.h"
-#import "VLCDonationNagScreenViewController.h"
 #import "VLCNetworkServerLoginInformation.h"
 #import "VLCNetworkServerBrowserPlex.h"
 #import "VLCNetworkServerBrowserVLCMedia.h"
@@ -71,8 +70,6 @@
 
 #if TARGET_OS_IOS
 #import <ObjectiveDropboxOfficial/ObjectiveDropboxOfficial.h>
-#import "VLCGoogleDriveTableViewController.h"
-#import "VLCGoogleDriveConstants.h"
 #import "VLCCloudServicesTableViewController.h"
 #import "VLCCloudStorageTableViewController.h"
 #import "VLCCloudStorageTableViewCell.h"

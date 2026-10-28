@@ -13,6 +13,7 @@
  *****************************************************************************/
 
 import XCTest
+import UIKit
 @testable import VLC
 
 final class DiscourseFormattingTests: XCTestCase {
@@ -50,5 +51,24 @@ final class DiscourseFormattingTests: XCTestCase {
 
     func testNegativeCountsReadAsZero() {
         XCTAssertEqual(DiscourseCountFormatter.string(for: -5), "0")
+    }
+
+    func testLikeCountsAppearOnlyWhenPositive() {
+        let control = DiscourseLikeControl()
+        let stack = control.subviews.compactMap { $0 as? UIStackView }.first!
+        let countLabel = stack.arrangedSubviews.compactMap { $0 as? UILabel }.first!
+
+        control.configure(isLiked: false, count: 0, title: "", isPending: false)
+        XCTAssertTrue(countLabel.isHidden)
+        control.configure(isLiked: true, count: 1, title: "", isPending: false)
+        XCTAssertFalse(countLabel.isHidden)
+        XCTAssertEqual(countLabel.text, "1")
+        control.configure(isLiked: false, count: 0, title: "", isPending: false)
+        XCTAssertTrue(countLabel.isHidden)
+
+        let noLikes = DiscourseMetadataText.summary(language: "", tracks: 2, likes: 0)
+        XCTAssertEqual(noLikes, DiscourseMetadataText.tracks(2))
+        XCTAssertEqual(DiscourseMetadataText.summary(language: "", tracks: 2, likes: 1),
+                       noLikes + " · " + DiscourseMetadataText.likes(1))
     }
 }

@@ -24,6 +24,9 @@
 #import "VLCAppSceneDelegate.h"
 #import "VLCMLMedia+isWatched.h"
 #import "PodcastBackgroundRefresher.h"
+#if TARGET_OS_IOS
+#import <FirebaseCore/FirebaseCore.h>
+#endif
 #if (TARGET_OS_IOS || TARGET_OS_WATCH) && !NO_WATCH
 #import <WatchConnectivity/WatchConnectivity.h>
 #endif
@@ -152,6 +155,7 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
 #if TARGET_OS_IOS
+    [FIRApp configure];
 #if !NO_WATCH
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
         VLCWatchConnectivityService *watchService = [[VLCWatchConnectivityService alloc] init];
@@ -165,7 +169,6 @@
     [self configureShortCutItemsWithApplication:application];
 
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    [defaults setInteger:([defaults integerForKey:kVLCNumberOfLaunches] + 1) forKey:kVLCNumberOfLaunches];
     [defaults setBool:[[VLCKeychainCoordinator passcodeService] hasSecret] forKey:kVLCSettingPasscodeOnKey];
 
     UIApplicationShortcutItem *shortcutItem = launchOptions[UIApplicationLaunchOptionsShortcutItemKey];
@@ -195,12 +198,18 @@
 #if !TARGET_OS_TV
 - (BOOL)application:(UIApplication *)application willContinueUserActivityWithType:(NSString *)userActivityType
 {
-    return [userActivityType isEqualToString:kVLCUserActivityPlaying];
+    return [userActivityType isEqualToString:kVLCUserActivityPlaying] ||
+           [userActivityType isEqualToString:NSUserActivityTypeBrowsingWeb];
 }
 
 - (BOOL)application:(UIApplication *)application continueUserActivity:(NSUserActivity *)userActivity
  restorationHandler:(void (^)(NSArray<id<UIUserActivityRestoring>> *))restorationHandler
 {
+    if ([userActivity.activityType isEqualToString:NSUserActivityTypeBrowsingWeb]) {
+        NSURL *url = userActivity.webpageURL;
+        return url != nil && [[VLCAppCoordinator sharedInstance] handleDiscourseDeepLink:url];
+    }
+
     VLCMLMedia *media = [[VLCAppCoordinator sharedInstance] mediaForUserActivity:userActivity];
     if (!media) return NO;
 
@@ -222,6 +231,13 @@
 
 - (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options
 {
+    // Universal links normally arrive through `continueUserActivity:`, but
+    // treating a direct https open the same way keeps simulator/marketing
+    // links working and keeps the URL away from the media handlers.
+    if ([[VLCAppCoordinator sharedInstance] handleDiscourseDeepLink:url]) {
+        return YES;
+    }
+
     for (id<VLCURLHandler> handler in URLHandlers.handlers) {
         if ([handler canHandleOpenWithUrl:url options:options]) {
             [self validatePasscodeIfNeededWithCompletion:^{

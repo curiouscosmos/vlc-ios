@@ -20,7 +20,9 @@ typedef NS_ENUM (NSUInteger, VLCEmptyLibraryViewContentType)
     VLCEmptyLibraryViewContentTypeNoPlaylists,
     VLCEmptyLibraryViewContentTypeNoHistory,
     VLCEmptyLibraryViewContentTypeNoFavorites,
-    VLCEmptyLibraryViewContentTypeEmptyFolder
+    VLCEmptyLibraryViewContentTypeEmptyFolder,
+    VLCEmptyLibraryViewContentTypeAddLocalAudioFolder,
+    VLCEmptyLibraryViewContentTypeNoLocalAudio
 };
 
 @interface VLCEmptyLibraryView: UIView
@@ -30,6 +32,7 @@ typedef NS_ENUM (NSUInteger, VLCEmptyLibraryViewContentType)
 @property (nonatomic, strong) IBOutlet UIButton *learnMoreButton;
 @property (nonatomic, strong) IBOutlet UIImageView *iconView;
 @property (nonatomic, copy) NSString *folderName;
+@property (nonatomic, copy) void (^addExternalFolderHandler)(void);
 @property (nonatomic) BOOL isAudioFolder;
 @property (nonatomic) VLCEmptyLibraryViewContentType contentType;
 

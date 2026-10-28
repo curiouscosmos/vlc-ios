@@ -260,7 +260,7 @@
 "EMPTY_LIBRARY_LONG" = "For playback, you can stream media from a server on your local network, from the cloud or synchronize media to your device using the \"Files\" tab in Finder or iTunes, Wi-Fi Upload or cloud services.";
 
 "EMPTY_NO_PLAYLISTS" = "Playlists";
-"EMPTY_NO_PLAYLISTS_DESCRIPTION" = "To create a playlist, long-press a track in your local library and choose Add to Playlist.\nYou can also synchronize existing playlists from your other devices or the internet.";
+"EMPTY_NO_PLAYLISTS_DESCRIPTION" = "To create a playlist, long-press a track in your local library and choose Add to Playlist.";
 
 "EMPTY_PLAYLIST" = "Empty Playlist";
 "EMPTY_PLAYLIST_DESCRIPTION" = "Add tracks from your local library.";
@@ -411,9 +411,6 @@
 "PROTOCOL_NOT_SELECTED" = "Protocol not selected";
 "Settings" = "Settings";
 "SETTINGS_ABOUT" = "About Rajneesh Discourse";
-"SETTINGS_DOCUMENTATION" = "Help & Website";
-"SETTINGS_DONATE" = "Donate to VideoLAN";
-"SETTINGS_DONATE_LONG" = "Support free and open source multimedia";
 
 "ERROR" = "Error";
 "SORT" = "Sort";
@@ -795,9 +792,8 @@
 "PURCHASE_SUCESS_TITLE" = "Donation sent";
 "PURCHASE_SUCESS_DESCRIPTION" = "Thank you for your donation!";
 "DONATION_CONTINUE" = "Continue";
-"BUTTON_NOT_NOW" = "Not now";
-"DONATION_NAGSCREEN_TITLE" = "Donate today";
-"DONATION_NAGSCREEN_SUBTITLE" = "Support free and open source multimedia";
+
+
 "DONATION_INVOICES" = "Invoices";
 "DONATION_RECEIPTS" = "Receipts";
 "DONATION_INVOICES_RECEIPTS" = "Invoices & Receipts";
@@ -919,6 +915,10 @@
 "FOLDER_LOCATION_EXTERNAL_DRIVE" = "External Drive";
 "FOLDER_LOCATION_ICLOUD_DRIVE" = "iCloud Drive";
 "ADD_EXTERNAL_FOLDER" = "Add External Folder…";
+"LOCAL_AUDIO_EMPTY_TITLE" = "No files found";
+"LOCAL_AUDIO_EMPTY_DESCRIPTION" = "VLC didn't find local audio in the folders you've added. Add another folder to scan.";
+"LOCAL_AUDIO_ACCESS_TITLE" = "Add an external folder";
+"LOCAL_AUDIO_ACCESS_DESCRIPTION" = "Choose a folder and allow VLC to scan it for local audio.";
 "EXTERNAL_FOLDER_NOT_ADDED" = "Folder Not Added";
 "EXTERNAL_FOLDER_OVERLAPPING" = "This folder is already part of your library.";
 "EXTERNAL_FOLDER_FAILED" = "VLC can't access this folder.";
@@ -967,7 +967,6 @@
 "DISCOURSE_LIKE_PENDING" = "Updating"; /* Accessibility value while a like request is in flight */
 "DISCOURSE_DOWNLOAD_ACCESSIBILITY" = "Download %@"; /* Accessibility label of a track that can be downloaded: track title */
 "DISCOURSE_DOWNLOAD_CANCEL_ACCESSIBILITY" = "Cancel download of %@"; /* Accessibility label of a track download in progress: track title */
-"DISCOURSE_DOWNLOADED_ACCESSIBILITY" = "Downloaded %@"; /* Accessibility label of a downloaded track: track title */
 "DISCOURSE_DOWNLOAD_FAILED_ACCESSIBILITY" = "Download failed %@. Tap to try again."; /* Accessibility label of a failed track download: track title */
 "DISCOURSE_DOWNLOADS_COUNT_ACCESSIBILITY" = "%1$d of %2$d tracks downloaded"; /* Accessibility label of the card download badge: downloaded tracks, total tracks */
 "DISCOURSE_DOWNLOADS_ACTIVE_ACCESSIBILITY" = "%1$d of %2$d tracks downloading"; /* Accessibility label of the card download badge while tracks download: active tracks, total tracks */
@@ -986,7 +985,10 @@
 // MARK: - Rajneesh Discourse shell
 "HOME" = "Home"; /* Home tab title */
 "DISCOURSES" = "Discourses"; /* Discourses tab title */
-"AUDIO_MIXER" = "Audio Mixer"; /* Audio Mixer tab title */
+"AUDIO_MIXER" = "Mixer"; /* Mixer tab title */
+"MENU" = "Menu"; /* Opens the app menu */
+"DISCOURSE_LINK_ERROR_TITLE" = "Could not open link"; /* Title when a discourse link cannot be opened */
+"DISCOURSE_LINK_ERROR_MESSAGE" = "The discourse could not be loaded. Check your connection and try again."; /* Message when a discourse link cannot be opened */
 "HOME_EMPTY_TITLE" = "Nothing here yet"; /* Empty state heading on the Home tab */
 "HOME_EMPTY_MESSAGE" = "Play a discourse or a track and it will show up here."; /* Empty state message on the Home tab */
 "HOME_SECTION_RECENT_DISCOURSES" = "Recently played"; /* Home section: recently played discourses */
@@ -995,8 +997,6 @@
 "HOME_SECTION_TOP_TRACKS" = "Top tracks this week"; /* Home section: top tracks this week */
 "HOME_ERROR_TITLE" = "Could not load the top lists"; /* Home heading when the top lists cannot be loaded */
 "DISCOURSE_LOCAL_LIBRARY" = "Local library"; /* Title of the device audio library */
-"DISCOURSES_SEGMENT_DISCOURSE" = "Discourse"; /* Remote catalogue segment */
-"DISCOURSES_SEGMENT_LOCAL" = "Local"; /* Device library segment */
 "DISCOURSE_FILTER_TITLE" = "Filter"; /* Catalogue filter button */
 "DISCOURSE_FILTER_LANGUAGE" = "Language"; /* Catalogue filter: language */
 "DISCOURSE_FILTER_SORT" = "Sort"; /* Catalogue filter: sort order */
@@ -1031,19 +1031,40 @@
 "DISCOURSE_SEARCH_SECTION_DISCOURSES" = "Discourses"; /* Search results section title */
 "DISCOURSE_SEARCH_SECTION_TRACKS" = "Tracks"; /* Search results section title */
 "MIXER_EMPTY_TITLE" = "The mixer is empty"; /* Empty state heading on the Audio Mixer tab */
-"MIXER_EMPTY_MESSAGE" = "Add audio from your library to play alongside a discourse."; /* Empty state message on the Audio Mixer tab */
+"MIXER_EMPTY_MESSAGE" = "Add an audio file to play alongside a discourse."; /* Empty state message on the Audio Mixer tab */
 "MIXER_ADD_ACTION" = "Add to Audio Mixer"; /* Add a local audio file to the Audio Mixer */
-"MIXER_ENABLE_TITLE" = "Mixer on"; /* Switch that makes the Audio Mixer follow the main player */
-"MIXER_ENABLE_DETAIL" = "Plays alongside the main player"; /* Explanation under the Audio Mixer switch */
-"MIXER_NOW_PLAYING" = "Now playing"; /* Caption above the track currently in the Audio Mixer */
-"MIXER_NO_TRACK" = "No track selected"; /* Shown in the Audio Mixer panel when no track is selected */
-"MIXER_LOOP_TITLE" = "Loop track"; /* Switch that repeats the Audio Mixer's track */
-"MIXER_VOLUME_TITLE" = "Mixer volume"; /* Accessibility label of the Audio Mixer volume slider */
-"MIXER_PLAY_ACCESSIBILITY" = "Play the mixer"; /* Accessibility label of the Audio Mixer play button */
-"MIXER_PAUSE_ACCESSIBILITY" = "Pause the mixer"; /* Accessibility label of the Audio Mixer pause button */
+"MIXER_ENABLE_TITLE" = "Mixer on"; /* Mixer on */
+"MIXER_NO_TRACK" = "No track selected"; /* No track */
+"MIXER_LOOP_TITLE" = "Loop track"; /* Loop mixer track */
+"MIXER_VOLUME_TITLE" = "Mixer volume"; /* Mixer volume */
 "MIXER_ROW_PLAYING" = "Playing in the mixer"; /* Shown on the Audio Mixer track that is playing */
-"MIXER_HINT" = "Long-press a track in your local library and choose Add to Audio Mixer."; /* How to add tracks to the Audio Mixer */
-"MIXER_OPEN_LIBRARY" = "Open local library"; /* Action that opens the local library from the Audio Mixer */
+"MIXER_HINT" = "Tap + to add an audio file."; /* How to add tracks to the Audio Mixer */
+"MIXER_ADD_FILE" = "Add audio file"; /* Add an audio file to the Audio Mixer */
+"MIXER_IMPORT_FAILED_TITLE" = "Could not add audio file"; /* Could not add an audio file to the Audio Mixer */
+"MIXER_IMPORT_FAILED_MESSAGE" = "The selected file could not be read. Choose another file and try again."; /* The selected audio file could not be copied */
 "MIXER_CLEAR" = "Clear all"; /* Remove every track from the Audio Mixer */
 "MIXER_CLEAR_CONFIRM" = "Remove every track from the Audio Mixer?"; /* Confirmation before removing every Audio Mixer track */
 "MIXER_CLEAR_ACTION" = "Remove all"; /* Confirm removing every Audio Mixer track */
+
+/* Speech noise reduction */
+"NOISE_REDUCTION" = "Noise reduction";
+"NOISE_REDUCTION_HINT" = "Reduce background noise in speech. May affect music.";
+"NOISE_REDUCTION_FAILED" = "Could not change noise reduction. Please try again.";
+
+/* New strings */
+"NOISE_REDUCTION_RENDERER_HINT" = "NOISE_REDUCTION_RENDERER_HINT";
+"NOISE_REDUCTION_UNAVAILABLE_HINT" = "NOISE_REDUCTION_UNAVAILABLE_HINT";
+
+/* Audio Mixer control card */
+"MIXER_PANEL_TITLE" = "Background Music Mixer"; /* Mixer card heading */
+"MIXER_DISABLED_TITLE" = "Mixer off"; /* Mixer disabled */
+"MIXER_LOOP_BUTTON" = "Loop"; /* Loop button */
+"MIXER_VOLUME_DECREASE" = "Decrease mixer volume"; /* Volume button */
+"MIXER_VOLUME_INCREASE" = "Increase mixer volume"; /* Volume button */
+
+/* New strings */
+"MORE_OPTIONS" = "More options"; /* Mixer options */
+
+/* New strings */
+"MIXER_PAUSE_ACCESSIBILITY" = "MIXER_PAUSE_ACCESSIBILITY"; /* Pause mixer */
+"MIXER_PLAY_ACCESSIBILITY" = "MIXER_PLAY_ACCESSIBILITY"; /* Play mixer */

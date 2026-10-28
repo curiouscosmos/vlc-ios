@@ -41,6 +41,7 @@ final class DiscourseAudioMixer: NSObject {
     private let settings: DiscourseSettings
     private let notificationCenter: NotificationCenter
     private let playback: PlaybackService
+    private let fileImporter: DiscourseMixerFileImporter
 
     /// Persisted membership, in the user's order.
     private var storedURLs: [String]
@@ -106,10 +107,12 @@ final class DiscourseAudioMixer: NSObject {
 
     init(settings: DiscourseSettings = .shared,
          notificationCenter: NotificationCenter = .default,
-         playback: PlaybackService = PlaybackService.sharedInstance()) {
+         playback: PlaybackService = PlaybackService.sharedInstance(),
+         fileImporter: DiscourseMixerFileImporter = DiscourseMixerFileImporter()) {
         self.settings = settings
         self.notificationCenter = notificationCenter
         self.playback = playback
+        self.fileImporter = fileImporter
         storedURLs = (settings.decode([String].self, forKey: Self.filesKey) ?? [])
             .filter { URL(string: $0) != nil }
         storedSelection = settings.string(Self.selectedKey)
@@ -176,6 +179,7 @@ final class DiscourseAudioMixer: NSObject {
             stop(reason: .removed)
             storedSelection = items.first?.absoluteString
         }
+        fileImporter.removeImportedFile(at: url)
         persistMembership()
         notifyChange()
     }
@@ -197,9 +201,11 @@ final class DiscourseAudioMixer: NSObject {
         guard !storedURLs.isEmpty else {
             return
         }
+        let removedURLs = items
         stop(reason: .removed)
         storedURLs = []
         storedSelection = nil
+        removedURLs.forEach { fileImporter.removeImportedFile(at: $0) }
         persistMembership()
         notifyChange()
     }
@@ -232,8 +238,7 @@ final class DiscourseAudioMixer: NSObject {
         volume = value
     }
 
-    /// Play/pause from the mixer screen. Playing also switches the mixer on,
-    /// because a silent mixer with a pressed play button would be confusing.
+    /// Arms the mixer when the main player is idle; otherwise toggles playback.
     func togglePlayback() {
         if isPlaying {
             pause()
@@ -252,7 +257,9 @@ final class DiscourseAudioMixer: NSObject {
     }
 
     private func play() {
-        guard let url = selectedURL else {
+        guard playback.isPlaying,
+              playback.numberOfVideoTracks == 0 || playback.playAsAudio,
+              let url = selectedURL else {
             return
         }
         pendingStart?.cancel()
@@ -300,7 +307,9 @@ final class DiscourseAudioMixer: NSObject {
     /// Reloads the current selection, used by loop changes and selection
     /// changes while playing.
     private func restart(resetVolume: Bool) {
-        guard let url = selectedURL else {
+        guard playback.isPlaying,
+              playback.numberOfVideoTracks == 0 || playback.playAsAudio,
+              let url = selectedURL else {
             return
         }
         ensureLoaded(url, force: true)
@@ -447,8 +456,7 @@ final class DiscourseAudioMixer: NSObject {
     /// race for the audio session during the first frames.
     private func scheduleStart() {
         pendingStart?.cancel()
-        // Following means following: the mixer only joins a main player that is
-        // actually playing. The panel's play button uses `play()` directly.
+        // The delayed play also rechecks the main player's state.
         guard isEnabled, playback.isPlaying, selectedURL != nil, !isPlaying else {
             return
         }

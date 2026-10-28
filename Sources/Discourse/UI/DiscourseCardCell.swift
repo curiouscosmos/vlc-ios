@@ -8,10 +8,12 @@
  * Rajneesh Discourse is free software under the GPLv2 (or later) and MPLv2,
  * like the upstream project it is derived from. See COPYING.
  *
- * One catalogue card: square artwork, title (two lines), language, track count
- * and the like control, on a warm surface with a thin border. A small badge over
- * the artwork counts the discourse's downloads (the card keeps its height, which
- * the Home carousel depends on).
+ * One discourse card, on a warm surface with a thin border. `Layout.tile` (the
+ * Home carousel) stacks square artwork above the title, language, track count
+ * and the like control, with the download badge over the artwork. `Layout.list`
+ * (the catalogue) is a full-width row: artwork on the left, the same content on
+ * the right and the download badge folded into the footer. Both layouts share
+ * the like control, the badge state and the VoiceOver "open" overlay.
  *****************************************************************************/
 
 import UIKit
@@ -19,11 +21,28 @@ import UIKit
 final class DiscourseCardCell: UICollectionViewCell {
     static let reuseIdentifier = "DiscourseCardCell"
 
+    /// How the card arranges its content. A cell keeps one layout for the
+    /// collection view that dequeued it (Home = tile, catalogue = list), so
+    /// switching layouts never reloads the other screen.
+    enum Layout {
+        case tile
+        case list
+    }
+
+    var layoutStyle: Layout = .tile {
+        didSet {
+            guard layoutStyle != oldValue else { return }
+            apply(layoutStyle)
+        }
+    }
+
     private let cardView = UIView()
     private let artworkView = VLCNetworkImageView()
     private let titleLabel = UILabel()
     private let languageLabel = UILabel()
     private let metadataLabel = UILabel()
+    private let contentStack = UIStackView()
+    private let footer = UIStackView()
     private let likeControl = DiscourseLikeControl()
     private let accessibilityButton = DiscourseAccessibilityButton()
 
@@ -33,6 +52,9 @@ final class DiscourseCardCell: UICollectionViewCell {
 
     private var artworkURL: URL?
     private var isDownloading = false
+    private var tileConstraints: [NSLayoutConstraint] = []
+    private var listConstraints: [NSLayoutConstraint] = []
+    private var titleHeightConstraint: NSLayoutConstraint!
 
     /// Opens the discourse (VoiceOver activation; touches still select the cell).
     var onOpen: (() -> Void)?
@@ -70,6 +92,8 @@ final class DiscourseCardCell: UICollectionViewCell {
         titleLabel.adjustsFontForContentSizeCategory = true
         titleLabel.numberOfLines = 2
         titleLabel.lineBreakMode = .byTruncatingTail
+        titleHeightConstraint = titleLabel.heightAnchor.constraint(equalToConstant: ceil(titleLabel.font.lineHeight * 2))
+        titleHeightConstraint.isActive = true
 
         languageLabel.translatesAutoresizingMaskIntoConstraints = false
         languageLabel.font = UIFont.preferredFont(forTextStyle: .caption1)
@@ -116,17 +140,24 @@ final class DiscourseCardCell: UICollectionViewCell {
         badgeContent.isAccessibilityElement = false
         downloadBadge.addSubview(badgeContent)
 
-        let footer = UIStackView(arrangedSubviews: [metadataLabel, likeControl])
         footer.translatesAutoresizingMaskIntoConstraints = false
         footer.axis = .horizontal
         footer.alignment = .center
         footer.spacing = 8
+        footer.addArrangedSubview(metadataLabel)
+        footer.addArrangedSubview(likeControl)
+
+        contentStack.translatesAutoresizingMaskIntoConstraints = false
+        contentStack.axis = .vertical
+        contentStack.spacing = 2
+        contentStack.addArrangedSubview(titleLabel)
+        contentStack.addArrangedSubview(languageLabel)
+        contentStack.addArrangedSubview(footer)
+        contentStack.setCustomSpacing(4, after: languageLabel)
 
         contentView.addSubview(cardView)
         cardView.addSubview(artworkView)
-        cardView.addSubview(titleLabel)
-        cardView.addSubview(languageLabel)
-        cardView.addSubview(footer)
+        cardView.addSubview(contentStack)
         cardView.addSubview(downloadBadge)
         cardView.addSubview(accessibilityButton)
 
@@ -136,26 +167,6 @@ final class DiscourseCardCell: UICollectionViewCell {
             cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
 
-            artworkView.topAnchor.constraint(equalTo: cardView.topAnchor),
-            artworkView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor),
-            artworkView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor),
-            artworkView.heightAnchor.constraint(equalTo: artworkView.widthAnchor),
-
-            titleLabel.topAnchor.constraint(equalTo: artworkView.bottomAnchor, constant: 10),
-            titleLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 12),
-            titleLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -12),
-
-            languageLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
-            languageLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            languageLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-
-            footer.topAnchor.constraint(equalTo: languageLabel.bottomAnchor, constant: 4),
-            footer.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            footer.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            footer.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -12),
-
-            downloadBadge.topAnchor.constraint(equalTo: artworkView.topAnchor, constant: 8),
-            downloadBadge.trailingAnchor.constraint(equalTo: artworkView.trailingAnchor, constant: -8),
             downloadBadge.heightAnchor.constraint(equalToConstant: 18),
 
             badgeContent.leadingAnchor.constraint(equalTo: downloadBadge.leadingAnchor, constant: 6),
@@ -170,7 +181,70 @@ final class DiscourseCardCell: UICollectionViewCell {
             accessibilityButton.bottomAnchor.constraint(equalTo: cardView.bottomAnchor)
         ])
 
+        // Square artwork above the text, badge over the artwork's corner.
+        tileConstraints = [
+            artworkView.topAnchor.constraint(equalTo: cardView.topAnchor),
+            artworkView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor),
+            artworkView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor),
+            artworkView.heightAnchor.constraint(equalTo: artworkView.widthAnchor),
+
+            contentStack.topAnchor.constraint(equalTo: artworkView.bottomAnchor, constant: 10),
+            contentStack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 12),
+            contentStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -12),
+            contentStack.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -12),
+
+            downloadBadge.topAnchor.constraint(equalTo: artworkView.topAnchor, constant: 8),
+            downloadBadge.trailingAnchor.constraint(equalTo: artworkView.trailingAnchor, constant: -8)
+        ]
+
+        // Full-width row: artwork on the left, the text block on the right.
+        // The content block is centred and the card keeps a 112 pt minimum, so
+        // a one-line title still leaves a comfortably tall row around the 88 pt
+        // artwork.
+        listConstraints = [
+            artworkView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 12),
+            artworkView.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
+            artworkView.widthAnchor.constraint(equalToConstant: 88),
+            artworkView.heightAnchor.constraint(equalToConstant: 88),
+            artworkView.topAnchor.constraint(greaterThanOrEqualTo: cardView.topAnchor, constant: 12),
+            artworkView.bottomAnchor.constraint(lessThanOrEqualTo: cardView.bottomAnchor, constant: -12),
+
+            contentStack.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
+            contentStack.topAnchor.constraint(greaterThanOrEqualTo: cardView.topAnchor, constant: 12),
+            contentStack.bottomAnchor.constraint(lessThanOrEqualTo: cardView.bottomAnchor, constant: -12),
+            contentStack.leadingAnchor.constraint(equalTo: artworkView.trailingAnchor, constant: 12),
+            contentStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -14),
+
+            cardView.heightAnchor.constraint(greaterThanOrEqualToConstant: 112)
+        ]
+
+        NSLayoutConstraint.activate(tileConstraints)
+
         updateTheme()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        titleHeightConstraint?.constant = ceil(UIFont.preferredFont(forTextStyle: .headline,
+                                                                   compatibleWith: traitCollection).lineHeight * 2)
+    }
+
+    /// Swaps the constraint set and moves the download badge from the artwork
+    /// corner (tile) into the footer (list), where it cannot cover the smaller
+    /// list thumbnail.
+    private func apply(_ layout: Layout) {
+        NSLayoutConstraint.deactivate(layout == .tile ? listConstraints : tileConstraints)
+
+        switch layout {
+        case .tile:
+            downloadBadge.removeFromSuperview()
+            cardView.addSubview(downloadBadge)
+            NSLayoutConstraint.activate(tileConstraints)
+        case .list:
+            downloadBadge.removeFromSuperview()
+            footer.insertArrangedSubview(downloadBadge, at: footer.arrangedSubviews.count - 1)
+            NSLayoutConstraint.activate(listConstraints)
+        }
     }
 
     // MARK: - Content

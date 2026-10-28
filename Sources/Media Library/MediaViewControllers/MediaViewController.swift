@@ -629,6 +629,11 @@ extension MediaViewController: UIDocumentPickerDelegate {
         let errorMessage: String
         switch mediaLibraryService.medialib.addExternalFolder(at: url) {
         case .added, .updated:
+            mediaLibraryService.medialib.reload()
+            (viewControllers[currentIndex] as? MediaCategoryViewController)?.updateEmptyState()
+            if let folders = viewControllers.first(where: { $0 is FolderViewController }) {
+                moveTo(viewController: folders, animated: false)
+            }
             return
         case .overlapping:
             errorMessage = NSLocalizedString("EXTERNAL_FOLDER_OVERLAPPING", comment: "")

@@ -22,6 +22,7 @@ final class DiscourseDetailViewController: UIViewController {
     private let playback: DiscoursePlayback
     private let playbackStore: DiscoursePlaybackStore
     private let likesStore: DiscourseLikesStore
+    private let highlightedAudioID: String?
 
     private let headerView = DiscourseDetailHeaderView()
     private var tableView: UITableView!
@@ -34,13 +35,17 @@ final class DiscourseDetailViewController: UIViewController {
     private var playingAudioID: String?
     private var requestToken = 0
     private var downloadMenuButton: UIBarButtonItem?
+    private var playlistActions: EditActions?
+    private var hasScrolledToHighlightedTrack = false
 
     init(discourse: Discourse,
+         highlightedAudioID: String? = nil,
          client: DiscourseAPIClient = .shared,
          playback: DiscoursePlayback = .shared,
          playbackStore: DiscoursePlaybackStore = .shared,
          likesStore: DiscourseLikesStore = .shared) {
         self.discourse = discourse
+        self.highlightedAudioID = highlightedAudioID
         self.client = client
         self.playback = playback
         self.playbackStore = playbackStore
@@ -99,6 +104,11 @@ final class DiscourseDetailViewController: UIViewController {
         if !hasLoaded {
             loadTracks(forceRefresh: false)
         }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        scrollToHighlightedTrackIfNeeded()
     }
 
     override func viewDidLayoutSubviews() {
@@ -241,6 +251,7 @@ final class DiscourseDetailViewController: UIViewController {
                     self.showEmptyState()
                 } else {
                     self.showContent()
+                    self.scrollToHighlightedTrackIfNeeded()
                 }
             } catch {
                 guard token == self.requestToken else { return }
@@ -273,6 +284,23 @@ final class DiscourseDetailViewController: UIViewController {
             return true
         }
         return false
+    }
+
+    /// A deep link to a track scrolls the loaded list to that row once. The
+    /// flag prevents a refresh or a later reload from moving the user again.
+    private func scrollToHighlightedTrackIfNeeded() {
+        guard !hasScrolledToHighlightedTrack,
+              let highlightedAudioID,
+              let row = tracks.firstIndex(where: { $0.id == highlightedAudioID }) else {
+            return
+        }
+        hasScrolledToHighlightedTrack = true
+        let indexPath = IndexPath(row: row, section: 0)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.tableView.layoutIfNeeded()
+            self.tableView.scrollToRow(at: indexPath, at: .middle, animated: true)
+        }
     }
 
     // MARK: - Playback
@@ -561,6 +589,36 @@ extension DiscourseDetailViewController: UITableViewDataSource {
 // MARK: - UITableViewDelegate
 
 extension DiscourseDetailViewController: UITableViewDelegate {
+    func tableView(_ tableView: UITableView,
+                   trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        guard tracks.indices.contains(indexPath.row),
+              let url = tracks[indexPath.row].audioURL else { return nil }
+        let track = tracks[indexPath.row]
+        let action = UIContextualAction(style: .normal,
+                                       title: NSLocalizedString("ADD_TO_PLAYLIST", comment: "")) { [weak self] _, _, completion in
+            guard let self else { completion(false); return }
+            let library = VLCAppCoordinator.sharedInstance().mediaLibraryService
+            guard let media = library.fetchOrCreateMedia(with: url) else {
+                VLCAlertViewController.alertViewManager(title: NSLocalizedString("ERROR_PLAYLIST_CREATION", comment: ""),
+                                                        viewController: self)
+                completion(false)
+                return
+            }
+            DiscourseMediaIdentityStore.shared.record(url: url,
+                                                      identity: DiscourseMediaFactory.identity(for: track, discourse: self.discourse))
+            let actions = EditActions(model: PlaylistModel(medialibrary: library), mediaLibraryService: library)
+            actions.objects = [media]
+            self.playlistActions = actions
+            completion(true)
+            actions.addToPlaylist()
+        }
+        action.image = UIImage(systemName: "text.badge.plus")
+        action.backgroundColor = DiscourseColors.current.accent
+        let configuration = UISwipeActionsConfiguration(actions: [action])
+        configuration.performsFirstActionWithFullSwipe = false
+        return configuration
+    }
+
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         playTrack(at: indexPath.row)

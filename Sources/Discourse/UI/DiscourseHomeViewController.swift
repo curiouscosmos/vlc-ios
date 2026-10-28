@@ -53,7 +53,9 @@ final class DiscourseHomeViewController: UIViewController {
         self.likesStore = likesStore
         self.mediaLibrary = mediaLibrary
         super.init(nibName: nil, bundle: nil)
-        title = NSLocalizedString("HOME", comment: "Home tab title")
+        // The tab carries the name; the screen shows its content without a
+        // navigation title.
+        title = nil
     }
 
     required init?(coder: NSCoder) {
@@ -66,8 +68,10 @@ final class DiscourseHomeViewController: UIViewController {
         super.viewDidLoad()
 
         view.backgroundColor = DiscourseColors.current.appBackground
-        navigationItem.largeTitleDisplayMode = .always
-        navigationItem.leftBarButtonItem = AppMenuBarButtonItem(presenter: self)
+        navigationItem.largeTitleDisplayMode = .never
+        // The logo is decorative; the app menu lives on the right.
+        navigationItem.leftBarButtonItem = AppLogoBarButtonItem()
+        navigationItem.rightBarButtonItem = AppMenuBarButtonItem(presenter: self, style: .dropdown)
 
         setupCollectionView()
         setupLoadingIndicator()
@@ -113,7 +117,7 @@ final class DiscourseHomeViewController: UIViewController {
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.backgroundColor = .clear
         collectionView.alwaysBounceVertical = true
-        collectionView.contentInset = UIEdgeInsets(top: 4, left: 0, bottom: 24, right: 0)
+        collectionView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 24, right: 0)
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.accessibilityIdentifier = "discourseHome"
@@ -159,7 +163,7 @@ final class DiscourseHomeViewController: UIViewController {
     private func layoutSection(for kind: DiscourseHomeSectionKind) -> NSCollectionLayoutSection {
         let header = NSCollectionLayoutBoundarySupplementaryItem(
             layoutSize: NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
-                                               heightDimension: .estimated(44)),
+                                               heightDimension: .estimated(35)),
             elementKind: UICollectionView.elementKindSectionHeader,
             alignment: .top)
 

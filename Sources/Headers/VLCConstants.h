@@ -194,10 +194,6 @@
 #define kVLCSortDefault @"SortDefault"
 #define kVLCSortDescendingDefault @"SortDescendingDefault"
 #define kVLCHasLaunchedBefore @"hasLaunchedBefore"
-#define kVLCHasNaggedThisMonth @"kVLCHasNaggedThisMonth"
-#define kVLCNumberOfLaunches @"kVLCNumberOfLaunches"
-#define kVLCHasActiveSubscription @"kVLCHasActiveSubscription"
-
 #define kVLCTabBarIndex @"TabBarIndex"
 
 #define kVLCGroupLayout @"kVLCGroupLayout"

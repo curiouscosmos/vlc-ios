@@ -40,33 +40,13 @@ class TabBarCoordinator: NSObject {
 
     private lazy var catalogueViewController = DiscourseCatalogueViewController()
 
-    /// The device audio browser, shown by the Discourses tab's "Local" segment.
-    /// It is the upstream screen, so its bar buttons, edit mode and pager keep
-    /// working; the segment swaps the tab's navigation root instead of embedding
-    /// the browser as a child (a child would lose its navigation-bar actions).
+    /// Device audio browser used by the mixer and local media shortcuts.
     private lazy var localLibraryViewController: AudioViewController = {
-        let controller = AudioViewController(mediaLibraryService: mediaLibraryService)
+        let controller = DiscourseLocalLibraryViewController(mediaLibraryService: mediaLibraryService)
         controller.title = NSLocalizedString("DISCOURSE_LOCAL_LIBRARY",
                                              comment: "Title of the device audio library")
         return controller
     }()
-
-    /// Discourse / Local switch, shown in the navigation bar of both roots.
-    private lazy var librarySegment: UISegmentedControl = {
-        let control = UISegmentedControl(items: [
-            NSLocalizedString("DISCOURSES_SEGMENT_DISCOURSE", comment: "Remote catalogue segment"),
-            NSLocalizedString("DISCOURSES_SEGMENT_LOCAL", comment: "Device library segment")
-        ])
-        control.selectedSegmentIndex = LibrarySegment.discourses.rawValue
-        control.addTarget(self, action: #selector(librarySegmentChanged(_:)), for: .valueChanged)
-        control.accessibilityIdentifier = "discoursesSegment"
-        return control
-    }()
-
-    private enum LibrarySegment: Int {
-        case discourses
-        case local
-    }
 
     private lazy var discoursesNavigationController = makeNavigationController(
         root: catalogueViewController,
@@ -88,7 +68,7 @@ class TabBarCoordinator: NSObject {
 
     private lazy var mixerNavigationController = makeNavigationController(
         root: DiscourseAudioMixerViewController(),
-        title: NSLocalizedString("AUDIO_MIXER", comment: "Audio Mixer tab title"),
+        title: NSLocalizedString("AUDIO_MIXER", comment: "Mixer tab title"),
         systemImage: "slider.horizontal.3",
         identifier: VLCAccessibilityIdentifier.audioMixer)
 
@@ -135,10 +115,6 @@ class TabBarCoordinator: NSObject {
         // The mixer follows the main player from launch, not from the first time
         // its tab is opened, so a previously enabled mixer keeps working.
         _ = DiscourseAudioMixer.shared
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(revealLocalLibrary),
-                                               name: .discourseShowLocalLibrary,
-                                               object: nil)
         refreshDiscourseLikes()
         tabBarController.editToolbarSetupHandler = { [weak self] in
             self?.setupEditToolbar()
@@ -167,8 +143,7 @@ class TabBarCoordinator: NSObject {
     private func setupViewControllers() {
         // Exactly five destinations: Home, Discourses, Search, Playlists and the
         // Audio Mixer. Videos, Browse, On Air and the separate Audio library tab
-        // are not part of the product surface; the device library opens from the
-        // Discourses tab.
+        // are not part of the product surface.
         tabBarController.viewControllers = [
             homeNavigationController,
             discoursesNavigationController,
@@ -176,40 +151,6 @@ class TabBarCoordinator: NSObject {
             playlistsNavigationController,
             mixerNavigationController
         ]
-
-        installLibraryRoot(.discourses, animated: false)
-    }
-
-    // MARK: - Discourses / Local
-
-    @objc private func librarySegmentChanged(_ sender: UISegmentedControl) {
-        guard let segment = LibrarySegment(rawValue: sender.selectedSegmentIndex) else {
-            return
-        }
-        installLibraryRoot(segment, animated: false)
-    }
-
-    /// Swaps the Discourses tab between the remote catalogue and the device
-    /// library. Both view controllers are kept alive, so the library keeps its
-    /// pager and scroll position while the catalogue is on screen.
-    private func installLibraryRoot(_ segment: LibrarySegment, animated: Bool) {
-        let root: UIViewController
-        switch segment {
-        case .discourses:
-            root = catalogueViewController
-            localLibraryViewController.navigationItem.titleView = nil
-        case .local:
-            root = localLibraryViewController
-            catalogueViewController.navigationItem.titleView = nil
-        }
-
-        root.navigationItem.titleView = librarySegment
-        librarySegment.selectedSegmentIndex = segment.rawValue
-
-        guard discoursesNavigationController.viewControllers.first !== root else {
-            return
-        }
-        discoursesNavigationController.setViewControllers([root], animated: animated)
     }
 
     private func makeNavigationController(root: UIViewController,
@@ -323,14 +264,6 @@ class TabBarCoordinator: NSObject {
             UINavigationBar.appearance().scrollEdgeAppearance = AppearanceManager.navigationbarAppearance()
         }
 
-        applyLibrarySegmentTheme()
-    }
-
-    private func applyLibrarySegmentTheme() {
-        let colors = DiscourseColors.current
-        librarySegment.selectedSegmentTintColor = colors.accent
-        librarySegment.setTitleTextAttributes([.foregroundColor: colors.primaryText], for: .normal)
-        librarySegment.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .selected)
     }
 
     @objc func handleShortcutItem(_ item: UIApplicationShortcutItem) {
@@ -350,31 +283,100 @@ class TabBarCoordinator: NSObject {
         tabBarController.selectedIndex = destination.rawValue
     }
 
-    /// Opens the device audio library in the Discourses tab, optionally
-    /// deep-linked to one album.
-    /// The Audio Mixer's empty state asks for the library; it is the only place
-    /// tracks can be added to the mixer.
-    @objc private func revealLocalLibrary() {
-        showLocalLibrary()
+    // MARK: - Deep links
+
+    /// Opens https://rajneeshdiscourse.com/discourses/{id}[/tracks/{audioID}].
+    /// The API has no fetch-by-id route, so the discourse metadata comes from
+    /// the history/registry cache or is reconstructed from its track list, the
+    /// same approach as the Android reference.
+    @objc(handleDiscourseDeepLink:)
+    func handleDiscourseDeepLink(_ url: URL) -> Bool {
+        guard let link = DiscourseDeepLink(url: url) else {
+            return false
+        }
+
+        selectTab(.discourses)
+        discoursesNavigationController.popToRootViewController(animated: false)
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let tracks = try await DiscourseAPIClient.shared.discourseTracks(discourseID: link.discourseID)
+                guard let discourse = await self.resolveDeepLinkDiscourse(id: link.discourseID, tracks: tracks) else {
+                    self.presentDeepLinkError()
+                    return
+                }
+                let detail = DiscourseDetailViewController(discourse: discourse,
+                                                           highlightedAudioID: link.audioID)
+                self.discoursesNavigationController.pushViewController(detail, animated: true)
+            } catch {
+                self.presentDeepLinkError()
+            }
+        }
+        return true
     }
 
+    private func resolveDeepLinkDiscourse(id: String, tracks: [DiscourseAudio]) async -> Discourse? {
+        if let recent = DiscourseHistoryStore.shared.recentlyPlayedDiscourses.first(where: { $0.id == id }) {
+            return recent
+        }
+        if let cached = DiscourseTrackRegistry.shared.discourse(id: id) {
+            return cached
+        }
+        guard let first = tracks.first else {
+            return nil
+        }
+        let title = first.discourseName.trimmingCharacters(in: .whitespacesAndNewlines)
+        // The catalogue search gives the real counts/artwork; the track payload
+        // only carries the discourse name and thumbnail.
+        if !title.isEmpty,
+           let page = try? await DiscourseAPIClient.shared.discourses(page: 1, search: title),
+           let match = page.data.first(where: { $0.id == id }) {
+            return match
+        }
+        return Discourse(id: id,
+                         title: title,
+                         thumbnailURLString: first.discourseThumbnailURLString,
+                         isAudioCleaned: false,
+                         language: first.language,
+                         slug: nil,
+                         totalTracks: tracks.count,
+                         totalLikes: 0,
+                         createdAt: first.createdAt,
+                         updatedAt: first.updatedAt)
+    }
+
+    private func presentDeepLinkError() {
+        let alert = UIAlertController(title: NSLocalizedString("DISCOURSE_LINK_ERROR_TITLE",
+                                                               comment: "Title when a discourse link cannot be opened"),
+                                      message: NSLocalizedString("DISCOURSE_LINK_ERROR_MESSAGE",
+                                                                 comment: "Message when a discourse link cannot be opened"),
+                                      preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("BUTTON_OK", comment: ""),
+                                      style: .default))
+        (tabBarController.selectedViewController ?? tabBarController).present(alert, animated: true)
+    }
+
+    /// Opens the device audio library in the Discourses tab for local-media
+    /// shortcuts, optionally deep-linked to one album. The Mixer does not link
+    /// to this screen; it imports files directly through the document picker.
     private func showLocalLibrary(pushing album: VLCMLAlbum? = nil) {
         selectTab(.discourses)
-        installLibraryRoot(.local, animated: false)
-        // The shortcut always lands on the library root, not on whatever album
-        // list was open last time.
-        discoursesNavigationController.popToRootViewController(animated: false)
+        discoursesNavigationController.setViewControllers([catalogueViewController, localLibraryViewController], animated: false)
 
         guard let album else {
             return
         }
 
         localLibraryViewController.loadViewIfNeeded()
-        guard let albumCategory = localLibraryViewController.viewControllers
-            .compactMap({ $0 as? AlbumCategoryViewController }).first else {
-            return
+        let pages = localLibraryViewController.viewControllers.compactMap { $0 as? MediaCategoryViewController }
+        if let albumCategory = pages.compactMap({ $0 as? AlbumCategoryViewController }).first {
+            albumCategory.pushCollectionViewController(for: album)
+        } else if let songsPage = pages.first {
+            // The fork's Local library is a single Songs page (no album tab), so
+            // the album detail is pushed from there instead.
+            songsPage.pushCollectionViewController(for: album)
         }
-        albumCategory.pushCollectionViewController(for: album)
     }
 
     @objc(showTabForMedia:) func showTab(for media: VLCMLMedia) {

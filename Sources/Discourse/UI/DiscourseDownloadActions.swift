@@ -10,7 +10,7 @@
  *
  * One place for the download tap and menu semantics so every row, card and
  * screen behaves the same: a tap downloads, cancels a running download or
- * retries a failed one; removing is always an explicit menu action, and
+ * retries a failed one or removes a completed download, and
  * removing a whole discourse asks first (AGENTS.md section 6.6).
  *****************************************************************************/
 
@@ -27,9 +27,7 @@ enum DiscourseDownloadActions {
         case .downloading:
             manager.cancel(audioID: track.id)
         case .downloaded:
-            // Removing is destructive; the context menu and the discourse menu
-            // own it so a stray tap cannot delete a downloaded track.
-            break
+            manager.remove(audioID: track.id)
         }
     }
 

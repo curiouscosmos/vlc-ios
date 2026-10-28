@@ -107,6 +107,16 @@ protocol MediaMoreOptionsActionSheetDelegate {
         super.init()
         mediaPlayerActionSheetDelegate = self
         mediaPlayerActionSheetDataSource = self
+        NotificationCenter.default.addObserver(self, selector: #selector(refreshNoiseReduction),
+                                               name: NSNotification.Name(rawValue: VLCPlaybackServiceNoiseReductionDidChange),
+                                               object: nil)
+    }
+
+    @objc private func refreshNoiseReduction() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, self.isViewLoaded else { return }
+            self.collectionView.reloadData()
+        }
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -300,7 +310,16 @@ extension MediaMoreOptionsActionSheet: MediaPlayerActionSheetDelegate {
             return
         }
 
-        if identifier == .interfaceLock {
+        if identifier == .noiseReduction {
+            let service = PlaybackService.sharedInstance()
+            let succeeded = service.setNoiseReduction(enabled: state)
+            cell.setToggleSwitch(state: service.noiseReductionEnabled)
+            if !succeeded, let player = moreOptionsDelegate as? AudioPlayerViewController {
+                let message = NSLocalizedString("NOISE_REDUCTION_FAILED", comment: "")
+                player.showStatusMessage(message)
+                UIAccessibility.post(notification: .announcement, argument: message)
+            }
+        } else if identifier == .interfaceLock {
             moreOptionsDelegate.mediaMoreOptionsActionSheetDidToggleInterfaceLock(state: state)
             interfaceDisabled = state
         }
@@ -346,6 +365,8 @@ extension MediaMoreOptionsActionSheet: MediaPlayerActionSheetDataSource {
                 return
             }
 
+            if $0 == .noiseReduction && !isAudioPlayer { return }
+
             if $0 == .filter && isAudioPlayer {
                 // Do not show the video filters category when the audio player is shown.
                 return
@@ -358,7 +379,11 @@ extension MediaMoreOptionsActionSheet: MediaPlayerActionSheetDataSource {
                 cellIdentifier: $0
             )
 
-            if $0 == .interfaceLock {
+            if $0 == .noiseReduction {
+                cellModel.accessoryType = .toggleSwitch
+                cellModel.viewToPresent = nil
+                cellModel.iconImage = UIImage(systemName: "waveform")
+            } else if $0 == .interfaceLock {
                 cellModel.accessoryType = .toggleSwitch
                 cellModel.viewToPresent = nil
             } else if $0 == .equalizer {

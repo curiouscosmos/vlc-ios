@@ -1,0 +1,44 @@
+diff --git a/Headers/Public/Playback/VLCMediaPlayer.h b/Headers/Public/Playback/VLCMediaPlayer.h
+index 043c846a..771cc847 100644
+--- a/Headers/Public/Playback/VLCMediaPlayer.h
++++ b/Headers/Public/Playback/VLCMediaPlayer.h
+@@ -266,6 +266,13 @@ NSString * VLCMediaPlayerStateToString(VLCMediaPlayerState state);
+  */
+ OBJC_VISIBLE
+ @interface VLCMediaPlayer : NSObject
++/** Prepare RNNoise before playback. Returns NO if the module is unavailable. */
++- (BOOL)prepareNoiseReduction;
++/** Whether the prepared filter is available in the current audio output. */
++- (BOOL)noiseReductionReady;
++/** Crossfade processed/original audio without restarting playback. */
++- (BOOL)applyNoiseReductionEnabled:(BOOL)enabled;
++
+ 
+ /**
+  * the library instance in use by the player instance
+diff --git a/Sources/Playback/VLCMediaPlayer.m b/Sources/Playback/VLCMediaPlayer.m
+index 5441c3ef..5670e169 100644
+--- a/Sources/Playback/VLCMediaPlayer.m
++++ b/Sources/Playback/VLCMediaPlayer.m
+@@ -1806,6 +1806,21 @@ - (nullable NSImage *)lastSnapshot {
+ }
+ #endif
+ 
++- (BOOL)noiseReductionReady
++{
++    return libvlc_media_player_noise_reduction_available(_playerInstance);
++}
++
++- (BOOL)prepareNoiseReduction
++{
++    return libvlc_media_player_prepare_noise_reduction(_playerInstance) == 0;
++}
++
++- (BOOL)applyNoiseReductionEnabled:(BOOL)enabled
++{
++    return libvlc_media_player_set_noise_reduction(_playerInstance, enabled) == 0;
++}
++
+ - (void *)libVLCMediaPlayer
+ {
+     return _playerInstance;

@@ -15,18 +15,8 @@
 #import "VLCNetworkImageView.h"
 #import "VLCBoxController.h"
 #import "NSString+SupportedMedia.h"
-#import "GTLRDrive_File+VLCShortcut.h"
 
 #import "VLC-Swift.h"
-
-@interface VLCCloudStorageTableViewCell ()
-{
-    UIImageView *_shortcutBadgeView;
-}
-
-- (void)showShortcutBadge:(BOOL)show;
-
-@end
 
 @implementation VLCCloudStorageTableViewCell
 
@@ -61,15 +51,6 @@
 {
     if (dropboxFile != _dropboxFile)
         _dropboxFile = dropboxFile;
-
-    [self performSelectorOnMainThread:@selector(_updatedDisplayedInformation)
-                           withObject:nil waitUntilDone:NO];
-}
-
-- (void)setDriveFile:(GTLRDrive_File *)driveFile
-{
-    if (driveFile != _driveFile)
-        _driveFile = driveFile;
 
     [self performSelectorOnMainThread:@selector(_updatedDisplayedInformation)
                            withObject:nil waitUntilDone:NO];
@@ -174,7 +155,6 @@
 - (void)_updatedDisplayedInformation
 {
     /* cells are reused across providers, so never inherit a badge */
-    [self showShortcutBadge:NO];
 
     if (_dropboxFile != nil) {
         if ([_dropboxFile isKindOfClass:[DBFILESFolderMetadata class]]) {
@@ -208,50 +188,6 @@
                     self->_thumbnailView.image = image;
                 }
             }];
-        }
-    }
-    else if(_driveFile != nil) {
-        BOOL isDirectory = self.driveFile.vlc_isDirectory;
-        [self showShortcutBadge:self.driveFile.vlc_isShortcut];
-
-        if (isDirectory) {
-            self.folderTitleLabel.text = self.driveFile.name;
-            self.titleLabel.hidden = self.subtitleLabel.hidden = YES;
-            self.folderTitleLabel.hidden = NO;
-            self.isFavourable = YES;
-            
-            VLCFavoriteService *service =  [VLCAppCoordinator sharedInstance].favoriteService;
-            
-            NSString *selectedFilePath = _driveFile.vlc_targetIdentifier;
-            NSString *urlString = [NSString stringWithFormat:@"file://Drive/%@", selectedFilePath];
-            NSURL *url = [NSURL URLWithString:urlString];
-            
-            self.isFavourite = [service isFavoriteURL:url];
-        } else {
-            NSString *title = self.driveFile.name;
-            self.titleLabel.text = title;
-            self.subtitleLabel.text = (self.driveFile.size > 0) ? [NSByteCountFormatter stringFromByteCount:[self.driveFile.size longLongValue] countStyle:NSByteCountFormatterCountStyleFile]: @"";
-            self.titleLabel.hidden = self.subtitleLabel.hidden = NO;
-            self.folderTitleLabel.hidden = YES;
-            self.favouriteButton.hidden = YES;
-            
-            if (_driveFile.thumbnailLink != nil) {
-                [self.thumbnailView setImageWithURL:[NSURL URLWithString:_driveFile.thumbnailLink]];
-            }
-        }
-
-        if (!self.thumbnailView.image) {
-            NSString *iconName = self.driveFile.iconLink;
-            if (isDirectory) {
-                self.thumbnailView.image = [UIImage systemImageNamed:@"folder"];
-            } else if ([iconName isEqualToString:@"https://ssl.gstatic.com/docs/doclist/images/icon_10_audio_list.png"]) {
-                self.thumbnailView.image = [UIImage imageNamed:@"audioFile"];
-            } else if ([iconName isEqualToString:@"https://ssl.gstatic.com/docs/doclist/images/icon_11_video_list.png"]) {
-                self.thumbnailView.image = [UIImage imageNamed:@"movie"];
-            } else {
-                self.thumbnailView.image = [UIImage imageNamed:@"blank"];
-                APLog(@"missing icon for type '%@'", self.driveFile.iconLink);
-            }
         }
     }
     else if(_boxFile != nil) {
@@ -357,36 +293,7 @@
     self.downloadButton.hidden = !isDownloadable;
 }
 
-- (void)setupShortcutBadgeView
-{
-    UIImageView *badge = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"arrowshape.turn.up.right.fill"]];
-    badge.translatesAutoresizingMaskIntoConstraints = NO;
-    badge.contentMode = UIViewContentModeScaleAspectFit;
-    badge.tintColor = PresentationTheme.current.colors.orangeUI;
-    badge.layer.shadowOpacity = 0.8;
-    badge.layer.shadowRadius = 2.;
-    badge.layer.shadowOffset = CGSizeZero;
 
-    [self.contentView addSubview:badge];
-
-    [NSLayoutConstraint activateConstraints:@[
-        [badge.trailingAnchor constraintEqualToAnchor:self.thumbnailView.trailingAnchor constant:-2.],
-        [badge.bottomAnchor constraintEqualToAnchor:self.thumbnailView.bottomAnchor constant:-2.],
-        [badge.widthAnchor constraintEqualToConstant:14.],
-        [badge.heightAnchor constraintEqualToConstant:14.]
-    ]];
-
-    _shortcutBadgeView = badge;
-}
-
-- (void)showShortcutBadge:(BOOL)show
-{
-    if (show && _shortcutBadgeView == nil) {
-        [self setupShortcutBadgeView];
-    }
-
-    _shortcutBadgeView.hidden = !show;
-}
 
 - (void)setIsFavourite:(BOOL)isFavourite
 {
@@ -401,7 +308,6 @@
 - (void)prepareForReuse {
     [super prepareForReuse];
     _thumbnailView.image = nil;
-    _shortcutBadgeView.hidden = YES;
 }
 
 - (void)updateAppearanceForColorScheme

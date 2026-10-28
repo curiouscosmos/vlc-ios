@@ -17,6 +17,7 @@ enum ActionSheetCellIdentifier: String, CustomStringConvertible, CaseIterable {
     case playback
     case sleepTimer
     case equalizer
+    case noiseReduction
     case chapters
     case bookmarks
     case addBookmarks
@@ -31,6 +32,8 @@ enum ActionSheetCellIdentifier: String, CustomStringConvertible, CaseIterable {
             return NSLocalizedString("VIDEO_FILTER", comment: "")
         case .playback:
             return NSLocalizedString("PLAYBACK_SPEED", comment: "")
+        case .noiseReduction:
+            return NSLocalizedString("NOISE_REDUCTION", comment: "")
         case .equalizer:
             return NSLocalizedString("EQUALIZER_CELL_TITLE", comment: "")
         case .sleepTimer:
@@ -62,6 +65,8 @@ enum ActionSheetCellIdentifier: String, CustomStringConvertible, CaseIterable {
             return NSLocalizedString("PLAYBACK_SPEED_HINT", comment: "")
         case .sleepTimer:
             return NSLocalizedString("SLEEP_TIMER_HINT", comment: "")
+        case .noiseReduction:
+            return NSLocalizedString("NOISE_REDUCTION_HINT", comment: "")
         case .equalizer:
             return NSLocalizedString("EQUALIZER_HINT", comment: "")
         case .chapters:
@@ -348,6 +353,19 @@ extension MediaPlayerActionSheet: ActionSheetDataSource {
 
         sheetCell.accessoryView.tintColor = PresentationTheme.currentExcludingWhite.colors.cellDetailTextColor
         sheetCell.delegate = self
+        if sheetCell.identifier == .noiseReduction {
+            let service = PlaybackService.sharedInstance()
+            let hint: String
+            if service.renderer != nil {
+                hint = NSLocalizedString("NOISE_REDUCTION_RENDERER_HINT", comment: "")
+            } else if service.noiseReductionAvailable {
+                hint = NSLocalizedString("NOISE_REDUCTION_HINT", comment: "")
+            } else {
+                hint = NSLocalizedString("NOISE_REDUCTION_UNAVAILABLE_HINT", comment: "")
+            }
+            sheetCell.setToggleSwitch(state: service.noiseReductionEnabled,
+                                      isEnabled: service.noiseReductionAvailable, hint: hint)
+        }
         return sheetCell
     }
 }

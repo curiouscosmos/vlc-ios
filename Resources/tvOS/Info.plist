@@ -47,10 +47,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>MLKitGroupIdentifier</key>
-	<string>$(GROUP_IDENTIFIER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>MLKitGroupIdentifier</key>
+	<string>$(GROUP_IDENTIFIER)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -95,7 +95,5 @@
 	</array>
 	<key>UIUserInterfaceStyle</key>
 	<string>Automatic</string>
-	<key>com.apple.developer.networking.multicast</key>
-	<true/>
 </dict>
 </plist>

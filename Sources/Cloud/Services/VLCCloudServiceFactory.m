@@ -14,7 +14,6 @@
 
 #import "VLCCloudStorageTableViewController.h"
 #import "VLCDropboxTableViewController.h"
-#import "VLCGoogleDriveTableViewController.h"
 #import "VLCBoxTableViewController.h"
 
 #import "VLC-Swift.h"
@@ -35,9 +34,6 @@ static NSString *const kVLCCloudStorageNibName = @"VLCCloudStorageTableViewContr
     if ([host caseInsensitiveCompare:@"DropBox"] == NSOrderedSame) {
         return VLCCloudServiceDropbox;
     }
-    if ([host caseInsensitiveCompare:@"Drive"] == NSOrderedSame) {
-        return VLCCloudServiceGoogleDrive;
-    }
     if ([host caseInsensitiveCompare:@"Box"] == NSOrderedSame) {
         return VLCCloudServiceBox;
     }
@@ -53,8 +49,6 @@ static NSString *const kVLCCloudStorageNibName = @"VLCCloudStorageTableViewContr
     switch (service) {
         case VLCCloudServiceDropbox:
             return [UIImage imageNamed:@"DropboxCell"];
-        case VLCCloudServiceGoogleDrive:
-            return [UIImage imageNamed:@"DriveCell"];
         case VLCCloudServiceBox:
             return [UIImage imageNamed:@"BoxCell"];
         case VLCCloudServicePCloud:
@@ -69,8 +63,6 @@ static NSString *const kVLCCloudStorageNibName = @"VLCCloudStorageTableViewContr
     switch (service) {
         case VLCCloudServiceDropbox:
             return [[VLCDropboxTableViewController alloc] initWithNibName:kVLCCloudStorageNibName bundle:nil];
-        case VLCCloudServiceGoogleDrive:
-            return [[VLCGoogleDriveTableViewController alloc] initWithNibName:kVLCCloudStorageNibName bundle:nil];
         case VLCCloudServiceBox:
             return [[VLCBoxTableViewController alloc] initWithNibName:kVLCCloudStorageNibName bundle:nil];
         case VLCCloudServicePCloud:

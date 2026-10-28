@@ -64,6 +64,13 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)showTabForMedia:(VLCMLMedia *)media;
 #endif
 
+#if TARGET_OS_IOS
+/// Routes an https://rajneeshdiscourse.com/discourses/... link. If the tab
+/// bar is not ready yet (passcode gate), the URL is queued and handled once
+/// `setTabBarController:` completes.
+- (BOOL)handleDiscourseDeepLink:(NSURL *)url;
+#endif
+
 #if TARGET_OS_WATCH
 - (nullable VLCMLMedia *)mediaForUserActivity:(NSUserActivity *)userActivity;
 #endif
