@@ -1558,11 +1558,10 @@ paging guard and passes with it.
 ## 9. Current implementation status
 
 The Discourses catalogue's default order groups loaded titles alphabetically under
-letter headers, with a tappable A–Z/# index on the right. Accented Latin initials
-fold to A–Z; other initials use #. Index taps finish remaining catalogue pages
-before jumping to the section; failed paging retains content and can be retried
-by tapping again. The most-liked sort retains its ranking without letter headers
-or an index. Existing cards, navigation chrome and bottom tabs are preserved.
+letter headers. Accented Latin initials fold to A–Z; other initials use #. There
+is no side index; scrolling loads subsequent catalogue pages as before. The
+most-liked sort retains its ranking without letter headers. Existing cards,
+navigation chrome and bottom tabs are preserved.
 
 Automatic Favourite Tracks and Favourite Discourses collections appear above ordinary
 playlists only while they contain liked items; the final unlike hides the corresponding

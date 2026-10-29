@@ -30,9 +30,7 @@ final class DiscourseCatalogueViewController: UIViewController {
     private var filterButton: UIBarButtonItem!
     private var stateView: DiscourseEmptyStateView?
 
-    private let alphabetIndex = UIStackView()
     private var sections: [(title: String, items: [Discourse])] = []
-    private var pendingLetter: String?
     private var discourses: [Discourse] = []
     private var currentPage = 0
     private var totalPages = 1
@@ -66,7 +64,6 @@ final class DiscourseCatalogueViewController: UIViewController {
         navigationItem.leftBarButtonItem = AppMenuBarButtonItem(presenter: self)
         setupFilterButton()
         setupCollectionView()
-        setupAlphabetIndex()
         setupLoadingIndicator()
 
         NotificationCenter.default.addObserver(self,
@@ -131,12 +128,11 @@ final class DiscourseCatalogueViewController: UIViewController {
         refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
         collectionView.refreshControl = refreshControl
 
-        view.addSubview(alphabetIndex)
         view.addSubview(collectionView)
         NSLayoutConstraint.activate([
             collectionView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            collectionView.trailingAnchor.constraint(equalTo: alphabetIndex.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
@@ -190,31 +186,6 @@ final class DiscourseCatalogueViewController: UIViewController {
         return String(first)
     }
 
-    private func setupAlphabetIndex() {
-        alphabetIndex.translatesAutoresizingMaskIntoConstraints = false
-        alphabetIndex.axis = .vertical
-        alphabetIndex.distribution = .fillEqually
-        NSLayoutConstraint.activate([
-            alphabetIndex.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-            alphabetIndex.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
-            alphabetIndex.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor,
-                                                  constant: -discourseFloatingTabBarInset - CGFloat(AudioMiniPlayer.height)),
-            alphabetIndex.widthAnchor.constraint(equalToConstant: 28)
-        ])
-        for letter in Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ").map({ String($0) }) + ["#"] {
-            let button = UIButton(type: .system)
-            button.setTitle(letter, for: .normal)
-            button.setTitleColor(DiscourseColors.current.secondaryText, for: .normal)
-            button.titleLabel?.font = .systemFont(ofSize: 12)
-            button.accessibilityLabel = letter
-            button.addAction(UIAction { [weak self] _ in
-                self?.pendingLetter = letter
-                self?.scrollToPendingLetter()
-            }, for: .touchUpInside)
-            alphabetIndex.addArrangedSubview(button)
-        }
-    }
-
     private func reloadCatalogue() {
         if filterStore.sort == nil {
             let grouped = Dictionary(grouping: discourses) { Self.indexLetter(for: $0.title) }
@@ -224,28 +195,7 @@ final class DiscourseCatalogueViewController: UIViewController {
         } else {
             sections = discourses.isEmpty ? [] : [("", discourses)]
         }
-        alphabetIndex.isHidden = filterStore.sort != nil || discourses.isEmpty || collectionView.isHidden
         collectionView.reloadData()
-    }
-
-    private func scrollToPendingLetter() {
-        guard let letter = pendingLetter else { return }
-        // Finish paging before jumping so a letter also reaches titles outside the loaded pages.
-        if currentPage < totalPages {
-            loadNextPage()
-            return
-        }
-        pendingLetter = nil
-        guard let section = sections.firstIndex(where: { $0.title == letter }) else { return }
-        collectionView.layoutIfNeeded()
-        let path = IndexPath(item: 0, section: section)
-        if let header = collectionView.layoutAttributesForSupplementaryElement(
-            ofKind: UICollectionView.elementKindSectionHeader, at: path) {
-            let top = -collectionView.adjustedContentInset.top
-            let bottom = max(top, collectionView.contentSize.height - collectionView.bounds.height + collectionView.adjustedContentInset.bottom)
-            let offset = min(bottom, max(top, header.frame.minY + top))
-            collectionView.setContentOffset(CGPoint(x: 0, y: offset), animated: true)
-        }
     }
 
     private func discourse(at indexPath: IndexPath) -> Discourse {
@@ -317,7 +267,6 @@ final class DiscourseCatalogueViewController: UIViewController {
         change(filterStore)
         updateFilterButton()
         collectionView.setCollectionViewLayout(makeLayout(), animated: false)
-        pendingLetter = nil
         discourses = []
         currentPage = 0
         totalPages = 1
@@ -332,7 +281,6 @@ final class DiscourseCatalogueViewController: UIViewController {
     }
 
     private func loadFirstPage(forceRefresh: Bool) {
-        pendingLetter = nil
         requestToken += 1
         let token = requestToken
         isLoadingNextPage = false
@@ -422,7 +370,6 @@ final class DiscourseCatalogueViewController: UIViewController {
                 self.discourses.append(contentsOf: fresh)
                 self.seedLikeCounts(fresh)
                 self.reloadCatalogue()
-                self.scrollToPendingLetter()
             } catch {
                 guard token == self.requestToken else {
                     self.isLoadingNextPage = false
@@ -498,7 +445,6 @@ final class DiscourseCatalogueViewController: UIViewController {
 
     private func showLoading() {
         removeStateView()
-        alphabetIndex.isHidden = true
         collectionView.isHidden = true
         loadingIndicator.startAnimating()
     }
@@ -507,7 +453,6 @@ final class DiscourseCatalogueViewController: UIViewController {
         removeStateView()
         loadingIndicator.stopAnimating()
         collectionView.isHidden = false
-        alphabetIndex.isHidden = filterStore.sort != nil || discourses.isEmpty
     }
 
     private func showEmptyCatalogueState() {
@@ -540,7 +485,6 @@ final class DiscourseCatalogueViewController: UIViewController {
                            action: (() -> Void)?) {
         removeStateView()
         loadingIndicator.stopAnimating()
-        alphabetIndex.isHidden = true
         collectionView.isHidden = true
 
         let stateView = DiscourseEmptyStateView(symbolName: symbolName,
@@ -572,7 +516,6 @@ final class DiscourseCatalogueViewController: UIViewController {
     @objc private func updateTheme() {
         let colors = DiscourseColors.current
         view.backgroundColor = colors.appBackground
-        alphabetIndex.tintColor = colors.accent
         loadingIndicator.color = colors.accent
         refreshControl.tintColor = colors.accent
         stateView?.updateTheme()
@@ -639,16 +582,6 @@ extension DiscourseCatalogueViewController: UICollectionViewDelegate {
             return
         }
 
-        if let first = collectionView.indexPathsForVisibleItems.sorted().first,
-           sections.indices.contains(first.section) {
-            let letter = sections[first.section].title
-            for case let button as UIButton in alphabetIndex.arrangedSubviews {
-                button.backgroundColor = button.currentTitle == letter ? DiscourseColors.current.accent : .clear
-                button.setTitleColor(button.currentTitle == letter ? DiscourseColors.current.appBackground
-                    : DiscourseColors.current.secondaryText, for: .normal)
-                button.layer.cornerRadius = 12
-            }
-        }
         let remaining = scrollView.contentSize.height - scrollView.contentOffset.y - scrollView.bounds.height
         if remaining < 400 {
             loadNextPage()
