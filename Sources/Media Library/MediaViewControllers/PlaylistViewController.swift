@@ -20,13 +20,13 @@ class PlaylistViewController: MediaViewController {
         for kind in visible {
             let button = FavouriteCollectionButton()
             button.configure(collection: kind)
-            button.heightAnchor.constraint(equalToConstant: 60).isActive = true
+            button.heightAnchor.constraint(equalToConstant: 112).isActive = true
             button.addAction(UIAction { [weak self] _ in
                 self?.navigationController?.pushViewController(FavouriteCollectionViewController(kind), animated: true)
             }, for: .touchUpInside)
             favourites.addArrangedSubview(button)
         }
-        viewControllers.forEach { $0.additionalSafeAreaInsets.top = CGFloat(visible.count * 68) }
+        viewControllers.forEach { $0.additionalSafeAreaInsets.top = CGFloat(visible.count * 120) }
         favourites.isHidden = favourites.arrangedSubviews.isEmpty
         view.bringSubviewToFront(favourites)
         applyForkTheme()
@@ -108,14 +108,16 @@ final class FavouriteCollectionButton: UIButton {
         }
         var config = UIButton.Configuration.plain()
         config.title = collection.title
-        config.image = UIImage(systemName: "heart.fill")
+        config.subtitle = String(format: NSLocalizedString("TRACKS", comment: ""), store.favouriteIDs(in: collection).count)
+        config.titleAlignment = .leading
+        config.image = UIImage(systemName: "heart.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 44))
         config.imagePadding = 12
         configuration = config
         contentHorizontalAlignment = .leading
         accessibilityIdentifier = collection.rawValue
         artworkTask = Task { @MainActor [weak self] in
             guard let image = await Self.firstArtwork(urls: urls), !Task.isCancelled else { return }
-            self?.configuration?.image = image.preparingThumbnail(of: CGSize(width: 44, height: 44))
+            self?.configuration?.image = image.preparingThumbnail(of: CGSize(width: 88, height: 88))
         }
     }
 

@@ -290,6 +290,7 @@ class MediaCollectionViewCell: BaseCollectionViewCell, UIScrollViewDelegate {
         newLabel.backgroundColor = backgroundColor
         dragIndicatorImageView.tintColor = colors.cellDetailTextColor
         let isPlaylist = media is VLCMLPlaylist
+        thumbnailWidth.constant = isPlaylist ? 88 : Self.getDefaultConstant()
         scrollContentView.layer.cornerRadius = isPlaylist ? 12 : 0
         scrollContentView.layer.borderWidth = isPlaylist ? 1 : 0
         if isPlaylist {

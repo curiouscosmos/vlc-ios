@@ -2477,6 +2477,9 @@ extension MediaCategoryViewController: UICollectionViewDelegateFlowLayout {
             let safeAreaInsets = collectionView.window?.safeAreaInsets ?? collectionView.safeAreaInsets
             cachedCellSize = model.cellType.cellSizeForWidth(toWidth, safeAreaInsets: safeAreaInsets)
         }
+        if model is PlaylistModel, model.cellType == MediaCollectionViewCell.self {
+            return CGSize(width: cachedCellSize.width, height: max(112, cachedCellSize.height))
+        }
         return cachedCellSize
     }
 

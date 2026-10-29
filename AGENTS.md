@@ -153,6 +153,7 @@ Before changing observable behaviour, read the corresponding §6 contract in [Ag
 - Qualify history/stats after 60 s of actual playback; stats dedupe is 24 h; likes refresh is seven days.
 - Optimistic likes roll back on failure; confirmed counts survive stale catalogue payloads for the session.
 - Downloads play locally only when verified; destructive remove-all and mixer clear-all actions confirm.
+- Playlist list cards use 88 pt artwork, at least 112 pt height and a track count (details in reference §4.6).
 - Dark is the default; light, Dynamic Type, accessibility and localisation must work.
 
 ## 7. Local persistence contract
