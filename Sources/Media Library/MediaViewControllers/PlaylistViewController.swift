@@ -117,7 +117,16 @@ final class FavouriteCollectionButton: UIButton {
         accessibilityIdentifier = collection.rawValue
         artworkTask = Task { @MainActor [weak self] in
             guard let image = await Self.firstArtwork(urls: urls), !Task.isCancelled else { return }
-            self?.configuration?.image = image.preparingThumbnail(of: CGSize(width: 88, height: 88))
+            let size = CGSize(width: 112, height: 88)
+            let artwork = UIGraphicsImageRenderer(size: size).image { _ in
+                UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 8).addClip()
+                let scale = max(size.width / image.size.width, size.height / image.size.height)
+                let scaled = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+                image.draw(in: CGRect(x: (size.width - scaled.width) / 2,
+                                      y: (size.height - scaled.height) / 2,
+                                      width: scaled.width, height: scaled.height))
+            }
+            self?.configuration?.image = artwork
         }
     }
 

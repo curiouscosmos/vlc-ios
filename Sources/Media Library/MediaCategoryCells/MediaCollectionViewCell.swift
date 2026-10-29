@@ -63,6 +63,9 @@ class MediaCollectionViewCell: BaseCollectionViewCell, UIScrollViewDelegate {
     @IBOutlet weak var scrollViewLeadingConstraint: NSLayoutConstraint!
     private var defaultTrailingConstant: CGFloat = -4.0
 
+    private var artworkSquareConstraint: NSLayoutConstraint?
+    private var playlistArtworkHeight: NSLayoutConstraint?
+
     private var maxXOffset: CGFloat = 0.0
     private var vibrationTriggered: Bool = false
     private var isDeleteDisplayed: Bool = false
@@ -290,7 +293,24 @@ class MediaCollectionViewCell: BaseCollectionViewCell, UIScrollViewDelegate {
         newLabel.backgroundColor = backgroundColor
         dragIndicatorImageView.tintColor = colors.cellDetailTextColor
         let isPlaylist = media is VLCMLPlaylist
-        thumbnailWidth.constant = isPlaylist ? 88 : Self.getDefaultConstant()
+        thumbnailWidth.constant = isPlaylist ? 112 : Self.getDefaultConstant()
+        if playlistArtworkHeight == nil {
+            playlistArtworkHeight = thumbnailView.heightAnchor.constraint(equalToConstant: 88)
+        }
+        if artworkSquareConstraint == nil {
+            artworkSquareConstraint = thumbnailView.constraints.first {
+                $0.firstAttribute == .width && $0.secondAttribute == .height
+            }
+        }
+        if isPlaylist {
+            artworkSquareConstraint?.isActive = false
+            playlistArtworkHeight?.isActive = true
+            thumbnailView.contentMode = .scaleAspectFill
+            thumbnailView.clipsToBounds = true
+        } else {
+            playlistArtworkHeight?.isActive = false
+            artworkSquareConstraint?.isActive = true
+        }
         scrollContentView.layer.cornerRadius = isPlaylist ? 12 : 0
         scrollContentView.layer.borderWidth = isPlaylist ? 1 : 0
         if isPlaylist {

@@ -103,7 +103,7 @@ payloads/collections), `DiscourseHistoryStore` (max 24, newest first), `Discours
 
 ### 4.6 Discourse UI layer (`Sources/Discourse/UI/`)
 
-- **Catalogue**: one-column list of `DiscourseCardCell` (`.list`, 88 pt artwork, two-line title, language, track
+- **Catalogue**: one-column list of `DiscourseCardCell` (`.list`, 112 × 88 pt aspect-fill artwork, two-line title, language, track
   count, download badge, heart); cache-first paging (`page < meta.total_pages`, dedupe, guarded `insertItems`),
   400 pt prefetch, force pull-to-refresh, language/sort `UIMenu` persisted in the filter store, request token drops
   stale answers, failures keep rendered rows. Home reuses the cell in `.tile` layout (160 pt).
@@ -115,7 +115,7 @@ payloads/collections), `DiscourseHistoryStore` (max 24, newest first), `Discours
   history via `DiscourseLocalTrack`, hidden while history is off), Top discourses this week, Top tracks this week.
   Carousel headers ignore section insets so all Home headings align at the same 16 pt leading edge.
 - **Playlist cards**: ordinary playlist rows and automatic favourite collections use 12 pt corners, track surfaces
-  and track borders; list cards are at least 112 pt tall with 88 pt artwork and track counts; favourite cards have 8 pt spacing.
+  and track borders; list cards are at least 112 pt tall with 112 × 88 pt aspect-fill artwork and track counts; favourite cards have 8 pt spacing.
 - **Likes/downloads**: `DiscourseLikeControl` + `DiscourseLikeActions` and `DiscourseDownloadControl` +
   `DiscourseDownloadActions` are the only render/action paths; cards/rows are accessibility containers holding a
   transparent `DiscourseAccessibilityButton` and the heart; catalogue cards show a `3/11` download badge.
