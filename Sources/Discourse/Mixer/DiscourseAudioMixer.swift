@@ -113,9 +113,11 @@ final class DiscourseAudioMixer: NSObject {
         self.notificationCenter = notificationCenter
         self.playback = playback
         self.fileImporter = fileImporter
-        storedURLs = (settings.decode([String].self, forKey: Self.filesKey) ?? [])
-            .filter { URL(string: $0) != nil }
-        storedSelection = settings.string(Self.selectedKey)
+        let persistedURLs = (settings.decode([String].self, forKey: Self.filesKey) ?? [])
+            .compactMap { URL(string: $0) }
+        storedURLs = persistedURLs.map { Self.resolvedFileURL($0).absoluteString }
+        let persistedSelection = settings.string(Self.selectedKey).flatMap { URL(string: $0) }
+        storedSelection = persistedSelection.map { Self.resolvedFileURL($0).absoluteString }
         isEnabled = settings.bool(Self.enabledKey)
         isLooping = settings.contains(Self.loopKey) ? settings.bool(Self.loopKey) : true
         let storedVolume = settings.int(Self.volumeKey) ?? Self.defaultVolume
@@ -124,6 +126,13 @@ final class DiscourseAudioMixer: NSObject {
         super.init()
 
         addObservers()
+
+        // Rewrite a stale container path once, so the next launch and every
+        // membership write already use the current one.
+        if storedURLs != persistedURLs.map(\.absoluteString)
+            || storedSelection != persistedSelection?.absoluteString {
+            persistMembership()
+        }
     }
 
     // MARK: - Membership
@@ -326,6 +335,42 @@ final class DiscourseAudioMixer: NSObject {
     }
 
     // MARK: - Persistence
+
+    /// An absolute file URL stops resolving when iOS moves the app container
+    /// (reinstall, restore, or an Xcode install). If the original path is gone
+    /// but the same path suffix exists in the current container, use that copy.
+    private static func resolvedFileURL(_ url: URL) -> URL {
+        let fileManager = FileManager.default
+        guard url.isFileURL,
+              !fileManager.fileExists(atPath: url.path) else {
+            return url
+        }
+        let path = url.standardizedFileURL.path
+
+        if let range = path.range(of: "/Containers/Data/Application/") {
+            let suffix = path[range.upperBound...]
+            if let separator = suffix.firstIndex(of: "/") {
+                let relative = String(suffix[suffix.index(after: separator)...])
+                let candidate = URL(fileURLWithPath: NSHomeDirectory())
+                    .appendingPathComponent(relative)
+                if fileManager.fileExists(atPath: candidate.path) {
+                    return candidate
+                }
+            }
+        }
+
+        if let range = path.range(of: "/Library/Application Support/"),
+           let base = fileManager.urls(for: .applicationSupportDirectory,
+                                       in: .userDomainMask).first {
+            let relative = String(path[range.upperBound...])
+            let candidate = base.appendingPathComponent(relative)
+            if fileManager.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+        }
+
+        return url
+    }
 
     private func persistMembership() {
         settings.encode(storedURLs, forKey: Self.filesKey)

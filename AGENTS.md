@@ -1084,7 +1084,10 @@ of file URL strings, `audio_mixer_selected` the selected URL, and
 `audio_mixer_enabled` / `audio_mixer_loop` / `audio_mixer_volume` the switches and
 volume (defaults `false` / `true` / `50`, volume clamped to 1…100). The selection
 is stored as the URL rather than an index so reordering can never select the
-wrong track; a missing selection falls back to the first item. Rows are titled
+wrong track; a missing selection falls back to the first item. iOS can move the
+app container on reinstall/restore, which strands absolute file URLs, so at
+launch the engine re-roots a stale container path to the current container when
+the same suffix exists and persists the repaired URL. Rows are titled
 with the file name (the brief's keys store URLs, not library metadata), and a
 deleted file simply fails to load without crashing.
 
@@ -1511,16 +1514,17 @@ single/whole-discourse/all removal, pruning of records whose file vanished and
 deletion of orphan files. Two more playback cases pin the mapping preference (a
 verified download becomes the media URL; a deleted file streams again), so the
 unit suite covers the whole download path except the transfer itself.
-`DiscourseMixerTests` (18 cases) pins the Audio Mixer without a player: the
+`DiscourseMixerTests` (20 cases) pins the Audio Mixer without a player: the
 documented defaults (off, looping, volume 50), ordered membership with duplicate
 and non-file rejection, selection and reorder persistence, the selection falling
 back after a removal, clear, switch persistence, 1…100 volume clamping and
-file-name titles, plus document-picker imports (copy and relaunch persistence,
-same-source dedupe, same-name/different-source separation, unreadable and empty
-file failures, and deletion of app-owned copies only). Four Home cases pin the
+file-name titles, stale-container URL repair, plus document-picker imports (copy
+and relaunch persistence, same-source dedupe, same-name/different-source
+separation, unreadable and empty file failures, and deletion of app-owned copies
+only). Four Home cases pin the
 merge: library entries follow the discourse history, both sides hide while
 history is off, library entries dedupe by file URL, and the merged list caps at
-24. **132 unit tests, 0 failures.**
+24. **143 unit tests, 0 failures.**
 The catalogue's paging and filter flow, the card → detail → back navigation, the
 Search tab (both sections, discourse → detail, track → full player), Home
 (recently played → detail), the detail header's like → unlike → like round trip
@@ -1947,7 +1951,7 @@ Google OAuth handler and URL-scheme registration.
   The removed Local Library screen is not linked. The legacy library context
   action **Add to Audio Mixer** also remains on upstream library surfaces.
 - **Done — tests.** `Buildsystem/Testing/Unit/DiscourseMixerTests.swift`
-  (18 cases) pins the mixer state and file imports without a player, and
+  (20 cases) pins the mixer state and file imports without a player, and
   `testAudioMixerShowsThePanelAndOpensTheAudioPicker` covers the panel, clear
   path and document picker.
 - **Verified live.** A generated local track, added through the library menu,
@@ -2196,10 +2200,25 @@ Google OAuth handler and URL-scheme registration.
   titles still show the original filename. `DiscourseAudioMixer` removes only
   app-owned copies on delete/clear; source and library files are untouched.
 - **Verification.** `VLC-iOS-no-watch` builds. `DiscourseMixerTests` passes all
-  18 cases, seven of them new import/cleanup cases.
+  20 cases, seven of them new import/cleanup cases.
   `testAudioMixerShowsThePanelAndOpensTheAudioPicker` passes on the iPhone 17
   Pro simulator (iOS 26.4), including opening/cancelling the real document
   picker and asserting no Local Library action exists.
+
+### Post-phase polish — Mixer survives app container moves — **Done**
+- iOS can move an app's data container on reinstall, restore, or an Xcode
+  install. The mixer persists absolute file URLs, so every saved track then
+  pointed at the old container and silently failed to load (the rows remained,
+  but the mixer never played).
+- `DiscourseAudioMixer` now re-roots a missing container path to the current
+  container when the same suffix exists (Documents, Library/Application Support,
+  and the rest of the data container), repairs the persisted URLs and selection
+  once, and then plays normally. Missing files still fail without crashing.
+- Verified on the iOS 26.4 simulator: with a seeded mixer file and an
+  absolute URL left over from a previous container, the track showed *Playing in
+  the mixer* after the main discourse started. `DiscourseMixerTests` gained
+  `testStaleContainerURLsAreRebasedToTheCurrentContainer`; the full suite is
+  **143 unit tests, 0 failures**.
 
 ### Universal Links — **Done (AASA deployment required)**
 - `https://rajneeshdiscourse.com/discourses/{id}` opens the discourse detail;
@@ -2232,7 +2251,7 @@ Google OAuth handler and URL-scheme registration.
   coexistence, progress and paused switching. Native sanitizer checks cover
   framing, the real RNNoise model, allocation failures and 10,000 allocation-free
   resets; artifact packaging/activation checks also pass.
-- All 132 unit tests pass with the activated engine. Unit-test installation
+- All 143 unit tests pass with the activated engine. Unit-test installation
   currently needs temporary Watch identifier overrides (§10.45); the native
   README records the verified command. Physical-device
   listening/performance acceptance remains pending before release.

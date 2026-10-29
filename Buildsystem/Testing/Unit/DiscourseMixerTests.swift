@@ -168,6 +168,30 @@ final class DiscourseMixerTests: XCTestCase {
         XCTAssertTrue(makeMixer().items.isEmpty)
     }
 
+    func testStaleContainerURLsAreRebasedToTheCurrentContainer() throws {
+        // A reinstall moves the app container; the persisted absolute URL still
+        // names the old one. The mixer must find the file in the new container.
+        let relative = "Documents/mixer-rebase-\(UUID().uuidString).m4a"
+        let current = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(relative)
+        try FileManager.default.createDirectory(at: current.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try Data("audio".utf8).write(to: current)
+        defer { try? FileManager.default.removeItem(at: current) }
+
+        let stale = URL(fileURLWithPath: "/var/mobile/Containers/Data/Application/"
+            + UUID().uuidString + "/" + relative)
+        settings.encode([stale.absoluteString], forKey: DiscourseAudioMixer.filesKey)
+        settings.set(stale.absoluteString, forKey: DiscourseAudioMixer.selectedKey)
+
+        let mixer = makeMixer()
+
+        XCTAssertEqual(mixer.items, [current])
+        XCTAssertEqual(mixer.selectedURL, current)
+        XCTAssertEqual(settings.string(DiscourseAudioMixer.selectedKey), current.absoluteString)
+        XCTAssertEqual(settings.decode([String].self, forKey: DiscourseAudioMixer.filesKey),
+                       [current.absoluteString])
+    }
+
     // MARK: - Switches and volume
 
     func testSwitchesPersist() {
