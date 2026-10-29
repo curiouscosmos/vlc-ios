@@ -15,7 +15,7 @@ class PlaylistViewController: MediaViewController {
 
     @objc private func updateFavourites() {
         favourites.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for kind in DiscourseLikesStore.Collection.allCases where DiscourseLikesStore.shared.favouriteMetadata.created.contains(kind.rawValue) {
+        for kind in DiscourseLikesStore.Collection.allCases where !DiscourseLikesStore.shared.favouriteIDs(in: kind).isEmpty {
             let button = FavouriteCollectionButton()
             button.configure(collection: kind)
             button.heightAnchor.constraint(equalToConstant: 60).isActive = true

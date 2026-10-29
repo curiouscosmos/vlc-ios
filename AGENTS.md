@@ -1558,7 +1558,8 @@ paging guard and passes with it.
 ## 9. Current implementation status
 
 Automatic Favourite Tracks and Favourite Discourses collections appear above ordinary
-playlists after their first like and remain after their final unlike. Stable IDs
+playlists only while they contain liked items; the final unlike hides the corresponding
+collection and removes its reserved space. Like-change notifications refresh these rows. Stable IDs
 `favourite-tracks` and `favourite-discourses` are independent of VLC playlist names.
 `DiscourseLikesStore` remains the only membership owner and saves Codable payloads,
 creation flags, added dates, refresh dates and explicit unavailable markers through
