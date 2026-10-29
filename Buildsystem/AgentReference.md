@@ -191,7 +191,7 @@ playback** (pauses, buffering and seeks excluded); previous/next count.
 
 Anonymous UUID identity; liked ID sets plus a last-fetch timestamp; `GET /likes` at most every **7 days** on
 launch/foreground. Optimistic toggles with rollback and persisted pending targets; discourse and track likes are
-independent. Confirmed mutation counts take precedence over cached list payloads for the current session (other users’ changes
+independent. Successful responses cannot reverse an optimistic count change (like uses the larger total, unlike the smaller); concurrent or already-recorded server changes can therefore differ from the displayed session count. Confirmed mutation counts take precedence over cached list payloads for the current session (other users’ changes
 may remain unseen until relaunch). Counts format `999`/`1.2k`/`1m`. Liked heart `#FF5269`, unliked outline `#BEA8AA`. Labels "Like {title}.
 {n} likes" / "Unlike {title}. {n} likes". Automatic **Favourite Tracks** / **Favourite Discourses** collections appear
 above ordinary playlists only while they contain a like whose saved payload can be rendered; the final unlike (or a

@@ -14,7 +14,7 @@
  *
  * Toggling is optimistic. A tap updates the sets and the count immediately, and
  * the request settles in the background:
- *   - success adopts the server's `total_likes` and keeps the new membership;
+ *   - success reconciles the total without reversing the optimistic change;
  *   - any failure restores the previous membership and count, then rethrows so
  *     the caller can show the spec's copy.
  * Pending targets are persisted, so an app killed mid-request still shows the
@@ -452,18 +452,22 @@ final class DiscourseLikesStore {
 
         do {
             let serverTotal = try await send(liked, target: target)
-            queue.sync {
+            let settledTotal = queue.sync { () -> Int in
                 var state = stateStore
-                state.counts[target] = max(0, serverTotal)
+                let optimisticTotal = state.count(for: target) ?? max(0, serverTotal)
+                // A successful response must not reverse the count change shown for this tap.
+                let total = liked ? max(optimisticTotal, serverTotal) : min(optimisticTotal, max(0, serverTotal))
+                state.counts[target] = total
                 confirmedCounts.insert(target)
                 revision += 1
                 inFlight.remove(target)
                 state.pending.removeValue(forKey: target)
                 stateStore = state
                 persist(state)
+                return total
             }
             postChange()
-            return Change(target: target, isLiked: liked, totalLikes: max(0, serverTotal))
+            return Change(target: target, isLiked: liked, totalLikes: settledTotal)
         } catch {
             queue.sync {
                 var state = stateStore

@@ -351,6 +351,27 @@ final class DiscourseStoresTests: XCTestCase {
         XCTAssertNil(pendingStore.count(for: .discourse("d2")))
     }
 
+    func testSuccessfulLikeResponseDoesNotReverseOptimisticCount() async throws {
+        let service = FakeLikeService()
+        let store = DiscourseLikesStore(settings: settings, service: service,
+                                        notificationCenter: NotificationCenter())
+        for target in [DiscourseLikesStore.Target.discourse("d1"), .audio("a1")] {
+            store.updateCount(6, for: target)
+            service.nextTotalLikes = 6
+            let change = target.isAudio
+                ? try await store.setAudioLiked(true, id: target.id, totalLikes: 6)
+                : try await store.setDiscourseLiked(true, id: target.id, totalLikes: 6)
+            XCTAssertEqual(change?.totalLikes, 7)
+            XCTAssertEqual(store.count(for: target), 7)
+            service.nextTotalLikes = 7
+            let unlike = target.isAudio
+                ? try await store.setAudioLiked(false, id: target.id, totalLikes: 6)
+                : try await store.setDiscourseLiked(false, id: target.id, totalLikes: 6)
+            XCTAssertEqual(unlike?.totalLikes, 6)
+            XCTAssertEqual(store.count(for: target), 6)
+        }
+    }
+
     func testConfirmedLikeCountsSurviveStaleListPayloads() async throws {
         let service = FakeLikeService()
         let store = DiscourseLikesStore(settings: settings, service: service,

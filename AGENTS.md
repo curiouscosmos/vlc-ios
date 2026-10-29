@@ -151,7 +151,7 @@ Before changing observable behaviour, read the corresponding §6 contract in [Ag
 
 - Five tabs: Home, Discourses, Search, Playlists, Mixer. Home drops empty sections; history-off hides track history.
 - Qualify history/stats after 60 s of actual playback; stats dedupe is 24 h; likes refresh is seven days.
-- Optimistic likes roll back on failure; confirmed counts survive stale catalogue payloads for the session.
+- Successful like responses preserve the tap’s count direction; optimistic likes roll back on failure; confirmed counts survive stale catalogue payloads for the session.
 - Downloads play locally only when verified; destructive remove-all and mixer clear-all actions confirm.
 - Playlist list cards use 112 × 88 pt aspect-fill artwork, at least 112 pt height and a track count (details in reference §4.6).
 - Dark is the default; light, Dynamic Type, accessibility and localisation must work.
@@ -162,7 +162,7 @@ Before changing persisted state, read the key/type/owner table in [AgentReferenc
 
 ## 8. Testing and verification
 
-Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseDeepLinkTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **157 unit tests** and **17 UI tests** (§3.5).
+Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseDeepLinkTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **158 unit tests** and **17 UI tests** (§3.5).
 
 Manual: clean build; local playback/playlists/background/lock screen; five tabs and branding; catalogue paging/filters/refresh; detail queue continuation; Home sections/states; like persistence and rollback; 60 s qualification and 24 h stats dedupe; downloads (progress/cancel/remove/offline); mixer add/select/reorder/remove/clear/follow/volume/relaunch; VoiceOver, Dynamic Type, light theme; offline, interruption, route change and media-services reset on a device. UI tests cover navigation, catalogue → detail, search, Home, the like round trip, the download round trip (skips on a slow CDN), the mixer picker, playback history and payload-less favourites.
 
