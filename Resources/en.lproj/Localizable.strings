@@ -1041,7 +1041,7 @@
 
 /* Audio Mixer control card */
 "MIXER_PANEL_TITLE" = "Background Music Mixer"; /* Mixer card heading */
-"MIXER_DISABLED_TITLE" = "Mixer off"; /* Mixer disabled */
+"MIXER_DISABLED_TITLE" = "Mixer"; /* Mixer disabled */
 "MIXER_LOOP_BUTTON" = "Loop"; /* Loop button */
 "MIXER_VOLUME_DECREASE" = "Decrease mixer volume"; /* Volume button */
 "MIXER_VOLUME_INCREASE" = "Increase mixer volume"; /* Volume button */
@@ -1050,7 +1050,7 @@
 "MIXER_ADD_SLOT_FORMATS" = "Supported formats: MP3, WAV, M4A, AAC"; /* Audio Mixer supported formats */
 "MIXER_STATUS_PLAYING" = "Background music is playing"; /* Mixer status while playing */
 "MIXER_STATUS_WAITING" = "Waiting for playback"; /* Mixer status while waiting for the main player */
-"MIXER_STATUS_OFF" = "Background music is off"; /* Mixer status when disabled */
+"MIXER_STATUS_OFF" = "Background music"; /* Mixer status when disabled */
 "MIXER_TOGGLE_ACCESSIBILITY" = "Turn mixer on or off"; /* Mixer on/off toggle */
 
 /* New strings */

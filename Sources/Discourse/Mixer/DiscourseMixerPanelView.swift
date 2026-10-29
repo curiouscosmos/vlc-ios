@@ -208,10 +208,10 @@ final class DiscourseMixerPanelView: UIView {
 
         titleLabel.text = enabled
             ? NSLocalizedString("MIXER_ENABLE_TITLE", comment: "Mixer on")
-            : NSLocalizedString("MIXER_DISABLED_TITLE", value: "Mixer off", comment: "Mixer disabled")
+            : NSLocalizedString("MIXER_DISABLED_TITLE", value: "Mixer", comment: "Mixer disabled")
         if !enabled {
             statusLabel.text = NSLocalizedString("MIXER_STATUS_OFF",
-                                                 value: "Background music is off",
+                                                 value: "Background music",
                                                  comment: "Mixer status when disabled")
         } else if isPlaying {
             statusLabel.text = NSLocalizedString("MIXER_STATUS_PLAYING",
