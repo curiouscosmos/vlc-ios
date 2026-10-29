@@ -26,9 +26,10 @@ class PlaylistViewController: MediaViewController {
             }, for: .touchUpInside)
             favourites.addArrangedSubview(button)
         }
-        viewControllers.forEach { $0.additionalSafeAreaInsets.top = CGFloat(visible.count * 60) }
+        viewControllers.forEach { $0.additionalSafeAreaInsets.top = CGFloat(visible.count * 68) }
         favourites.isHidden = favourites.arrangedSubviews.isEmpty
         view.bringSubviewToFront(favourites)
+        applyForkTheme()
     }
 
     override init(mediaLibraryService: MediaLibraryService) {
@@ -39,6 +40,7 @@ class PlaylistViewController: MediaViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         favourites.axis = .vertical
+        favourites.spacing = 8
         favourites.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(favourites)
         NSLayoutConstraint.activate([
@@ -64,6 +66,12 @@ class PlaylistViewController: MediaViewController {
     @objc private func applyForkTheme() {
         navigationController?.navigationBar.tintColor = DiscourseColors.current.accent
         favourites.tintColor = DiscourseColors.current.accent
+        for button in favourites.arrangedSubviews {
+            button.backgroundColor = DiscourseColors.current.trackSurface
+            button.layer.cornerRadius = 12
+            button.layer.borderWidth = 1
+            button.layer.borderColor = DiscourseColors.current.trackBorder.cgColor
+        }
     }
 
     private func setupUI() {

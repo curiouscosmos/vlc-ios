@@ -235,6 +235,8 @@ payloads/collections), `DiscourseHistoryStore` (max 24, newest first), `Discours
 - **Home**: `DiscourseHomeContent` builds Recently played, Recently played tracks (discourse history then library
   history via `DiscourseLocalTrack`, hidden while history is off), Top discourses this week, Top tracks this week.
   Carousel headers ignore section insets so all Home headings align at the same 16 pt leading edge.
+- **Playlist cards**: ordinary playlist rows and automatic favourite collections use 12 pt corners, track surfaces
+  and track borders; favourite cards have 8 pt spacing.
 - **Likes/downloads**: `DiscourseLikeControl` + `DiscourseLikeActions` and `DiscourseDownloadControl` +
   `DiscourseDownloadActions` are the only render/action paths; cards/rows are accessibility containers holding a
   transparent `DiscourseAccessibilityButton` and the heart; catalogue cards show a `3/11` download badge.

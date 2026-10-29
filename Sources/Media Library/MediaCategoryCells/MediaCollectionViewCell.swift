@@ -119,6 +119,7 @@ class MediaCollectionViewCell: BaseCollectionViewCell, UIScrollViewDelegate {
                 assertionFailure("MovieCollectionViewCell: media: Needs to be of a supported Type.")
             }
 
+            setTheme(to: PresentationTheme.current)
             updateSwipeActions()
         }
     }
@@ -288,6 +289,18 @@ class MediaCollectionViewCell: BaseCollectionViewCell, UIScrollViewDelegate {
         sizeDescriptionLabel?.backgroundColor = backgroundColor
         newLabel.backgroundColor = backgroundColor
         dragIndicatorImageView.tintColor = colors.cellDetailTextColor
+        let isPlaylist = media is VLCMLPlaylist
+        scrollContentView.layer.cornerRadius = isPlaylist ? 12 : 0
+        scrollContentView.layer.borderWidth = isPlaylist ? 1 : 0
+        if isPlaylist {
+            let discourseColors = DiscourseColors.current
+            scrollContentView.backgroundColor = discourseColors.trackSurface
+            scrollContentView.layer.borderColor = discourseColors.trackBorder.cgColor
+            titleLabel?.backgroundColor = .clear
+            sizeDescriptionLabel?.backgroundColor = .clear
+            titleLabel?.textColor = discourseColors.trackText
+            sizeDescriptionLabel?.textColor = discourseColors.trackSecondaryText
+        }
         updateMediaGroupIndicator()
     }
 
