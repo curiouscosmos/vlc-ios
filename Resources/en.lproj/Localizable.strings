@@ -1018,15 +1018,11 @@
 "DISCOURSE_SEARCH_ERROR_TITLE" = "Could not search the catalogue"; /* Search heading when the request fails */
 "DISCOURSE_SEARCH_SECTION_DISCOURSES" = "Discourses"; /* Search results section title */
 "DISCOURSE_SEARCH_SECTION_TRACKS" = "Tracks"; /* Search results section title */
-"MIXER_EMPTY_TITLE" = "The mixer is empty"; /* Empty state heading on the Audio Mixer tab */
-"MIXER_EMPTY_MESSAGE" = "Add an audio file to play alongside a discourse."; /* Empty state message on the Audio Mixer tab */
 "MIXER_ADD_ACTION" = "Add to Audio Mixer"; /* Add a local audio file to the Audio Mixer */
 "MIXER_ENABLE_TITLE" = "Mixer on"; /* Mixer on */
-"MIXER_NO_TRACK" = "No track selected"; /* No track */
 "MIXER_LOOP_TITLE" = "Loop track"; /* Loop mixer track */
 "MIXER_VOLUME_TITLE" = "Mixer volume"; /* Mixer volume */
 "MIXER_ROW_PLAYING" = "Playing in the mixer"; /* Shown on the Audio Mixer track that is playing */
-"MIXER_HINT" = "Tap + to add an audio file."; /* How to add tracks to the Audio Mixer */
 "MIXER_ADD_FILE" = "Add audio file"; /* Add an audio file to the Audio Mixer */
 "MIXER_IMPORT_FAILED_TITLE" = "Could not add audio file"; /* Could not add an audio file to the Audio Mixer */
 "MIXER_IMPORT_FAILED_MESSAGE" = "The selected file could not be read. Choose another file and try again."; /* The selected audio file could not be copied */
@@ -1049,9 +1045,15 @@
 "MIXER_LOOP_BUTTON" = "Loop"; /* Loop button */
 "MIXER_VOLUME_DECREASE" = "Decrease mixer volume"; /* Volume button */
 "MIXER_VOLUME_INCREASE" = "Increase mixer volume"; /* Volume button */
+"MIXER_HERO_SUBTITLE" = "Add background music and adjust the mix to your preference."; /* Audio Mixer hero subtitle */
+"MIXER_ADD_SLOT_TITLE" = "Tap + to add an audio file"; /* Audio Mixer add slot title */
+"MIXER_ADD_SLOT_FORMATS" = "Supported formats: MP3, WAV, M4A, AAC"; /* Audio Mixer supported formats */
+"MIXER_STATUS_PLAYING" = "Background music is playing"; /* Mixer status while playing */
+"MIXER_STATUS_WAITING" = "Waiting for playback"; /* Mixer status while waiting for the main player */
+"MIXER_STATUS_OFF" = "Background music is off"; /* Mixer status when disabled */
+"MIXER_TOGGLE_ACCESSIBILITY" = "Turn mixer on or off"; /* Mixer on/off toggle */
 
 /* New strings */
-"MORE_OPTIONS" = "More options"; /* Mixer options */
 
 /* New strings */
 "MIXER_PAUSE_ACCESSIBILITY" = "MIXER_PAUSE_ACCESSIBILITY"; /* Pause mixer */

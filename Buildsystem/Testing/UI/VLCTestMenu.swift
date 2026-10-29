@@ -80,24 +80,25 @@ class VLCTestMenu: XCTestCase {
         XCTAssertTrue(app.navigationBars[VLCAccessibilityIdentifier.audioMixer].waitForExistence(timeout: 5))
     }
 
+
     func testAudioMixerShowsThePanelAndOpensTheAudioPicker() {
         helper.tapTabBarItem(VLCAccessibilityIdentifier.audioMixer)
         XCTAssertTrue(app.navigationBars[VLCAccessibilityIdentifier.audioMixer].waitForExistence(timeout: 5))
 
+        XCTAssertTrue(app.staticTexts["Background Music Mixer"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Add background music and adjust the mix to your preference."].exists)
         XCTAssertTrue(app.buttons["discourseMixerEnabled"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Loop track"].exists)
         XCTAssertTrue(app.sliders["Mixer volume"].exists)
-        XCTAssertTrue(app.buttons["More options"].exists)
-        let heading = app.buttons["Background Music Mixer"]
-        heading.tap()
-        XCTAssertFalse(app.sliders["Mixer volume"].exists)
-        heading.tap()
-        XCTAssertTrue(app.sliders["Mixer volume"].exists)
 
-        // Tracks persist between runs; clear them so the empty state is
-        // deterministic (and so the test leaves no mixer state behind).
+        // Tracks persist between runs; clear them so the test is deterministic
+        // (and so it leaves no mixer state behind). The clear action sits below
+        // the panel, so scroll it into view first.
         let clear = app.buttons["Clear all"].firstMatch
         if clear.waitForExistence(timeout: 2) {
+            for _ in 0..<4 where !clear.isHittable {
+                app.swipeUp()
+            }
             clear.tap()
             XCTAssertTrue(app.buttons["Remove all"].waitForExistence(timeout: 3))
             app.buttons["Remove all"].tap()

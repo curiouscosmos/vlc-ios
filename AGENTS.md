@@ -346,10 +346,10 @@ order, are:
    accent in Phase 14; the empty-state copy now describes adding from the local
    library).
 5. `DiscourseAudioMixerViewController` — `AUDIO_MIXER` (rendered as **Mixer**) — `Sources/Discourse/UI/DiscourseAudioMixerViewController.swift`
-   (the control panel, the ordered track list with long-press drag reorder and
-   swipe delete, and an empty state whose **Add audio file** action opens the
-   system Files picker; the engine is `DiscourseAudioMixer`, §4.12. The removed
-   Local Library screen is never linked from the Mixer).
+   (the wave-backed hero, ordered track cards, a dashed **Add audio file** slot
+   and the mixer panel; tracks reorder by long-press drag and delete by swipe.
+   The engine is `DiscourseAudioMixer`, §4.12. The removed Local Library screen
+   is never linked from the Mixer).
 
 `VideoViewController`, `VLCServerListViewController` and `VLCOnAirViewController`
 are **not deleted** — the engine may still open a video file — but they have no
@@ -720,7 +720,7 @@ Fork-only, UIKit, dark-first. Every screen paints `DiscourseColors.current`
 | One like toggle + failure alert for every surface | `DiscourseLikeActions.swift` |
 | Transparent VoiceOver "open" element for cards/rows | `DiscourseAccessibilityButton.swift` |
 | Home (four sections, states, stats) | `DiscourseHomeViewController.swift`, `DiscourseHomeContent.swift`, `DiscourseHomeSectionHeaderView.swift`, `DiscourseHomeTrackCell.swift` |
-| Audio Mixer screen (panel, ordered list, clear, empty state) | `DiscourseAudioMixerViewController.swift` |
+| Audio Mixer screen (wave hero, track cards, add slot, panel, clear) | `DiscourseAudioMixerViewController.swift` |
 
 **Catalogue behaviour.** One-column `UICollectionViewCompositionalLayout`: each
 item is full width (16 pt section insets) and the row is a self-sizing
@@ -1078,10 +1078,10 @@ player's notifications.
 | Concern | File |
 |---|---|
 | Engine: membership, follow logic, fades, audio session | `DiscourseAudioMixer.swift` |
-| Control panel (on switch, now playing, play/pause, loop, volume) | `DiscourseMixerPanelView.swift` |
-| Track row (title, selected checkmark, "Playing in the mixer") | `DiscourseMixerTrackCell.swift` |
+| Control panel (play/pause, on/off status, loop pill, volume) | `DiscourseMixerPanelView.swift` |
+| Track row (artwork, title, duration, selected checkmark) | `DiscourseMixerTrackCell.swift` |
 | Document-picker import into app-owned storage | `DiscourseMixerFileImporter.swift` |
-| Screen: panel header, ordered list (long-press drag reorder, swipe delete), empty state | `Sources/Discourse/UI/DiscourseAudioMixerViewController.swift` |
+| Screen: wave hero, track list, add slot and panel (long-press drag reorder, swipe delete) | `Sources/Discourse/UI/DiscourseAudioMixerViewController.swift` |
 
 **Storage.** The documented keys (§7): `audio_mixer_files` is the ordered array
 of file URL strings, `audio_mixer_selected` the selected URL, and
@@ -1370,9 +1370,10 @@ changes and media-services resets by pausing both and restoring mixer state.
 
 **Implementation status (Phase 13).** Live (§4.12): `DiscourseAudioMixer` owns a
 second `VLCMediaPlayer` gated by `audio_mixer_enabled`; the Audio Mixer tab shows
-the panel (on switch, now playing with play/pause, loop, 1…100 volume) and the
-ordered track list (select, long-press drag reorder, swipe delete, **Clear all**
-with confirmation). The **+** button and empty-state **Add audio file** action
+a wave-backed hero, the ordered track cards (artwork, title, duration, selected
+checkmark; long-press drag reorder, swipe delete), a dashed **Add audio file**
+slot and the panel (play/pause, on/off status, loop, 1…100 volume). **Clear all**
+confirms before removing every track. The **+** button and add slot
 open the system Files picker; selected files are copied into app-owned storage
 (§4.12) and remain playable after relaunch. The removed Local Library screen is
 not linked from the Mixer. The mixer
@@ -1534,7 +1535,7 @@ history is off, library entries dedupe by file URL, and the merged list caps at
 The catalogue's paging and filter flow, the card → detail → back navigation, the
 Search tab (both sections, discourse → detail, track → full player), Home
 (recently played → detail), the detail header's like → unlike → like round trip
-the download → menu → remove-all round trip and the Audio Mixer panel plus its
+the download → menu → remove-all round trip and the Audio Mixer panel, add slot and
 file-picker flow are covered by `VLCTestMenu` (15 tests) plus the manual matrix
 above. The like test waits for each request to settle before the next tap because
 the store ignores a second tap while one is in flight, and it restores the
@@ -1945,12 +1946,12 @@ Google OAuth handler and URL-scheme registration.
   end, reload on a loop toggle, fade in ~200 ms and out ~220 ms. Interruptions,
   route loss and a media-services reset pause it; the main player is paused on a
   media-services reset.
-- **Done — UI.** `DiscourseAudioMixerViewController` is now a real screen: the
-  panel (on switch, now playing, play/pause, loop, volume) plus the ordered list
-  with selection, long-press drag reorder, swipe delete, **Clear all** (confirmed)
-  and an empty state whose **Add audio file** action opens the system Files
-  picker. `DiscourseMixerPanelView` and `DiscourseMixerTrackCell` carry the
-  content.
+- **Done — UI.** `DiscourseAudioMixerViewController` is now a real screen: a
+  wave-backed hero with the Background Music Mixer title, the ordered track cards
+  (artwork, title, duration, selected checkmark; long-press drag reorder, swipe
+  delete), a dashed add slot and the panel (play/pause, on/off status, loop,
+  volume). **Clear all** is confirmed. `DiscourseMixerPanelView` and
+  `DiscourseMixerTrackCell` carry the content.
 - **Done — entry point.** The **+** button and empty-state action import audio
   through `UIDocumentPickerViewController`; `DiscourseMixerFileImporter` copies
   the file into app-owned storage and `DiscourseAudioMixer` persists its URL.
@@ -2835,12 +2836,13 @@ behaviour:
    - `Sources/Media Library/MediaCategories/MediaCategoryViewController.swift` —
      the long-press menu gains the fork-only **Add to Audio Mixer** action for
      local audio media (inserted before the editing actions).
-   - `Sources/Discourse/Mixer/` — the Audio Mixer engine and its panel/row views
+   - `Sources/Discourse/Mixer/` — the Audio Mixer engine and its views
      (`DiscourseAudioMixer`, `DiscourseMixerPanelView`,
      `DiscourseMixerTrackCell`) plus `DiscourseMixerFileImporter`, which copies
      document-picker files into app-owned storage. New fork-only folder; the
      engine only listens to the main player's notifications and never edits it.
-     Removing a mixer item deletes only its own imported copy.
+     Removing a mixer item deletes only its own imported copy. The panel uses the
+     wave/red `audioMixer` tokens; tracks show AVAsset artwork and duration.
    - `Sources/Playback/Player/AudioPlayer/AudioPlayerViewController.swift` — the
      fork-only discourse like control in the audio player's `MediaNavigationBar`
      (inserted before the more-options button, hidden unless the current media has
@@ -2905,11 +2907,10 @@ behaviour:
      into Home through `DiscourseLocalTrack` and taught the row to drop the
      artwork slot and the controls for library entries.
    - `Sources/Discourse/UI/DiscourseAudioMixerViewController.swift` — the Audio
-     Mixer tab's real screen (panel header, track list, clear confirmation, empty
-     state); replaces the Phase 5 placeholder. No Edit button: the list reorders
-     by long-press drag and deletes by swipe. The **+** button and empty-state
-     **Add audio file** action open the document picker; no Local Library link
-     remains.
+     Mixer tab's real screen: the wave/equalizer hero, track cards, add slot and
+     panel; replaces the Phase 5 placeholder. No Edit button: the list reorders
+     by long-press drag and deletes by swipe. The **+** button and add slot open
+     the document picker; no Local Library link remains.
    - `Sources/Discourse/Stores/DiscoursePlaybackSettings.swift` — the
      `playback_history` switch (no upstream key exists).
      `Sources/Discourse/Stores/DiscourseStatsCache.swift` — `DiscourseStatsService`
@@ -2966,10 +2967,15 @@ screen is not linked from Mixer.
 
 ### Mixer control card design
 
-The mixer header uses a collapsible Background Music Mixer card with Mixer on/off
-and Loop buttons, an options menu containing the selected track and play/pause,
-and a labelled volume slider with one-percent minus/plus buttons. The panel stays
-in its existing table-header position; the track list and playback engine are unchanged.
+The Audio Mixer opens with a wave-backed hero (equalizer mark, **Background Music
+Mixer** title and subtitle), followed by the track cards, a dashed **Tap + to add
+an audio file** slot with the supported formats, and the control panel. The panel
+is a rounded card with a grabber, a large play/pause circle, **Mixer on/off** and
+status text, a Loop pill, and a **Mixer volume** card with minus/plus buttons and
+a percentage. Tapping the title/status area toggles the persisted mixer switch;
+the play button follows the main player. Track rows show artwork, title, duration
+and a selected checkmark. Reorder, swipe delete, Clear all and the file-picker
+import are unchanged.
 
 Detail track rows support swiping left to reveal Add to Playlist. The action opens
 the existing VLC playlist picker (or playlist creation when none exist) and saves
