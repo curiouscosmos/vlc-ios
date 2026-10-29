@@ -471,9 +471,8 @@ Fork touch points (upstream files we intentionally edit):
 
 - `Sources/Playback/Control/VLCPlaybackService.{h,m}` and `VLCPlaybackService+MediaLibrary.m` — RNNoise switching,
   audio session, snapshot hooks, paused retention.
-- `Sources/Playback/Player/{PlayerViewController,AudioPlayer/AudioPlayerViewController,VideoPlayer-iOS/
-  VideoPlayerViewController}.swift`, `MediaMoreOptionsActionSheet.swift` + subviews, `ActionSheetCell.swift` — white
-  spinner, noise switch, discourse heart, Share row.
+- `Sources/Playback/Player/` — `PlayerViewController`, `AudioPlayerViewController`, `VideoPlayerViewController`,
+  `MediaMoreOptionsActionSheet` + subviews, `ActionSheetCell`: white spinner, noise switch, discourse heart, Share row.
 - `Sources/App/iOS/TabBarCoordinator.swift` — five tabs, index, accent, bar modes, local library, album/deep links,
   tracker/mixer startup, likes refresh. `VLCAppDelegate.m` — defaults, background downloads, web-activity links.
   `Sources/App/VLCAppCoordinator.{h,m}`, `VLCAppSceneDelegate.m` — registration, deferred links, restoration.
