@@ -172,8 +172,8 @@ final class DiscourseCatalogueViewController: UIViewController {
         section.interGroupSpacing = 12
         section.contentInsets = NSDirectionalEdgeInsets(top: 16, leading: 16, bottom: 24, trailing: 16)
         let header = NSCollectionLayoutBoundarySupplementaryItem(
-            layoutSize: NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(36)),
-            elementKind: UICollectionView.elementKindSectionHeader, alignment: .top)
+            layoutSize: NSCollectionLayoutSize(widthDimension: .estimated(60), heightDimension: .estimated(36)),
+            elementKind: UICollectionView.elementKindSectionHeader, alignment: .topLeading)
         section.boundarySupplementaryItems = filterStore.sort == nil ? [header] : []
         return UICollectionViewCompositionalLayout(section: section)
     }
@@ -534,7 +534,7 @@ extension DiscourseCatalogueViewController: UICollectionViewDataSource {
             withReuseIdentifier: DiscourseHomeSectionHeaderView.reuseIdentifier, for: indexPath)
         if let header = header as? DiscourseHomeSectionHeaderView {
             header.configure(title: sections[indexPath.section].title)
-            header.backgroundColor = DiscourseColors.current.searchFieldBackground
+            header.backgroundColor = DiscourseColors.current.accent
             header.layer.cornerRadius = 10
         }
         return header

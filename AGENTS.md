@@ -1558,7 +1558,8 @@ paging guard and passes with it.
 ## 9. Current implementation status
 
 The Discourses catalogue's default order groups loaded titles alphabetically under
-letter headers. Accented Latin initials fold to A–Z; other initials use #. There
+compact, leading-aligned letter badges with the primary accent background.
+Accented Latin initials fold to A–Z; other initials use #. There
 is no side index; scrolling loads subsequent catalogue pages as before. The
 most-liked sort retains its ranking without letter headers. Existing cards,
 navigation chrome and bottom tabs are preserved.
