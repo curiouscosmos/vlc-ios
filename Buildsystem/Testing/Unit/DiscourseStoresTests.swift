@@ -351,6 +351,30 @@ final class DiscourseStoresTests: XCTestCase {
         XCTAssertNil(pendingStore.count(for: .discourse("d2")))
     }
 
+    func testConfirmedLikeCountsSurviveStaleListPayloads() async throws {
+        let service = FakeLikeService()
+        let store = DiscourseLikesStore(settings: settings, service: service,
+                                        notificationCenter: NotificationCenter())
+        for target in [DiscourseLikesStore.Target.discourse("d1"), .audio("a1")] {
+            store.updateCount(1, for: target)
+            service.nextTotalLikes = 2
+            if !target.isAudio {
+                _ = try await store.setDiscourseLiked(true, id: target.id, totalLikes: 1)
+            } else {
+                _ = try await store.setAudioLiked(true, id: target.id, totalLikes: 1)
+            }
+            store.updateCount(1, for: target)
+            XCTAssertEqual(store.count(for: target), 2)
+        }
+        service.nextTotalLikes = 1
+        _ = try await store.setDiscourseLiked(false, id: "d1", totalLikes: 1)
+        store.updateCount(2, for: .discourse("d1"))
+        XCTAssertEqual(store.count(for: .discourse("d1")), 1)
+        store.reset()
+        store.updateCount(3, for: .discourse("d1"))
+        XCTAssertEqual(store.count(for: .discourse("d1")), 3)
+    }
+
     // MARK: - Like control state
 
     func testLikeStateUsesThePayloadUntilTheStoreKnowsACount() {

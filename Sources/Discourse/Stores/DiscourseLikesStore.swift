@@ -161,6 +161,7 @@ final class DiscourseLikesStore {
     private let notificationCenter: NotificationCenter
     private let queue = DispatchQueue(label: "online.sandalbar.rajneesh-discourse.likes")
     private var inFlight: Set<Target> = []
+    private var confirmedCounts: Set<Target> = []
     private var revision = 0
     private var stateStore: State
 
@@ -454,6 +455,7 @@ final class DiscourseLikesStore {
             queue.sync {
                 var state = stateStore
                 state.counts[target] = max(0, serverTotal)
+                confirmedCounts.insert(target)
                 revision += 1
                 inFlight.remove(target)
                 state.pending.removeValue(forKey: target)
@@ -502,10 +504,10 @@ final class DiscourseLikesStore {
     // MARK: - Counts from list payloads
 
     /// Records a count that arrived with a catalogue payload. Pending toggles
-    /// keep their optimistic count so a list refresh cannot undo a tap.
+    /// and confirmed mutations win over potentially stale cached list counts for this session.
     func updateCount(_ totalLikes: Int, for target: Target) {
         queue.sync {
-            guard stateStore.isPending(target) == false else {
+            guard !stateStore.isPending(target), !confirmedCounts.contains(target) else {
                 return
             }
             var state = stateStore
@@ -518,6 +520,7 @@ final class DiscourseLikesStore {
     func reset() {
         queue.sync {
             stateStore = State()
+            confirmedCounts.removeAll()
             settings.remove(Keys.discourses)
             settings.remove(Keys.audios)
             settings.remove(Keys.fetchedAt)

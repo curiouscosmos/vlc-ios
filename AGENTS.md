@@ -326,7 +326,8 @@ playback** (pauses, buffering and seeks excluded); previous/next count.
 
 Anonymous UUID identity; liked ID sets plus a last-fetch timestamp; `GET /likes` at most every **7 days** on
 launch/foreground. Optimistic toggles with rollback and persisted pending targets; discourse and track likes are
-independent. Counts format `999`/`1.2k`/`1m`. Liked heart `#FF5269`, unliked outline `#BEA8AA`. Labels "Like {title}.
+independent. Confirmed mutation counts take precedence over cached list payloads for the current session (other users’ changes
+may remain unseen until relaunch). Counts format `999`/`1.2k`/`1m`. Liked heart `#FF5269`, unliked outline `#BEA8AA`. Labels "Like {title}.
 {n} likes" / "Unlike {title}. {n} likes". Automatic **Favourite Tracks** / **Favourite Discourses** collections appear
 above ordinary playlists only while they contain a like whose saved payload can be rendered; the final unlike (or a
 like with no payload) hides the row and its reserved space.
@@ -396,7 +397,7 @@ crash); writes are synchronous/serialised; never store the key, the UUID in logs
 
 ## 8. Testing and verification
 
-Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseDeepLinkTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **156 unit tests** and **17 UI tests** (§3.5).
+Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseDeepLinkTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **157 unit tests** and **17 UI tests** (§3.5).
 
 Manual: clean build; local playback/playlists/background/lock screen; five tabs and branding; catalogue paging/filters/refresh; detail queue continuation; Home sections/states; like persistence and rollback; 60 s qualification and 24 h stats dedupe; downloads (progress/cancel/remove/offline); mixer add/select/reorder/remove/clear/follow/volume/relaunch; VoiceOver, Dynamic Type, light theme; offline, interruption, route change and media-services reset on a device. UI tests cover navigation, catalogue → detail, search, Home, the like round trip, the download round trip (skips on a slow CDN), the mixer picker, playback history and payload-less favourites.
 
