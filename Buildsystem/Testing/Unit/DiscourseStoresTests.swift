@@ -92,6 +92,37 @@ final class DiscourseStoresTests: XCTestCase {
         XCTAssertFalse(reloaded.favouriteMetadata.created.contains(DiscourseLikesStore.Collection.discourses.rawValue))
     }
 
+    func testFavouriteCollectionsNeedAPayloadToBePresented() async throws {
+        settings.set(Set(["a1", "a2"]), forKey: DiscourseLikesStore.Keys.audios)
+        settings.set(Set(["d1"]), forKey: DiscourseLikesStore.Keys.discourses)
+        let store = DiscourseLikesStore(settings: settings, service: FakeLikeService())
+
+        // A liked id without a saved payload has nothing to render.
+        XCTAssertEqual(store.favouriteIDs(in: .tracks), ["a1", "a2"])
+        XCTAssertFalse(store.hasPresentableFavourites(in: .tracks))
+        XCTAssertFalse(store.hasPresentableFavourites(in: .discourses))
+
+        store.capture(audio: Self.audio(id: "a2"))
+        XCTAssertTrue(store.hasPresentableFavourites(in: .tracks))
+
+        store.capture(discourse: Self.discourse(id: "d1"))
+        XCTAssertTrue(store.hasPresentableFavourites(in: .discourses))
+
+        // Unliking the only item with a payload hides the collection again.
+        try await store.setAudioLiked(false, id: "a2", totalLikes: 0)
+        try await store.setAudioLiked(false, id: "a1", totalLikes: 0)
+        XCTAssertFalse(store.hasPresentableFavourites(in: .tracks))
+    }
+
+    func testLikesStoreDoesNotWriteAtInitialisation() {
+        _ = DiscourseLikesStore(settings: settings, service: FakeLikeService())
+        XCTAssertNil(defaults.object(forKey: DiscourseLikesStore.Keys.discourses),
+                     "Launch-argument overrides must not become durable liked sets")
+        XCTAssertNil(defaults.object(forKey: DiscourseLikesStore.Keys.audios))
+        XCTAssertNil(defaults.object(forKey: DiscourseLikesStore.Keys.pending))
+        XCTAssertNil(defaults.object(forKey: "osho_api_favourite_metadata"))
+    }
+
     func testFavouriteMigrationResolutionAndMissingItems() async throws {
         settings.set(Set(["d2", "d1"]), forKey: DiscourseLikesStore.Keys.discourses)
         settings.set(Set(["a1"]), forKey: DiscourseLikesStore.Keys.audios)

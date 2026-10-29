@@ -1566,7 +1566,12 @@ navigation chrome and bottom tabs are preserved.
 
 Automatic Favourite Tracks and Favourite Discourses collections appear above ordinary
 playlists only while they contain liked items; the final unlike hides the corresponding
-collection and removes its reserved space. Like-change notifications refresh these rows. Stable IDs
+collection and removes its reserved space. A collection also stays hidden while none of
+its liked ids has a saved payload, so a recovered like whose metadata is still missing
+cannot leave an apparently empty row behind; it appears as soon as recovery restores the
+payload. Like-change notifications refresh these rows. The likes store never writes its
+launch state back to `UserDefaults`, so temporary overrides (UI-test launch arguments)
+cannot become durable favourites. Stable IDs
 `favourite-tracks` and `favourite-discourses` are independent of VLC playlist names.
 `DiscourseLikesStore` remains the only membership owner and saves Codable payloads,
 creation flags, added dates, refresh dates and explicit unavailable markers through
@@ -2326,7 +2331,9 @@ verified; the available UI driver's permission check stalled during verification
 Favourite metadata deployment: `POST /favourites/resolve` is implemented in
 `api/edge.ts` but must be deployed to the existing Bunny service before release.
 No deployment command or credentials are configured in this checkout. Until deployment,
-local saved favourites work and unresolved entries remain available for retry. Automatic
+local saved favourites work and unresolved entries remain available for retry; a
+collection whose every entry still lacks a payload stays hidden on the Playlists tab
+until recovery supplies one. Automatic
 collections use fixed rows above the existing playlist grid, avoiding changes to VLC's
 editable playlist model. They cannot be renamed, reordered or deleted.
 

@@ -13,9 +13,11 @@
 class PlaylistViewController: MediaViewController {
     private let favourites = UIStackView()
 
-    @objc private func updateFavourites() {
+    @objc @MainActor private func updateFavourites() {
         favourites.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for kind in DiscourseLikesStore.Collection.allCases where !DiscourseLikesStore.shared.favouriteIDs(in: kind).isEmpty {
+        let store = DiscourseLikesStore.shared
+        let visible = DiscourseLikesStore.Collection.allCases.filter { store.hasPresentableFavourites(in: $0) }
+        for kind in visible {
             let button = FavouriteCollectionButton()
             button.configure(collection: kind)
             button.heightAnchor.constraint(equalToConstant: 60).isActive = true
@@ -24,7 +26,8 @@ class PlaylistViewController: MediaViewController {
             }, for: .touchUpInside)
             favourites.addArrangedSubview(button)
         }
-        viewControllers.forEach { $0.additionalSafeAreaInsets.top = CGFloat(favourites.arrangedSubviews.count * 60) }
+        viewControllers.forEach { $0.additionalSafeAreaInsets.top = CGFloat(visible.count * 60) }
+        favourites.isHidden = favourites.arrangedSubviews.isEmpty
         view.bringSubviewToFront(favourites)
     }
 
@@ -45,7 +48,10 @@ class PlaylistViewController: MediaViewController {
         ])
         NotificationCenter.default.addObserver(self, selector: #selector(updateFavourites), name: .discourseLikesDidChange, object: nil)
         updateFavourites()
-        Task { try? await DiscourseLikesStore.shared.refreshFavourites() }
+        Task { [weak self] in
+            try? await DiscourseLikesStore.shared.refreshFavourites()
+            await self?.updateFavourites()
+        }
         applyForkTheme()
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(applyForkTheme),

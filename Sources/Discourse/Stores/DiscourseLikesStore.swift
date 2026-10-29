@@ -191,7 +191,9 @@ final class DiscourseLikesStore {
             }
         }
         stateStore = state
-        persist(state)
+        // No write-back here: `UserDefaults` merges the volatile argument domain,
+        // so persisting at launch would promote UI-test launch arguments (and any
+        // other temporary override) into the durable liked sets.
     }
 
     struct FavouriteMetadata: Codable {
@@ -226,6 +228,21 @@ final class DiscourseLikesStore {
             let left = metadata.added[prefix + $0] ?? .distantPast
             let right = metadata.added[prefix + $1] ?? .distantPast
             return left == right ? $0 < $1 : left > right
+        }
+    }
+
+    /// A collection earns a row on the Playlists tab only while at least one of
+    /// its items has a saved payload to render. A liked id whose metadata has
+    /// not been recovered yet has no title, artwork or duration, so showing the
+    /// collection would leave an apparently empty row on screen; it reappears
+    /// as soon as `refreshFavourites()` restores the payload. Counts and
+    /// membership are unaffected by this display decision.
+    func hasPresentableFavourites(in collection: Collection) -> Bool {
+        let state = self.state
+        let metadata = favouriteMetadata
+        let ids = collection == .tracks ? state.audioIDs : state.discourseIDs
+        return ids.contains { id in
+            collection == .tracks ? metadata.audios[id] != nil : metadata.discourses[id] != nil
         }
     }
 
