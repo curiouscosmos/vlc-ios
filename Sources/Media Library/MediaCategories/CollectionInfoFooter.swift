@@ -44,15 +44,6 @@ class CollectionInfoFooter: UICollectionReusableView {
         return tracksLabel
     }()
 
-    private lazy var iconImageView: UIImageView = {
-        let icon = UIImage(named: "LaunchCone")?.withRenderingMode(.alwaysTemplate)
-        let iconImageView = UIImageView(image: icon)
-        iconImageView.contentMode = .scaleAspectFit
-        iconImageView.tintColor = PresentationTheme.current.colors.cellDetailTextColor
-        iconImageView.translatesAutoresizingMaskIntoConstraints = false
-        return iconImageView
-    }()
-
     // MARK: - Init
 
     override init(frame: CGRect) {
@@ -74,7 +65,6 @@ class CollectionInfoFooter: UICollectionReusableView {
 
     private func setupFooterView() {
         addSubview(dividerView)
-        addSubview(iconImageView)
         addSubview(artistLabel)
         addSubview(dateLabel)
         addSubview(tracksLabel)
@@ -96,11 +86,6 @@ class CollectionInfoFooter: UICollectionReusableView {
             dateLabel.leadingAnchor.constraint(equalTo: tracksLabel.leadingAnchor),
             dateLabel.trailingAnchor.constraint(equalTo: tracksLabel.trailingAnchor),
             dateLabel.topAnchor.constraint(equalTo: tracksLabel.bottomAnchor, constant: 10),
-
-            iconImageView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -35),
-            iconImageView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -15),
-            iconImageView.widthAnchor.constraint(equalToConstant: 25),
-            iconImageView.heightAnchor.constraint(equalToConstant: 25),
         ])
     }
 
@@ -112,7 +97,6 @@ class CollectionInfoFooter: UICollectionReusableView {
         artistLabel.textColor = colors.cellDetailTextColor
         tracksLabel.textColor = colors.cellDetailTextColor
         dateLabel.textColor = colors.cellDetailTextColor
-        iconImageView.tintColor = colors.cellDetailTextColor
     }
 
     // MARK: - Public methods

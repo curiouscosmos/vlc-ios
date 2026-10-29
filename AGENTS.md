@@ -2347,6 +2347,8 @@ Record every deviation here; never hide a gap.
    navigation-bar settings button now draws the rounded app icon, and
    `VLCEmptyLibraryView` (the shared empty state behind the local library,
    playlists, history and folders) shows the app logo instead of the VLC cone.
+   The shared collection footer on playlist, album and genre screens no longer
+   draws the VLC cone either; it keeps the divider, track count and duration.
    The menu no longer offers the upstream *Donate to VideoLAN* action.
 
 10. **Branding scope after Phase 2.** Navigation is now complete (Phase 5) with the
@@ -2778,6 +2780,9 @@ behaviour:
      and `Sources/Media Library/MediaViewControllers/MediaViewController.swift` —
      the shared empty state shows the app logo; the Discourses/Local Songs empty
      state reflects external-folder access and reuses the existing folder picker.
+   - `Sources/Media Library/MediaCategories/CollectionInfoFooter.swift` — the
+     VLC-cone watermark was removed from the playlist/album/genre footer; the
+     track count, duration and divider remain.
    - `Resources/en.lproj/Localizable.strings` — `EMPTY_NO_PLAYLISTS_DESCRIPTION`
      and `EMPTY_PLAYLIST_DESCRIPTION` rewritten for this fork (no Video/Audio
      tabs; add from the local library).
