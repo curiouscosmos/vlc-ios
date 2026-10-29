@@ -29,6 +29,8 @@ final class DiscourseAudioMixerViewController: UIViewController {
     private let clearButton = UIButton(type: .system)
 
     private var tableView: UITableView!
+    private var panelBottomConstraint: NSLayoutConstraint!
+    private var appliedPanelInset: CGFloat = -1
     /// Width the current footer view was laid out for.
     private var footerWidth: CGFloat = 0
 
@@ -67,6 +69,7 @@ final class DiscourseAudioMixerViewController: UIViewController {
         setupHero()
         setupPanel()
         setupFooter()
+        updateMiniPlayerInset()
 
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(updateTheme),
@@ -102,6 +105,7 @@ final class DiscourseAudioMixerViewController: UIViewController {
         if abs(tableView.bounds.width - footerWidth) > 0.5 {
             updateFooterView()
         }
+        refreshPanelLayout()
     }
 
     // MARK: - Setup
@@ -137,7 +141,6 @@ final class DiscourseAudioMixerViewController: UIViewController {
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-        updateMiniPlayerInset()
     }
 
     private func setupHero() {
@@ -158,6 +161,17 @@ final class DiscourseAudioMixerViewController: UIViewController {
         panel.onVolumeChange = { [weak self] volume in
             self?.mixer.setVolume(volume)
         }
+
+        panel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(panel)
+        panelBottomConstraint = panel.bottomAnchor.constraint(equalTo: view.bottomAnchor,
+                                                              constant: -12)
+        NSLayoutConstraint.activate([
+            panel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            panel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            panelBottomConstraint
+        ])
+        view.bringSubviewToFront(panel)
     }
 
     private func setupFooter() {
@@ -190,6 +204,7 @@ final class DiscourseAudioMixerViewController: UIViewController {
         sizeHeroIfNeeded()
         updateFooterView()
         updateTheme()
+        view.setNeedsLayout()
     }
 
     private func sizeHeroIfNeeded() {
@@ -214,7 +229,7 @@ final class DiscourseAudioMixerViewController: UIViewController {
         footerWidth = width
 
         let footer = UIView()
-        let stack = UIStackView(arrangedSubviews: [addSlotView, panel])
+        let stack = UIStackView(arrangedSubviews: [addSlotView])
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
         stack.spacing = 16
@@ -239,8 +254,43 @@ final class DiscourseAudioMixerViewController: UIViewController {
     }
 
     @objc private func updateMiniPlayerInset() {
+        refreshPanelLayout()
+    }
+
+    /// The panel floats above the tab bar, so the table's last row must be able
+    /// to scroll clear of it. The offset also moves the panel above the mini
+    /// player while it is visible.
+    private func refreshPanelLayout() {
+        guard panelBottomConstraint != nil, view.bounds.height > 0 else {
+            return
+        }
         let visible = PlaybackService.sharedInstance().playerDisplayController.isMiniPlayerVisible
-        let inset = (visible ? CGFloat(AudioMiniPlayer.height) : 0) + discourseFloatingTabBarInset + 12
+        let base = 12 + (visible ? CGFloat(AudioMiniPlayer.height) + 8 : 0)
+
+        let tabBarTop: CGFloat
+        if let tabBar = tabBarController?.tabBar, tabBar.window != nil {
+            tabBarTop = tabBar.convert(tabBar.bounds, to: view).minY
+        } else {
+            tabBarTop = view.bounds.height - view.safeAreaInsets.bottom
+        }
+        guard tabBarTop > 0 else {
+            return
+        }
+        let bottomOffset = view.bounds.height - tabBarTop + base
+        if panelBottomConstraint.constant != -bottomOffset {
+            panelBottomConstraint.constant = -bottomOffset
+        }
+
+        let width = max(0, view.bounds.width - 32)
+        let size = panel.systemLayoutSizeFitting(CGSize(width: width, height: 0),
+                                                 withHorizontalFittingPriority: .required,
+                                                 verticalFittingPriority: .fittingSizeLevel)
+        let panelTop = tabBarTop - base - size.height
+        let inset = max(0, view.bounds.height - panelTop + 12)
+        guard abs(inset - appliedPanelInset) > 0.5 else {
+            return
+        }
+        appliedPanelInset = inset
         tableView.contentInset.bottom = inset
         tableView.verticalScrollIndicatorInsets.bottom = inset
     }

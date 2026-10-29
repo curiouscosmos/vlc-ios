@@ -1081,7 +1081,7 @@ player's notifications.
 | Control panel (play/pause, on/off status, loop pill, volume) | `DiscourseMixerPanelView.swift` |
 | Track row (artwork, title, duration, selected checkmark) | `DiscourseMixerTrackCell.swift` |
 | Document-picker import into app-owned storage | `DiscourseMixerFileImporter.swift` |
-| Screen: wave hero, track list, add slot and panel (long-press drag reorder, swipe delete) | `Sources/Discourse/UI/DiscourseAudioMixerViewController.swift` |
+| Screen: wave hero, scrolling track list/add slot, pinned panel (long-press drag reorder, swipe delete) | `Sources/Discourse/UI/DiscourseAudioMixerViewController.swift` |
 
 **Storage.** The documented keys (§7): `audio_mixer_files` is the ordered array
 of file URL strings, `audio_mixer_selected` the selected URL, and
@@ -2968,11 +2968,13 @@ screen is not linked from Mixer.
 ### Mixer control card design
 
 The Audio Mixer opens with a wave-backed hero (equalizer mark, **Background Music
-Mixer** title and subtitle), followed by the track cards, a dashed **Tap + to add
-an audio file** slot with the supported formats, and the control panel. The panel
-is a rounded card with a grabber, a large play/pause circle, **Mixer on/off** and
-status text, a Loop pill, and a **Mixer volume** card with minus/plus buttons and
-a percentage. Tapping the title/status area toggles the persisted mixer switch;
+Mixer** title and subtitle), followed by the track cards and a dashed **Tap + to
+add an audio file** slot with the supported formats. The control panel is pinned
+above the tab bar (and above the mini player while it is visible), not part of the
+scrolling list; the list's bottom inset keeps its last item clear of the panel.
+The panel is a rounded card with a grabber, a large play/pause circle,
+**Mixer on/off** and status text, a Loop pill, and a **Mixer volume** card with
+minus/plus buttons and a percentage. Tapping the title/status area toggles the persisted mixer switch;
 the play button follows the main player. Track rows show artwork, title, duration
 and a selected checkmark. Reorder, swipe delete, Clear all and the file-picker
 import are unchanged.
