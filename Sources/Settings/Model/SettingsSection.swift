@@ -257,7 +257,6 @@ enum PlaybackOptions {
             automaticallyPlayNextItem,
             enableTextScrollingInMediaList,
             rememberPlayerState,
-            restoreLastPlayedMedia,
             enableScrollToCurrentlyPlayingMedia
         ])
     }

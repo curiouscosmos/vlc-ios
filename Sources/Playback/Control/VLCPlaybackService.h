@@ -67,6 +67,12 @@ NS_SWIFT_NAME(pictureInPictureStateDidChange(enabled:));
 
 NS_SWIFT_NAME(PlaybackService)
 @interface VLCPlaybackService : NSObject
+#if TARGET_OS_IOS
+@property (nonatomic, readonly, getter=isRestoredPaused) BOOL restoredPaused;
+- (BOOL)restoreReadyPlayback;
+- (void)saveReadyPlayback;
+- (void)configureReadyPlayback:(NSDictionary *)snapshot;
+#endif
 
 @property (nonatomic, strong, nullable) UIView *videoOutputView API_UNAVAILABLE(watchos);
 

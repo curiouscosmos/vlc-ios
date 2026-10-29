@@ -1557,6 +1557,38 @@ paging guard and passes with it.
 
 ## 9. Current implementation status
 
+### Last audio queue restoration
+
+On iOS, `VLCPlaybackService` checkpoints `Application Support/PlaybackSnapshot.json`
+(version 1) with queue URLs, display metadata, discourse IDs, selected active index,
+shuffle order, repeat mode, duration and position in milliseconds. `RDPlaybackSnapshot`
+in `DiscoursePlayback.swift` validates the format and serializes atomic writes.
+Track/queue changes, seeks, pause, stop and background save immediately; active
+playback checkpoints every five seconds. Abrupt termination can lose up to five seconds.
+
+The scene requests restoration once after the passcode gate. A playback request or
+configured player wins over delayed restoration. The existing VLC configure-only path
+prepares the selected item without playing, and the mini player shows it paused.
+Stop and natural queue completion reconfigure the retained queue after cleanup;
+completion retains the final position, bypassing the discourse near-end restart rule.
+Play applies the pending position once seekable. Missing files and offline streams
+retain metadata and position for retry; restoration itself sends no playback-start
+notification or listening statistics. Artwork uses the existing local image or placeholder.
+Downloaded tracks resolve through `DiscourseDownloadStore`; local library URLs use
+`mainFile().mrl` for existing external-folder access and app-owned paths rebase to the
+current container. The Mixer does not start automatically.
+
+Restoration is unconditional on iOS; the in-app opt-out is removed, while the separate
+shuffle/repeat preference remains. `RDPlaybackSnapshotMigrationAttempted` marks the
+one-time legacy M3U fallback when no snapshot file exists. Corrupt or unsupported
+snapshot files leave the player empty. Other platforms retain upstream restoration.
+Verification: the iOS simulator no-watch build and 69 focused tests in
+`DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests` and `DiscourseStoresTests`
+pass. Coverage includes JSON validation, round trips, shuffle/index selection,
+paused local/missing/stream/download restoration, unknown-duration positions, seeks,
+stop/relaunch and real VLC natural completion with a generated silent WAV. Final mini-player integration changes
+are rechecked before delivery.
+
 The Discourses catalogue's default order groups loaded titles alphabetically under
 compact, leading-aligned letter badges with the primary accent background.
 Accented Latin initials fold to A–Z; other initials use #. There
@@ -2311,6 +2343,14 @@ behavior. Threshold tests live in
 
 ## 10. Known gaps and intentional deviations from Android
 
+Paused queue restoration preserves a completed track at its final position, as requested;
+it does not use the catalogue's near-end restart policy. External files whose folder
+access has been revoked remain visible and fail through normal playback error handling
+when Play is pressed. Physical-device audio and passcode UI remain manual checks. The available
+cua-driver permission probe stalled (a leaked continuation); cross-tab visual checks
+remain unverified. Automated restoration checks do not establish real-device audio
+or document-provider access after revoked permissions.
+
 Artwork track swipes: the simulator build and 29 focused playback/progress tests
 pass. Interactive local/discourse queue checks (shuffle/repeat, rapid swipes,
 delayed covers), VoiceOver, Reduce Motion, and device gesture feel remain to be
@@ -2717,6 +2757,11 @@ Record every deviation here; never hide a gap.
 ---
 
 ## 11. Upstream sync policy
+
+Preserve the iOS-only paused snapshot restoration hooks, post-passcode scene routing,
+stop retention and checkpoint calls when syncing playback/navigation upstream. Keep
+other platforms' opt-in legacy restoration, the single VLC player, and the separate
+shuffle/repeat preference. Do not replace configure-only restoration with play-then-pause.
 
 Preserve automatic favourite rows and collection screens in `PlaylistViewController`,
 favourite metadata/capture/refresh in the likes store and actions, bounded cache recovery,

@@ -427,6 +427,7 @@ extension AudioMiniPlayer: VLCPlaybackServiceDelegate {
 
     func displayMetadata(for playbackService: PlaybackService, metadata: VLCMetaData) {
         setMediaInfo(metadata)
+        progressBarView.progress = playbackService.playbackPosition
     }
 
     func playbackPositionUpdated(_ playbackService: PlaybackService) {

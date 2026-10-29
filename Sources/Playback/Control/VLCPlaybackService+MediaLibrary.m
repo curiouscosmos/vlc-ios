@@ -78,6 +78,7 @@
     } else {
         [self playMedia:media];
     }
+    [self saveReadyPlayback];
 }
 
 - (void)playMediaNextInQueue:(VLCMLMedia *)media

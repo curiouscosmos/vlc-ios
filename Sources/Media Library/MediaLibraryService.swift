@@ -803,12 +803,31 @@ extension MediaLibraryService {
     func restoreLastPlayedMediaList(onDemand: Bool,
                                     openInMiniPlayer: Bool,
                                     fallback: (() -> Void)?) {
+        #if os(iOS)
+        if !Thread.isMainThread {
+            DispatchQueue.main.async {
+                self.restoreLastPlayedMediaList(onDemand: onDemand, openInMiniPlayer: openInMiniPlayer, fallback: fallback)
+            }
+            return
+        }
+        if PlaybackService.sharedInstance().restoreReadyPlayback() { return }
+        if UserDefaults.standard.bool(forKey: "RDPlaybackSnapshotMigrationAttempted") {
+            runLastPlayedMediaListFallback(fallback)
+            return
+        }
+        UserDefaults.standard.set(true, forKey: "RDPlaybackSnapshotMigrationAttempted")
+        #endif
         didRequestLastPlayedMediaListRestore = true
         if onDemand {
             didRestoreLastPlayedMediaListOnDemand = true
         }
 
-        guard onDemand || UserDefaults.standard.bool(forKey: kVLCRestoreLastPlayedMedia),
+        #if os(iOS)
+        let shouldRestore = true
+        #else
+        let shouldRestore = onDemand || UserDefaults.standard.bool(forKey: kVLCRestoreLastPlayedMedia)
+        #endif
+        guard shouldRestore,
               let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
         else {
             runLastPlayedMediaListFallback(fallback)
@@ -1421,6 +1440,9 @@ extension MediaLibraryService: VLCMediaParserDelegate {
             playbackService.configurePlaybackWithMedia(at: lastPlayedMediaIndex,
                                                        fromCollection: mediaList,
                                                        openInMiniPlayer: openInMiniPlayer)
+            #if os(iOS)
+            playbackService.saveReadyPlayback()
+            #endif
             defaults.set(-1, forKey: kVLCLastPlayedMediaIdentifier)
         }
     }

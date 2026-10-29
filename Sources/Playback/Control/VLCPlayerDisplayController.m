@@ -747,7 +747,11 @@ NSString *const VLCPlayerDisplayControllerHideMiniPlayer = @"VLCPlayerDisplayCon
 
         // Properly set the shuffle and repeat mode
         NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
-        if ([userDefaults boolForKey:kVLCPlayerShouldRememberState]) {
+        BOOL shouldRememberState = [userDefaults boolForKey:kVLCPlayerShouldRememberState];
+#if TARGET_OS_IOS
+        shouldRememberState = shouldRememberState && !_playbackController.isRestoredPaused;
+#endif
+        if (shouldRememberState) {
             _playbackController.shuffleMode = [userDefaults boolForKey:kVLCPlayerIsShuffleEnabled];
             NSInteger repeatMode = [userDefaults integerForKey:kVLCPlayerIsRepeatEnabled];
             _playbackController.repeatMode = repeatMode;

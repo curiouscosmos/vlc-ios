@@ -102,6 +102,7 @@ final class DiscoursePlayback {
         guard let media = makeQueuedMedia(for: track, discourse: discourse) else {
             return
         }
+        defer { playbackService.saveReadyPlayback() }
         let list = playbackService.mediaList
         guard !list.isEmpty,
               let current = playbackService.currentlyPlayingMedia else {
@@ -132,6 +133,7 @@ final class DiscoursePlayback {
         guard let media = makeQueuedMedia(for: track, discourse: discourse) else {
             return
         }
+        defer { playbackService.saveReadyPlayback() }
         let list = playbackService.mediaList
         guard !list.isEmpty else {
             _ = play(track: track, discourse: discourse)
@@ -199,6 +201,7 @@ final class DiscoursePlayback {
             appended.append(track)
         }
 
+        playbackService.saveReadyPlayback()
         if !appended.isEmpty {
             context?.tracks.append(contentsOf: appended)
             register(appended, discourse: discourse)
@@ -247,5 +250,104 @@ final class DiscoursePlayback {
             return index
         }
         return -1
+    }
+}
+
+/// Disk format for the single VLC queue. Synchronous serial writes also finish before suspension.
+@objc final class RDPlaybackSnapshot: NSObject {
+    private static let writes = DispatchQueue(label: "online.sandalbar.playback-snapshot")
+    static var url: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("PlaybackSnapshot.json")
+    }
+
+    @objc static func item(for media: VLCMedia) -> [String: Any]? {
+        guard let url = media.url else { return nil }
+        let identity = DiscourseMediaFactory.identity(of: media)
+        return ["url": url.absoluteString, "title": media.metaData.title ?? url.lastPathComponent,
+                "artist": media.metaData.artist ?? "", "album": media.metaData.album ?? "",
+                "audioID": identity?.audioID ?? "", "discourseID": identity?.discourseID ?? "",
+                "duration": max(0, media.length.intValue)]
+    }
+
+    static func validated(_ value: Any) -> [String: Any]? {
+        guard let snapshot = value as? [String: Any], snapshot["version"] as? Int == 1,
+              let items = snapshot["items"] as? [[String: Any]], !items.isEmpty,
+              let index = snapshot["index"] as? Int, items.indices.contains(index),
+              let duration = snapshot["duration"] as? Double, duration.isFinite, duration >= 0,
+              let position = snapshot["position"] as? Double, position.isFinite,
+              let shuffle = snapshot["shuffle"] as? Bool,
+              let order = snapshot["order"] as? [Int],
+              !shuffle || (order.count == items.count && Set(order) == Set(items.indices)),
+              let mode = snapshot["repeat"] as? Int, (0...2).contains(mode)
+        else { return nil }
+        for item in items {
+            guard let raw = item["url"] as? String, let url = URL(string: raw),
+                  ["file", "http", "https"].contains(url.scheme?.lowercased() ?? ""),
+                  item["title"] is String, item["artist"] is String, item["album"] is String,
+                  item["audioID"] is String, item["discourseID"] is String,
+                  let length = item["duration"] as? Int, length >= 0 else { return nil }
+        }
+        var result = snapshot
+        let boundedDuration = min(duration, Double(Int32.max))
+        result["duration"] = boundedDuration
+        result["position"] = boundedDuration > 0 ? min(max(0, position), boundedDuration) : min(max(0, position), Double(Int32.max))
+        return result
+    }
+
+    @objc static func save(_ snapshot: [String: Any]) {
+        guard let valid = validated(snapshot) else { return }
+        writes.sync {
+            do {
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try JSONSerialization.data(withJSONObject: valid).write(to: url, options: .atomic)
+            } catch {
+                NSLog("Playback snapshot save failed: %@", error.localizedDescription)
+            }
+        }
+    }
+
+    @objc static var exists: Bool { FileManager.default.fileExists(atPath: url.path) }
+
+    @objc static func readSnapshot() -> [String: Any]? {
+        writes.sync {
+            guard let data = try? Data(contentsOf: url),
+                  let value = try? JSONSerialization.jsonObject(with: data) else { return nil }
+            return validated(value)
+        }
+    }
+
+    @objc static func mediaList(_ snapshot: [String: Any]) -> VLCMediaList? {
+        guard let snapshot = validated(snapshot), let items = snapshot["items"] as? [[String: Any]] else { return nil }
+        let list = VLCMediaList()
+        for item in items {
+            guard let raw = item["url"] as? String, var url = URL(string: raw) else { return nil }
+            let audioID = item["audioID"] as? String ?? ""
+            if !audioID.isEmpty, let downloaded = DiscourseDownloadStore.shared.localURL(for: audioID) {
+                url = downloaded
+            } else if url.isFileURL {
+                let library = VLCAppCoordinator.sharedInstance().mediaLibraryService
+                if let media = library.fetchMedia(with: url), let resolved = media.mainFile()?.mrl {
+                    url = resolved
+                }
+                // Only app-owned Documents/Library paths move with the app container.
+                let parts = url.pathComponents
+                if let application = parts.lastIndex(of: "Application"),
+                   parts.count > application + 2, UUID(uuidString: parts[application + 1]) != nil,
+                   ["Documents", "Library"].contains(parts[application + 2]) {
+                    url = URL(fileURLWithPath: NSHomeDirectory())
+                        .appendingPathComponent(parts[(application + 2)...].joined(separator: "/"))
+                }
+            }
+            guard let media = VLCMedia(url: url) else { return nil }
+            media.metaData.title = item["title"] as? String
+            media.metaData.artist = item["artist"] as? String
+            media.metaData.album = item["album"] as? String
+            media.length = VLCTime(int: Int32(clamping: item["duration"] as? Int ?? 0))
+            media.metaData.setExtraValue(audioID, forKey: DiscourseMediaIdentity.audioExtraKey)
+            media.metaData.setExtraValue(item["discourseID"] as? String ?? "", forKey: DiscourseMediaIdentity.discourseExtraKey)
+            _ = list.add(media)
+        }
+        return list
     }
 }

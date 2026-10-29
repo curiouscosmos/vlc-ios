@@ -744,6 +744,9 @@ extension QueueViewController: UICollectionViewDropDelegate {
             collectionView.moveItem(at: sourceIndexPath, to: destinationIndexPath)
         })
 
+        #if os(iOS)
+        playbackService.saveReadyPlayback()
+        #endif
         coordinator.drop(item.dragItem, toItemAt: destinationIndexPath).addCompletion { _ in
             (collectionView.cellForItem(at: destinationIndexPath) as? MediaCollectionViewCell)?.animateCurrentlyPlayingState()
         }
@@ -779,6 +782,9 @@ extension QueueViewController {
     }
 
     func performDeleteMediaFromQueue(at index: IndexPath, isLastMedia: Bool = false) {
+        #if os(iOS)
+        defer { playbackService.saveReadyPlayback() }
+        #endif
         // handle removing last media
         if isLastMedia {
             // cases of doNotReapeat and repeatCurrentItem using the next() method causes wrong updates in the collection view which breaks the UI.

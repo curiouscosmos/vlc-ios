@@ -52,7 +52,9 @@
         }];
     }
     if ([session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
-        [[VLCAppCoordinator sharedInstance].mediaLibraryService restoreLastPlayedMediaList];
+        [appDelegate validatePasscodeIfNeededWithCompletion:^{
+            [[VLCAppCoordinator sharedInstance].mediaLibraryService restoreLastPlayedMediaList];
+        }];
     }
 }
 

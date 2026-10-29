@@ -22,6 +22,7 @@ final class DiscoursePlaybackTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        _ = VLCAppDelegate() // Unit-test hosts do not run the app delegate defaults registration.
         suiteName = "discourse-playback-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suiteName)
         defaults.removePersistentDomain(forName: suiteName)
@@ -46,6 +47,212 @@ final class DiscoursePlaybackTests: XCTestCase {
         XCTAssertEqual(AudioPlayerViewController.artworkSwipeDirection(translation: 20, velocity: 500, width: 300), 0)
         XCTAssertEqual(AudioPlayerViewController.artworkSwipeDirection(translation: 74, velocity: 0, width: 300), 0)
         XCTAssertEqual(AudioPlayerViewController.artworkSwipeDirection(translation: 0, velocity: 600, width: 0), 0)
+    }
+
+    private func snapshot(shuffled: Bool = false) -> [String: Any] {
+        let items: [[String: Any]] = (0..<3).map {
+            ["url": "https://example.com/track\($0).mp3", "title": "Track \($0)",
+             "artist": "Osho", "album": "Talks", "duration": 120_000,
+             "audioID": "audio-\($0)", "discourseID": "discourse"]
+        }
+        return ["version": 1, "items": items, "index": 1, "position": 45_000.0,
+                "duration": 120_000.0, "shuffle": shuffled, "order": shuffled ? [2, 0, 1] : [], "repeat": 0]
+    }
+
+    func testSnapshotRoundTripAndValidation() throws {
+        let encoded = try JSONSerialization.data(withJSONObject: snapshot(shuffled: true))
+        let valid = try XCTUnwrap(RDPlaybackSnapshot.validated(JSONSerialization.jsonObject(with: encoded)))
+        XCTAssertEqual(valid["index"] as? Int, 1)
+        XCTAssertEqual(valid["order"] as? [Int], [2, 0, 1])
+        XCTAssertEqual(valid["position"] as? Double, 45_000)
+        for (key, value) in [("version", 2), ("index", 3), ("index", -1), ("repeat", 3)] {
+            var invalid = snapshot()
+            invalid[key] = value
+            XCTAssertNil(RDPlaybackSnapshot.validated(invalid), key)
+        }
+        var invalid = snapshot(shuffled: true)
+        invalid["order"] = [0, 0, 2]
+        XCTAssertNil(RDPlaybackSnapshot.validated(invalid))
+        invalid = snapshot()
+        invalid["items"] = [["url": "javascript:alert(1)"]]
+        XCTAssertNil(RDPlaybackSnapshot.validated(invalid))
+        XCTAssertNil(RDPlaybackSnapshot.validated(Data("broken".utf8)))
+        invalid = snapshot()
+        invalid["position"] = Double.nan
+        XCTAssertNil(RDPlaybackSnapshot.validated(invalid))
+    }
+
+    func testSnapshotClampsPositionWithoutRestartingFinishedTrack() throws {
+        for (saved, expected) in [(-1.0, 0.0), (120_000, 120_000), (130_000, 120_000)] {
+            var value = snapshot()
+            value["position"] = saved
+            XCTAssertEqual(try XCTUnwrap(RDPlaybackSnapshot.validated(value))["position"] as? Double, expected)
+        }
+    }
+
+    @MainActor
+    func testUnknownStreamDurationKeepsAbsolutePositionForRetry() throws {
+        var value = snapshot()
+        value["duration"] = 0.0
+        value["position"] = 30_000.0
+        let valid = try XCTUnwrap(RDPlaybackSnapshot.validated(value))
+        XCTAssertEqual(valid["position"] as? Double, 30_000)
+        let service = PlaybackService()
+        service.configureReadyPlayback(valid)
+        XCTAssertFalse(service.isPlaying)
+        XCTAssertEqual(service.playedTime().intValue, 30_000)
+        XCTAssertEqual(service.metadata.elapsedPlaybackTime, 30)
+    }
+
+    @MainActor
+    func testSnapshotConfiguresNonFirstTrackPausedWithoutPlaybackNotifications() throws {
+        let service = PlaybackService()
+        var starts = 0
+        let observer = NotificationCenter.default.addObserver(forName: Notification.Name(VLCPlaybackServicePlaybackDidStart),
+                                                              object: service, queue: nil) { _ in starts += 1 }
+        defer { NotificationCenter.default.removeObserver(observer) }
+        service.configureReadyPlayback(snapshot(shuffled: true))
+        XCTAssertTrue(service.playerIsSetup)
+        XCTAssertFalse(service.isPlaying)
+        XCTAssertEqual(service.mediaList.count, 3)
+        XCTAssertEqual(service.shuffledList.media(at: 0)?.metaData.title, "Track 2")
+        XCTAssertEqual(service.currentlyPlayingMedia?.metaData.title, "Track 0")
+        XCTAssertEqual(service.playbackPosition, 0.375, accuracy: 0.0001)
+        XCTAssertEqual(service.playedTime().intValue, 45_000)
+        XCTAssertEqual(service.metadata.elapsedPlaybackTime, 45)
+        XCTAssertEqual(starts, 0)
+    }
+
+    @MainActor
+    func testSnapshotDiskStopAndSeekRetainPausedQueue() throws {
+        let url = RDPlaybackSnapshot.url
+        let original = try? Data(contentsOf: url)
+        defer {
+            if let original { try? original.write(to: url, options: .atomic) }
+            else { try? FileManager.default.removeItem(at: url) }
+        }
+        RDPlaybackSnapshot.save(snapshot())
+        let service = PlaybackService()
+        XCTAssertTrue(service.restoreReadyPlayback())
+        XCTAssertFalse(service.isPlaying)
+        service.jumpForward(15)
+        XCTAssertEqual(service.playbackPosition, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(RDPlaybackSnapshot.readSnapshot()?["position"] as? Double, 60_000)
+        service.stopPlayback()
+        XCTAssertTrue(service.playerIsSetup)
+        XCTAssertFalse(service.isPlaying)
+        XCTAssertEqual(service.currentlyPlayingMedia?.metaData.title, "Track 1")
+        XCTAssertEqual(service.playbackPosition, 0.5, accuracy: 0.0001)
+        let relaunched = PlaybackService()
+        XCTAssertTrue(relaunched.restoreReadyPlayback())
+        XCTAssertFalse(relaunched.isPlaying)
+        XCTAssertEqual(relaunched.playbackPosition, 0.5, accuracy: 0.0001)
+        try Data("corrupt".utf8).write(to: url, options: .atomic)
+        let corrupt = PlaybackService()
+        XCTAssertTrue(corrupt.restoreReadyPlayback()) // handled without legacy resurrection
+        XCTAssertFalse(corrupt.playerIsSetup)
+        XCTAssertNil(corrupt.currentlyPlayingMedia)
+    }
+
+    @MainActor
+    func testNewPlaybackConfigurationWinsOverDiskRestore() throws {
+        let service = PlaybackService()
+        service.configureReadyPlayback(snapshot())
+        XCTAssertTrue(service.restoreReadyPlayback())
+        XCTAssertEqual(service.currentlyPlayingMedia?.metaData.title, "Track 1")
+        XCTAssertFalse(service.isPlaying)
+    }
+
+    @MainActor
+    func testSnapshotRebuildsMissingLocalAndStreamedMediaWithoutOpeningThem() throws {
+        var value = snapshot()
+        var items = try XCTUnwrap(value["items"] as? [[String: Any]])
+        items[1]["url"] = "file:///missing/track.mp3"
+        value["items"] = items
+        let list = try XCTUnwrap(RDPlaybackSnapshot.mediaList(value))
+        XCTAssertEqual(list.count, 3)
+        XCTAssertEqual(list.media(at: 1)?.url?.path, "/missing/track.mp3")
+        XCTAssertEqual(DiscourseMediaFactory.identity(of: try XCTUnwrap(list.media(at: 1)))?.audioID, "audio-1")
+        let service = PlaybackService()
+        service.configureReadyPlayback(value)
+        XCTAssertFalse(service.isPlaying)
+        XCTAssertEqual(service.currentlyPlayingMedia?.metaData.title, "Track 1")
+        XCTAssertEqual(service.playbackPosition, 0.375, accuracy: 0.0001)
+    }
+
+    @MainActor
+    func testSnapshotResolvesVerifiedDownloadWithoutPlaying() throws {
+        let audioID = "snapshot-test-\(UUID().uuidString)"
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data([1, 2, 3]).write(to: file)
+        let downloads = DiscourseDownloadStore.shared
+        try downloads.storeDownloadedFile(at: file, audioID: audioID, discourseID: "discourse")
+        defer { _ = downloads.remove(audioID: audioID) }
+        var value = snapshot()
+        var items = try XCTUnwrap(value["items"] as? [[String: Any]])
+        items[1]["audioID"] = audioID
+        value["items"] = items
+        let service = PlaybackService()
+        service.configureReadyPlayback(value)
+        XCTAssertEqual(service.currentlyPlayingMedia?.url, downloads.localURL(for: audioID))
+        XCTAssertFalse(service.isPlaying)
+        XCTAssertEqual(service.playbackPosition, 0.375, accuracy: 0.0001)
+    }
+
+    @MainActor
+    func testNaturalCompletionRetainsFinalPositionPaused() throws {
+        let snapshotURL = RDPlaybackSnapshot.url
+        let original = try? Data(contentsOf: snapshotURL)
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).wav")
+        defer {
+            try? FileManager.default.removeItem(at: file)
+            if let original { try? original.write(to: snapshotURL, options: .atomic) }
+            else { try? FileManager.default.removeItem(at: snapshotURL) }
+        }
+        // A quarter-second of silence exercises the real VLC end-of-queue callback.
+        var wav = Data("RIFF".utf8)
+        func append(_ value: UInt32, bytes: Int = 4) {
+            var little = value.littleEndian
+            withUnsafeBytes(of: &little) { wav.append(contentsOf: $0.prefix(bytes)) }
+        }
+        append(24_036)
+        wav.append(Data("WAVEfmt ".utf8))
+        append(16)
+        append(1, bytes: 2)
+        append(1, bytes: 2)
+        append(48_000)
+        append(96_000)
+        append(2, bytes: 2)
+        append(16, bytes: 2)
+        wav.append(Data("data".utf8))
+        append(24_000)
+        wav.append(Data(count: 24_000))
+        try wav.write(to: file)
+        var value = snapshot()
+        var item = try XCTUnwrap((value["items"] as? [[String: Any]])?.first)
+        item["url"] = file.absoluteString
+        item["duration"] = 250
+        item["audioID"] = ""
+        value["items"] = [item]
+        value["index"] = 0
+        value["position"] = 0.0
+        value["duration"] = 250.0
+        let service = PlaybackService()
+        service.configureReadyPlayback(value)
+        let stopped = expectation(description: "Finished queue retained")
+        let observer = NotificationCenter.default.addObserver(forName: Notification.Name(VLCPlaybackServicePlaybackDidStop),
+                                                              object: service, queue: .main) { _ in
+            DispatchQueue.main.async {
+                XCTAssertTrue(service.playerIsSetup)
+                XCTAssertFalse(service.isPlaying)
+                XCTAssertEqual(service.playbackPosition, 1, accuracy: 0.0001)
+                stopped.fulfill()
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+        service.play()
+        wait(for: [stopped], timeout: 10)
+        XCTAssertEqual(RDPlaybackSnapshot.readSnapshot()?["position"] as? Double, 250)
     }
 
     // MARK: - Durations

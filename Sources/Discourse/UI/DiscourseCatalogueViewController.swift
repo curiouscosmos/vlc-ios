@@ -534,8 +534,8 @@ extension DiscourseCatalogueViewController: UICollectionViewDataSource {
             withReuseIdentifier: DiscourseHomeSectionHeaderView.reuseIdentifier, for: indexPath)
         if let header = header as? DiscourseHomeSectionHeaderView {
             header.configure(title: sections[indexPath.section].title)
-            header.backgroundColor = DiscourseColors.current.accent
-            header.layer.cornerRadius = 10
+            header.backgroundColor = DiscourseColors.current.searchFieldBackground
+            header.layer.cornerRadius = 8
         }
         return header
     }
