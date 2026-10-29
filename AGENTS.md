@@ -54,6 +54,10 @@ software under GPLv2+/GPLv3.
    refactors into feature commits.
 10. **When the spec and the iOS codebase conflict:** preserve observable behaviour,
     adapt to iOS conventions, and record the deviation in §10.
+11. **Commit and push after every change.** Once a change is complete and
+    verified, commit it and push the current branch to `origin`
+    (`https://github.com/curiouscosmos/vlc-ios.git`). Never leave finished work
+    uncommitted or unpushed; hold it back only when the user explicitly asks.
 
 ---
 
@@ -1199,6 +1203,8 @@ After running it, verify with a build. Never hand-edit UUIDs in the pbxproj.
   Discourse`, `AGENTS: document playback architecture`.
 - Commit messages describe *why*, not just *what*. Do not commit build artefacts,
   `DerivedData`, `Pods/`, `.env`, or secrets.
+- Commit **and push** every completed change to `origin` in the same turn (see
+  §2.11). Verify the branch is clean and up to date afterwards.
 
 ---
 
