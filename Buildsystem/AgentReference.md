@@ -194,7 +194,7 @@ launch/foreground. Optimistic toggles with rollback and persisted pending target
 independent. Successful responses cannot reverse an optimistic count change (like uses the larger total, unlike the smaller); concurrent or already-recorded server changes can therefore differ from the displayed session count. Confirmed mutation counts take precedence over cached list payloads for the current session (other users’ changes
 may remain unseen until relaunch). Counts format `999`/`1.2k`/`1m`. Liked heart `#FF5269`, unliked outline `#BEA8AA`. Labels "Like {title}.
 {n} likes" / "Unlike {title}. {n} likes". Automatic **Favourite Tracks** / **Favourite Discourses** collections appear
-above ordinary playlists only while they contain a like whose saved payload can be rendered; the final unlike (or a
+above ordinary playlists (and suppress the playlist empty-state logo/text) only while they contain a like whose saved payload can be rendered; the final unlike (or a
 like with no payload) hides the row and its reserved space.
 
 ### 6.5 Listening stats and history

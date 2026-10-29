@@ -1340,7 +1340,10 @@ private extension MediaCategoryViewController {
             emptyView.contentType = hasAccessibleExternalFolder ? .noLocalAudio : .addLocalAudioFolder
         }
         searchBar.isHidden = isEmpty
-        collectionView?.backgroundView = isEmpty ? emptyView : nil
+        let hasFavouriteCollections = model is PlaylistModel && DiscourseLikesStore.Collection.allCases.contains {
+            DiscourseLikesStore.shared.hasPresentableFavourites(in: $0)
+        }
+        collectionView?.backgroundView = isEmpty && !hasFavouriteCollections ? emptyView : nil
         updateBarButtonItems()
     }
 

@@ -28,6 +28,9 @@ class PlaylistViewController: MediaViewController {
         }
         viewControllers.forEach { $0.additionalSafeAreaInsets.top = CGFloat(visible.count * 120) }
         favourites.isHidden = favourites.arrangedSubviews.isEmpty
+        viewControllers.compactMap { $0 as? MediaCategoryViewController }.forEach {
+            if $0.isViewLoaded { $0.updateEmptyState() }
+        }
         view.bringSubviewToFront(favourites)
         applyForkTheme()
     }

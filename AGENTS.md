@@ -154,6 +154,7 @@ Before changing observable behaviour, read the corresponding §6 contract in [Ag
 - Successful like responses preserve the tap’s count direction; optimistic likes roll back on failure; confirmed counts survive stale catalogue payloads for the session.
 - Downloads play locally only when verified; destructive remove-all and mixer clear-all actions confirm.
 - Disabled Mixer panel labels are “Mixer” and “Background music”.
+- Playlists shows its logo/empty-state text only when ordinary playlists and presentable favourite collections are both empty.
 - Playlist list cards use 112 × 88 pt aspect-fill artwork, at least 112 pt height and a track count (details in reference §4.6).
 - Dark is the default; light, Dynamic Type, accessibility and localisation must work.
 
