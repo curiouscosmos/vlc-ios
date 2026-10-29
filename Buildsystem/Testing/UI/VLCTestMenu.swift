@@ -143,6 +143,28 @@ class VLCTestMenu: XCTestCase {
         clear.tap()
     }
 
+    /// Reaching a page boundary must append the next page without UIKit's
+    /// "invalid batch updates" assertion (cached pages can arrive before the
+    /// list has processed an earlier reload). A crash fails the test.
+    func testCataloguePaginatesPastTheFirstPage() {
+        helper.tapTabBarItem(VLCAccessibilityIdentifier.discourses)
+
+        let list = app.collectionViews["discourseCatalogue"]
+        XCTAssertTrue(list.waitForExistence(timeout: 20))
+        XCTAssertTrue(list.cells.firstMatch.waitForExistence(timeout: 20))
+
+        // Half a page per swipe group, pausing so each next-page request can
+        // settle before the next group starts.
+        for _ in 0..<3 {
+            for _ in 0..<6 {
+                list.swipeUp()
+            }
+            Thread.sleep(forTimeInterval: 2)
+        }
+
+        XCTAssertTrue(list.cells.firstMatch.exists)
+    }
+
     func testCatalogueOpensDiscourseDetail() {
         helper.tapTabBarItem(VLCAccessibilityIdentifier.discourses)
 
@@ -284,6 +306,10 @@ class VLCTestMenu: XCTestCase {
 
         // Starting a track presents the upstream full-screen audio player.
         XCTAssertTrue(app.buttons[VLCAccessibilityIdentifier.moreOptions].waitForExistence(timeout: 30))
+        let noise = app.buttons["noiseReduction"]
+        XCTAssertTrue(noise.waitForExistence(timeout: 5))
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: noise)
+        wait(for: [enabled], timeout: 10)
     }
 
     func testHomeShowsRecentlyPlayedDiscourse() {

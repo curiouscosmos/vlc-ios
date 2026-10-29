@@ -164,11 +164,24 @@ class AudioPlayerViewController: PlayerViewController {
 
     @objc private func toggleNoise() {
         _ = playbackService.setNoiseReduction(enabled: !playbackService.noiseReductionEnabled)
-        noiseButton.configuration?.baseForegroundColor = playbackService.noiseReductionEnabled ? DiscourseColors.current.accent : .white
-        noiseButton.accessibilityValue = playbackService.noiseReductionEnabled ? "On" : "Off"
+        refreshNoiseButton()
+    }
+
+    /// The prepared RNNoise filter only reports readiness once the audio output
+    /// exists, which can happen after `PlaybackDidStart` (and again whenever the
+    /// output is rebuilt). Re-check on the player's position ticks so the button
+    /// stops being disabled as soon as the filter is live.
+    private func refreshNoiseButton() {
+        let available = playbackService.noiseReductionAvailable
+        let enabled = playbackService.noiseReductionEnabled
+        noiseButton.isEnabled = available
+        noiseButton.configuration?.baseForegroundColor = enabled ? DiscourseColors.current.accent : .white
+        noiseButton.accessibilityValue = enabled ? "On" : "Off"
     }
 
     private func setupDiscourseLikeButton() {
+        noiseButton.accessibilityIdentifier = "noiseReduction"
+        noiseButton.accessibilityLabel = NSLocalizedString("NOISE_REDUCTION", comment: "")
         discourseLikeButton.contentHorizontalAlignment = .center
         audioPlayerView.actionStackView.addArrangedSubview(discourseLikeButton)
         audioPlayerView.actionStackView.addArrangedSubview(discourseButton)
@@ -195,14 +208,16 @@ class AudioPlayerViewController: PlayerViewController {
                            selector: #selector(updateDiscourseLike),
                            name: .discourseLikesDidChange,
                            object: nil)
+        center.addObserver(self,
+                           selector: #selector(updateDiscourseLike),
+                           name: .VLCThemeDidChangeNotification,
+                           object: nil)
         updateDiscourseLike()
     }
 
     @objc private func updateDiscourseLike() {
         discourseButton.isEnabled = currentDiscourseTrack() != nil
-        noiseButton.isEnabled = playbackService.noiseReductionAvailable
-        noiseButton.configuration?.baseForegroundColor = playbackService.noiseReductionEnabled ? DiscourseColors.current.accent : .white
-        noiseButton.accessibilityValue = playbackService.noiseReductionEnabled ? "On" : "Off"
+        refreshNoiseButton()
         guard let track = currentDiscourseTrack() else {
             discourseLikeButton.isHidden = true
             return
@@ -555,6 +570,16 @@ extension AudioPlayerViewController {
         }
 
         audioPlayerView.thumbnailView.isHidden = playbackService.isPlayingOnExternalScreen()
+#if os(iOS)
+        updateDiscourseLike()
+#endif
+    }
+
+    override func playbackPositionUpdated(_ playbackService: PlaybackService) {
+        super.playbackPositionUpdated(playbackService)
+#if os(iOS)
+        refreshNoiseButton()
+#endif
     }
 
     override func mediaPlayerStateChanged(_ currentState: VLCMediaPlayerState,
@@ -565,6 +590,9 @@ extension AudioPlayerViewController {
                                       currentMediaHasTrackToChooseFrom: currentMediaHasTrackToChooseFrom,
                                       currentMediaHasChapters: currentMediaHasChapters,
                                       for: playbackService)
+#if os(iOS)
+        refreshNoiseButton()
+#endif
 
         audioPlayerView.updatePlayButton(isPlaying: isPlaying)
         audioPlayerView.shouldEnableSeekButtons(true)

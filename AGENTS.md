@@ -732,8 +732,11 @@ cache), so no new image pipeline exists.
   a stale page; no cache falls back to the network spinner. Pull-to-refresh is a
   force refresh (`Cache-Control: no-cache`).
 - Paging: the next page is requested when the scroll is within 400 pt of the
-  bottom and `page < meta.total_pages`; appended items are deduped by id and
-  inserted with `insertItems(at:)` so the list does not flash.
+  bottom and `page < meta.total_pages`; appended items are deduped by id. The
+  append is animated with `insertItems(at:)` only when the collection view has
+  already laid out the rows it currently has; a cached page can arrive before an
+  earlier `reloadData` is processed, so otherwise the list reloads instead. That
+  guard prevents UIKit's "invalid batch updates" assertion.
 - Filters: a bar-button `UIMenu` with Language (all/English/Hindi) and Sort
   (default/most liked), persisted through `DiscourseCatalogueFilterStore`;
   "Clear filters" appears only while a filter is active. Changing a filter drops
@@ -1534,8 +1537,10 @@ checks the launch storyboard still resolves its branded image. The mixer test
 clears any tracks left by earlier runs before asserting the empty state, so it
 is order-independent.
 `testPlaybackHistorySettingToggles` opens Settings, flips the switch, waits for
-each value and restores the original state, so the 16 UI tests leave the app as
-they found it.
+each value and restores the original state, so the 17 UI tests leave the app as
+they found it. `testCataloguePaginatesPastTheFirstPage` scrolls past a page
+boundary; it crashed with UIKit's invalid-batch-updates assertion before the
+paging guard and passes with it.
 
 ---
 
@@ -1997,7 +2002,7 @@ Google OAuth handler and URL-scheme registration.
   development region, so other languages fall back to it). A sweep found no
   hard-coded user-facing copy in the fork screens.
 - **Done — tests.** `testPlaybackHistorySettingToggles` (flip, wait, restore) in
-  `VLCTestMenu`: **16 UI tests, 0 failures** (the network-bound download test
+  `VLCTestMenu`: **17 UI tests, 0 failures** (the network-bound download test
   skipped on the slow-CDN run and passes when the CDN keeps up); the unit suite
   is **113** with the launch-screen test added by the branding polish below.
 - **Verified live.** The Settings screen shows *Playback history* on, with the
@@ -2026,7 +2031,7 @@ Google OAuth handler and URL-scheme registration.
   the catalogue, detail, Home and search scroll views, so their last row clears
   the floating bar. Verified on an iOS 26.4 simulator (scrolled to the bottom and
   on every tab); iOS 18.3 keeps the classic bar.
-- **Tests.** 112 unit tests and 16 UI tests (download test skipped on a slow-CDN
+- **Tests.** 112 unit tests and 17 UI tests (download test skipped on a slow-CDN
   run) on the iOS 18.3 reference device, 0 failures.
 
 ### Post-phase polish — watchOS and tvOS artwork — **Done**
@@ -2134,6 +2139,17 @@ Google OAuth handler and URL-scheme registration.
 - Verified on the iPhone 17 Pro simulator (iOS 26.4): the catalogue shows one
   full-width card per row, the row height self-sizes around the 88 pt artwork,
   and the Home carousels are unchanged.
+
+### Post-phase polish — catalogue paging crash — **Done**
+- Scrolling the catalogue past a page boundary could abort with UIKit's
+  `_Bug_Detected_In_Client_Of_UICollectionView_Invalid_Batch_Updates` assertion.
+  A cached next page can arrive before UIKit has processed the first page's
+  `reloadData`, so `insertItems(at:)` saw a stale item count. `loadNextPage` now
+  flushes layout, compares the rendered row count with the data source and only
+  animates the insert when they match; otherwise it reloads the list. The scroll
+  trigger also ignores a hidden or not-yet-laid-out collection view.
+  `testCataloguePaginatesPastTheFirstPage` reproduces the crash on the previous
+  build and passes with the guard (iOS 26.4 simulator).
 
 ### Post-phase polish — Local library offers Songs and Folders — **Done**
 - The local library opened from local-media shortcuts uses a Songs and Folders
@@ -2558,9 +2574,12 @@ Record every deviation here; never hide a gap.
     RNNoise but lacks a public live-toggle API. Until the custom artifact is built
     and activated, the switch is disabled. Seamless switching keeps the denoiser
     warm while bypassed and adds a fixed 20 ms delay to main-player audio; CPU and
-    battery cost remain when the switch is off. Physical-device acceptance is
-    required before release. Native build details and source pins are in
-    `Buildsystem/RNNoise/README.md`.
+    battery cost remain when the switch is off. The prepared filter only reports
+    readiness once the audio output exists, so the player's noise-reduction action
+    is re-checked from the existing playback-position ticks (no timer) and enables
+    when RNNoise is live, including after the output is rebuilt. Physical-device
+    acceptance is required before release. Native build details and source pins
+    are in `Buildsystem/RNNoise/README.md`.
 
 45. **Watch signing identifiers.** The app uses bundle ID `com.oshodiscourse`;
     the Watch app uses `com.oshodiscourse.watchos` and names the app as its

@@ -337,11 +337,26 @@ final class DiscourseCatalogueViewController: UIViewController {
                 guard !fresh.isEmpty else { return }
 
                 let start = self.discourses.count
+                // A cached page can arrive before UIKit has processed an earlier
+                // `reloadData` (or while the list is hidden behind a state view).
+                // Batch-inserting then leaves the collection view with a stale
+                // item count and raises "invalid batch updates", so flush layout
+                // and only animate when the rendered rows match the data source.
+                self.collectionView.layoutIfNeeded()
+                let renderedCount = self.collectionView.numberOfItems(inSection: 0)
+
                 self.discourses.append(contentsOf: fresh)
                 self.seedLikeCounts(fresh)
-                let indexPaths = (start..<self.discourses.count).map { IndexPath(item: $0, section: 0) }
-                self.collectionView.performBatchUpdates {
-                    self.collectionView.insertItems(at: indexPaths)
+
+                if !self.collectionView.isHidden,
+                   self.collectionView.window != nil,
+                   renderedCount == start {
+                    let indexPaths = (start..<self.discourses.count).map { IndexPath(item: $0, section: 0) }
+                    self.collectionView.performBatchUpdates {
+                        self.collectionView.insertItems(at: indexPaths)
+                    }
+                } else {
+                    self.collectionView.reloadData()
                 }
             } catch {
                 guard token == self.requestToken else {
@@ -533,7 +548,11 @@ extension DiscourseCatalogueViewController: UICollectionViewDataSource {
 
 extension DiscourseCatalogueViewController: UICollectionViewDelegate {
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        guard scrollView === collectionView, !discourses.isEmpty else {
+        guard scrollView === collectionView,
+              !discourses.isEmpty,
+              !collectionView.isHidden,
+              collectionView.window != nil,
+              scrollView.contentSize.height > 0 else {
             return
         }
 
