@@ -11,7 +11,7 @@
  * Shared copy for catalogue cards, the discourse detail header and the track
  * rows: language names, singular/plural counts, the "language · tracks · likes"
  * summary line, and track durations. All user-facing text is localised here so
- * the screens never hard-code English (AGENTS.md 5.4).
+ * the screens never hard-code English (AGENTS.md section 5).
  *****************************************************************************/
 
 import Foundation
