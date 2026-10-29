@@ -323,19 +323,96 @@ class AudioPlayerViewController: PlayerViewController {
         }
     }
 
+    private var artworkTransitionInProgress = false
+    private var artworkPanIsHorizontal = false
+
+    // Zero means spring back; the sign is the direction the artwork leaves.
+    static func artworkSwipeDirection(translation: CGFloat, velocity: CGFloat, width: CGFloat) -> CGFloat {
+        guard width > 0 else { return 0 }
+        if abs(translation) >= width * 0.25 {
+            return translation < 0 ? -1 : 1
+        }
+        if abs(velocity) > 500 && translation * velocity > 0 {
+            return velocity < 0 ? -1 : 1
+        }
+        return 0
+    }
+
+    @objc override func handlePanGesture(recognizer: UIPanGestureRecognizer) {
+        if recognizer.state == .began {
+            let velocity = recognizer.velocity(in: view)
+            artworkPanIsHorizontal = abs(velocity.x) > abs(velocity.y)
+        }
+        guard artworkPanIsHorizontal else {
+            super.handlePanGesture(recognizer: recognizer)
+            return
+        }
+        let artwork = audioPlayerView.thumbnailImageView
+        let translation = recognizer.translation(in: audioPlayerView.thumbnailView).x
+        let reduceMotion = UIAccessibility.isReduceMotionEnabled
+        switch recognizer.state {
+        case .began, .changed:
+            if !reduceMotion {
+                artwork.transform = CGAffineTransform(translationX: translation, y: 0)
+            }
+        case .ended, .cancelled, .failed:
+            let direction = recognizer.state == .ended ? Self.artworkSwipeDirection(
+                translation: translation, velocity: recognizer.velocity(in: view).x,
+                width: artwork.bounds.width) : 0
+            let queue = playbackService.isShuffleMode ? playbackService.shuffledList : playbackService.mediaList
+            let index = playbackService.currentlyPlayingMedia.map { Int(queue.index(of: $0)) } ?? NSNotFound
+            let count = Int(queue.count)
+            let canSwitch = count > 1 && index != NSNotFound &&
+                (playbackService.repeatMode == .repeatAllItems ||
+                 (direction < 0 ? index + 1 < count : index > 0 || playbackService.playedTime().intValue >= 2000))
+            artworkTransitionInProgress = true
+            guard direction != 0 && canSwitch else {
+                UIView.animate(withDuration: reduceMotion ? 0 : 0.2, animations: {
+                    artwork.transform = .identity
+                }, completion: { _ in self.artworkTransitionInProgress = false })
+                return
+            }
+            // Freeze the outgoing cover so asynchronous metadata cannot replace it mid-slide.
+            let outgoing = artwork.snapshotView(afterScreenUpdates: false)
+            outgoing?.frame = artwork.frame
+            if let outgoing = outgoing {
+                artwork.superview?.addSubview(outgoing)
+            }
+            let restartsCurrent = direction > 0 && playbackService.playedTime().intValue >= 2000
+            artwork.setImage(nil, placeholderName: playbackService.metadata.placeholderName)
+            audioPlayerView.setupBackgroundColor()
+            if direction < 0 {
+                playbackService.next()
+            } else {
+                playbackService.previous()
+            }
+            if restartsCurrent {
+                audioPlayerView.updateThumbnailImageView()
+                audioPlayerView.setupBackgroundColor()
+            }
+            artwork.transform = reduceMotion ? .identity :
+                CGAffineTransform(translationX: -direction * view.bounds.width, y: 0)
+            UIView.animate(withDuration: reduceMotion ? 0 : 0.25, animations: {
+                outgoing?.transform = CGAffineTransform(translationX: direction * self.view.bounds.width, y: 0)
+                artwork.transform = .identity
+            }, completion: { _ in
+                outgoing?.removeFromSuperview()
+                self.artworkTransitionInProgress = false
+            })
+        default:
+            break
+        }
+    }
+
     override func setupGestures() {
         super.setupGestures()
 
         audioPlayerView.thumbnailView.addGestureRecognizer(panRecognizer)
-        audioPlayerView.thumbnailView.addGestureRecognizer(leftSwipeRecognizer)
-        audioPlayerView.thumbnailView.addGestureRecognizer(rightSwipeRecognizer)
         audioPlayerView.thumbnailView.addGestureRecognizer(doubleTapGestureRecognizer)
         audioPlayerView.addGestureRecognizer(playPauseRecognizer)
         audioPlayerView.addGestureRecognizer(pinchRecognizer)
         
         panRecognizer.delegate = self
-        leftSwipeRecognizer.delegate = self
-        rightSwipeRecognizer.delegate = self
     }
 
     @objc override func handlePinchGesture(recognizer: UIPinchGestureRecognizer) {
@@ -799,14 +876,9 @@ extension AudioPlayerViewController: ZoomTransitionEndpoint {
 // MARK: - UIGestureRecognizerDelegate
 
 extension AudioPlayerViewController: UIGestureRecognizerDelegate {
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
-                          shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        if (gestureRecognizer == panRecognizer &&
-            (otherGestureRecognizer == leftSwipeRecognizer || otherGestureRecognizer == rightSwipeRecognizer)) ||
-           ((gestureRecognizer == leftSwipeRecognizer || gestureRecognizer == rightSwipeRecognizer) &&
-            otherGestureRecognizer == panRecognizer) {
-            return true
-        }
-        return false
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer == panRecognizer else { return true }
+        return !artworkTransitionInProgress && !playerController.isInterfaceLocked &&
+            !mediaScrubProgressBar.isScrubbing
     }
 }

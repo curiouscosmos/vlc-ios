@@ -37,6 +37,17 @@ final class DiscoursePlaybackTests: XCTestCase {
         DiscourseSettings(defaults: defaults)
     }
 
+    func testArtworkSwipeThresholds() {
+        XCTAssertEqual(AudioPlayerViewController.artworkSwipeDirection(translation: -75, velocity: 0, width: 300), -1)
+        XCTAssertEqual(AudioPlayerViewController.artworkSwipeDirection(translation: 75, velocity: 0, width: 300), 1)
+        XCTAssertEqual(AudioPlayerViewController.artworkSwipeDirection(translation: 20, velocity: 501, width: 300), 1)
+        XCTAssertEqual(AudioPlayerViewController.artworkSwipeDirection(translation: -20, velocity: -501, width: 300), -1)
+        XCTAssertEqual(AudioPlayerViewController.artworkSwipeDirection(translation: 20, velocity: -600, width: 300), 0)
+        XCTAssertEqual(AudioPlayerViewController.artworkSwipeDirection(translation: 20, velocity: 500, width: 300), 0)
+        XCTAssertEqual(AudioPlayerViewController.artworkSwipeDirection(translation: 74, velocity: 0, width: 300), 0)
+        XCTAssertEqual(AudioPlayerViewController.artworkSwipeDirection(translation: 0, velocity: 600, width: 0), 0)
+    }
+
     // MARK: - Durations
 
     func testDurationFormatting() {

@@ -2289,9 +2289,27 @@ Reference files present for the contract: `api/docs.md`,
 `api/types/discourse.type.ts`, `api/edge.ts`, `api/migrations/`, `api/tests/`
 (backend reference material; **never wire `/seed` into the app**).
 
+Expanded audio artwork supports interactive horizontal swipes: left calls Next,
+right calls Previous (including its restart-after-two-seconds behavior). A quarter
+of the artwork width or a release faster than 500 points/second in the drag
+direction commits; cancellation and queue boundaries return the artwork. Swipes
+use the active shuffle order and repeat-all wrapping, ignore single-item queues,
+and never call Next at a non-wrapping queue end, where it would stop playback.
+Artwork transitions block overlapping swipes and clear the outgoing cover while
+new artwork loads. Reduce Motion switches without sliding. This replaces audio
+artwork swipe seeking only; the slider, double taps, dismissal, mini-player and
+video gestures and vertical artwork volume/brightness gestures retain their existing
+behavior. Threshold tests live in
+`DiscoursePlaybackTests.testArtworkSwipeThresholds`.
+
 ---
 
 ## 10. Known gaps and intentional deviations from Android
+
+Artwork track swipes: the simulator build and 29 focused playback/progress tests
+pass. Interactive local/discourse queue checks (shuffle/repeat, rapid swipes,
+delayed covers), VoiceOver, Reduce Motion, and device gesture feel remain to be
+verified; the available UI driver's permission check stalled during verification.
 
 - First-play silence is fixed in the native audio filter pipeline. RNNoise's
   conversion from 22.05 kHz mono to/from 48 kHz can emit empty startup blocks;
