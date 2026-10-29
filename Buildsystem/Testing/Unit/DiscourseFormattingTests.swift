@@ -17,6 +17,15 @@ import UIKit
 @testable import VLC
 
 final class DiscourseFormattingTests: XCTestCase {
+    func testCatalogueIndexLetters() {
+        XCTAssertEqual(DiscourseCatalogueViewController.indexLetter(for: " A Bird on the Wing"), "A")
+        XCTAssertEqual(DiscourseCatalogueViewController.indexLetter(for: "écho"), "E")
+        XCTAssertEqual(DiscourseCatalogueViewController.indexLetter(for: "beyond"), "B")
+        XCTAssertEqual(DiscourseCatalogueViewController.indexLetter(for: "123"), "#")
+        XCTAssertEqual(DiscourseCatalogueViewController.indexLetter(for: ""), "#")
+        XCTAssertEqual(DiscourseCatalogueViewController.indexLetter(for: "ध्यान"), "#")
+    }
+
     func testCountsBelowOneThousandAreVerbatim() {
         XCTAssertEqual(DiscourseCountFormatter.string(for: 0), "0")
         XCTAssertEqual(DiscourseCountFormatter.string(for: 1), "1")
