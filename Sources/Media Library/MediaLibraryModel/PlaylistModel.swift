@@ -183,6 +183,19 @@ extension VLCMLPlaylist {
         return image
     }
 
+    /// The artwork of the track the playlist starts with. The expanded header
+    /// and the playlist tile prefer it over the playlist's own artwork, so a
+    /// playlist looks like the music it contains.
+    @objc func firstTrackThumbnail() -> UIImage? {
+        return media?.first?.thumbnailImage()
+    }
+
+    /// The generated placeholder identity of the first track, used when it has
+    /// no artwork so the playlist still shows the first track's avatar.
+    @objc func firstTrackPlaceholderName() -> String? {
+        return media?.first?.placeholderName()
+    }
+
     func accessibilityText() -> String? {
         return name + " " + numberOfTracksString()
     }

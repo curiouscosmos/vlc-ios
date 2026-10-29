@@ -2410,13 +2410,25 @@ extension MediaCategoryViewController {
         }
     }
 
-    private func setupArtworkHeaderReusableView(headerView: CollectionArtworkHeader, collection: MediaCollectionModel) -> UICollectionReusableView {
+    private func setupArtworkHeaderReusableView(headerView: CollectionArtworkHeader,
+                                                collection: MediaCollectionModel,
+                                                files: [VLCMLMedia]) -> UICollectionReusableView {
         if let album = collection as? VLCMLAlbum {
             headerView.updateImage(with: album.thumbnail(), placeholderName: album.placeholderName())
             headerView.updateThumbnailTitle(album.title)
             headerView.collection = album
         } else if let playlist = collection as? VLCMLPlaylist {
-            headerView.updateImage(with: playlist.thumbnailImage(), placeholderName: playlist.placeholderName())
+            // The playlist tile and header show the music it starts with; the
+            // playlist's own artwork is only a fallback.
+            let firstTrack = files.first
+            let firstTrackArtwork = firstTrack?.thumbnailImage()
+                ?? playlist.firstTrackThumbnail()
+                ?? playlist.thumbnailImage()
+            let placeholderName = firstTrack?.placeholderName()
+                ?? playlist.firstTrackPlaceholderName()
+                ?? playlist.placeholderName()
+            headerView.updateImage(with: firstTrackArtwork,
+                                   placeholderName: placeholderName)
             headerView.updateThumbnailTitle(playlist.title())
             headerView.collection = playlist
         }
@@ -2442,7 +2454,9 @@ extension MediaCategoryViewController {
 
         if let collectionModel = model as? CollectionModel, usesArtworkHeader,
            let header = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: CollectionArtworkHeader.headerID, for: indexPath) as? CollectionArtworkHeader {
-            return setupArtworkHeaderReusableView(headerView: header, collection: collectionModel.mediaCollection)
+            return setupArtworkHeaderReusableView(headerView: header,
+                                                  collection: collectionModel.mediaCollection,
+                                                  files: collectionModel.files)
         } else if isSectioned,
                   let headerView = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: TrackSectionHeader.headerID, for: indexPath) as? TrackSectionHeader {
             let media = currentDataSetGroupedByTitle[indexPath.section].items[indexPath.row]

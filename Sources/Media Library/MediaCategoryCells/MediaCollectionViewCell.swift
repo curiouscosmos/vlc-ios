@@ -312,6 +312,8 @@ class MediaCollectionViewCell: BaseCollectionViewCell, UIScrollViewDelegate {
             descriptionText += " · " + albumTitle
         }
 
+        thumbnailView.layer.masksToBounds = true
+        thumbnailView.layer.cornerRadius = 8
         thumbnailView.setImage(audiotrack.thumbnailImage(), placeholderName: audiotrack.placeholderName())
         thumbnailView.isHidden = false
         animationImageView.isHidden = true
@@ -496,8 +498,9 @@ class MediaCollectionViewCell: BaseCollectionViewCell, UIScrollViewDelegate {
             sizeDescriptionLabel.text = metadata
         }
 
-        thumbnailView.layer.cornerRadius = 3
-        thumbnailView.setImage(playlist.thumbnail(), placeholderName: playlist.placeholderName())
+        thumbnailView.layer.cornerRadius = 8
+        thumbnailView.setImage(playlist.firstTrackThumbnail() ?? playlist.thumbnail(),
+                               placeholderName: playlist.firstTrackPlaceholderName() ?? playlist.placeholderName())
         dragIndicatorImageView.image = UIImage(named: "disclosureChevron")
         dragIndicatorImageView.tintColor = PresentationTheme.current.colors.orangeUI
         scrollView.isScrollEnabled = true

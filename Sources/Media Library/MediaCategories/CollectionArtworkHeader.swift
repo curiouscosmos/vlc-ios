@@ -94,7 +94,7 @@ class CollectionArtworkHeader: UICollectionReusableView {
 #if !os(visionOS)
         if #available(iOS 26.0, *) {
             var config: UIButton.Configuration = .prominentGlass()
-            config.baseBackgroundColor = PresentationTheme.current.colors.orangeUI
+            config.baseBackgroundColor = DiscourseColors.current.accent
             config.baseForegroundColor = .white
             config.image = image
             config.cornerStyle = .capsule
@@ -106,7 +106,17 @@ class CollectionArtworkHeader: UICollectionReusableView {
         button.tintColor = .white
         button.layer.cornerRadius = 0.5 * size
         button.clipsToBounds = true
-        button.backgroundColor = PresentationTheme.current.colors.orangeUI
+        button.backgroundColor = DiscourseColors.current.accent
+    }
+
+    private func applyButtonStyles() {
+        let buttonSize: CGFloat = 50.0
+        applyGlassStyle(to: playAllButton,
+                        image: UIImage(named: "iconPlay")?.withRenderingMode(.alwaysTemplate),
+                        size: buttonSize)
+        applyGlassStyle(to: playShuffleButton,
+                        image: UIImage(named: "shuffle"),
+                        size: buttonSize)
     }
 
     private func setupConstraints() {
@@ -183,6 +193,7 @@ class CollectionArtworkHeader: UICollectionReusableView {
     func updateTheme() {
         backgroundColor = PresentationTheme.current.colors.background
         updateTitleColor()
+        applyButtonStyles()
     }
 
     // MARK: - Actions

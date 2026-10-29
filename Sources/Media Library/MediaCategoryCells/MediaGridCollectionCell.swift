@@ -297,7 +297,8 @@ class MediaGridCollectionCell: BaseCollectionViewCell {
         titleLabel.text = playlist.name
         accessibilityLabel = playlist.accessibilityText()
         descriptionLabel.text = playlist.numberOfTracksString()
-        thumbnailView.setImage(playlist.thumbnail(), placeholderName: playlist.placeholderName())
+        thumbnailView.setImage(playlist.firstTrackThumbnail() ?? playlist.thumbnail(),
+                               placeholderName: playlist.firstTrackPlaceholderName() ?? playlist.placeholderName())
     }
 
     func update(mediaGroup: VLCMLMediaGroup) {

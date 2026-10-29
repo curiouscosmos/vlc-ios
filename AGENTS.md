@@ -2161,6 +2161,20 @@ Google OAuth handler and URL-scheme registration.
   `testCataloguePaginatesPastTheFirstPage` reproduces the crash on the previous
   build and passes with the guard (iOS 26.4 simulator).
 
+### Post-phase polish — playlist artwork and primary actions — **Done**
+- The expanded playlist/album header's Play and Shuffle buttons use
+  `DiscourseColors.accent` instead of the upstream orange, including the iOS 26
+  glass style and after theme changes.
+- Playlist tiles and the expanded header show the artwork of the playlist's
+  first track (falling back to the playlist's own artwork, then the first
+  track's generated placeholder avatar) through
+  `VLCMLPlaylist.firstTrackThumbnail()` / `firstTrackPlaceholderName()`; the
+  loaded collection's `files.first` is preferred for the header.
+- Track artwork in the shared `MediaCollectionViewCell` uses an 8 pt corner
+  radius; playlist tiles match. The grid cell also prefers the first track.
+- Verified with the no-watch build and the `VLCTestMenu` playlists navigation
+  and automatic-collections tests.
+
 ### Post-phase polish — Local library offers Songs and Folders — **Done**
 - The local library opened from local-media shortcuts uses a Songs and Folders
   pages (the Mixer no longer opens it; see the file-picker polish below).
@@ -2408,7 +2422,9 @@ Record every deviation here; never hide a gap.
     `discourseFloatingTabBarInset` so their last row clears the floating bar;
     the mini player and edit toolbar still anchor to the tab bar's top. The
     Playlists grid keeps the upstream XIB cells; restyling them would touch every
-    library screen because the cell class is shared.
+    library screen because the cell class is shared. The expanded collection
+    header now uses the discourse accent for Play/Shuffle and shows the first
+    track's artwork; track thumbnails in the shared cell are rounded.
 
 19. **On Air and podcasts.** Removing the On Air tab removes the only entry point
     to the upstream podcast/radio surface, so `PodcastFeedURLHandler.showPodcasts()`
@@ -2730,6 +2746,16 @@ behaviour:
    - `Sources/Media Library/MediaViewControllers/PlaylistViewController.swift` —
      the fork accent on the Playlists tab's navigation bar (applied on launch and
      on theme changes).
+   - `Sources/Media Library/MediaCategories/CollectionArtworkHeader.swift` — the
+     Play/Shuffle action buttons use `DiscourseColors.accent` (iOS 26 glass and
+     legacy styles) and refresh on theme changes.
+   - `Sources/Media Library/MediaLibraryModel/PlaylistModel.swift` —
+     `VLCMLPlaylist.firstTrackThumbnail()` / `firstTrackPlaceholderName()`
+     supply the first track's artwork (or generated avatar) to playlist tiles
+     and the expanded header.
+   - `Sources/Media Library/MediaCategoryCells/MediaCollectionViewCell.swift` and
+     `MediaGridCollectionCell.swift` — playlist artwork prefers the first track,
+     and track/playlist thumbnails use an 8 pt corner radius.
    - `Sources/App/iOS/TabBarCoordinator.swift` (tab-bar part) — the default
      tab-bar mode on iPhone, `.tabSidebar` on iPad only, and the discourse accent
      tint for the selected item.
