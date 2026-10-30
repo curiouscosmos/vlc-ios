@@ -171,6 +171,27 @@ final class DiscoursePlaybackTests: XCTestCase {
     }
 
     @MainActor
+    func testAbsoluteClipSeekPreservesPausedRestorationAndClampsBounds() {
+        let url = RDPlaybackSnapshot.url
+        let original = try? Data(contentsOf: url)
+        defer {
+            if let original { try? original.write(to: url, options: .atomic) }
+            else { try? FileManager.default.removeItem(at: url) }
+        }
+        let service = PlaybackService()
+        service.configureReadyPlayback(snapshot())
+        service.seek(toMilliseconds: 38_000)
+        XCTAssertEqual(service.playedTime().intValue, 38_000)
+        XCTAssertFalse(service.isPlaying)
+        XCTAssertEqual((RDPlaybackSnapshot.readSnapshot()?["position"] as? Double) ?? -1, 38_000, accuracy: 1)
+        service.seek(toMilliseconds: -1)
+        XCTAssertEqual(service.playedTime().intValue, 0)
+        service.seek(toMilliseconds: 999_000)
+        XCTAssertEqual(service.playedTime().intValue, 120_000)
+        XCTAssertFalse(service.isPlaying)
+    }
+
+    @MainActor
     func testNewPlaybackConfigurationWinsOverDiskRestore() throws {
         let service = PlaybackService()
         service.configureReadyPlayback(snapshot())

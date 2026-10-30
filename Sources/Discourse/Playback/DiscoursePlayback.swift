@@ -341,6 +341,8 @@ final class DiscoursePlayback {
                 }
             }
             guard let media = VLCMedia(url: url) else { return nil }
+            // Match new catalogue queues when restoring a downloaded discourse.
+            if !audioID.isEmpty, url.isFileURL { media.addOption(":demux=avformat") }
             media.metaData.title = item["title"] as? String
             media.metaData.artist = item["artist"] as? String
             media.metaData.album = item["album"] as? String

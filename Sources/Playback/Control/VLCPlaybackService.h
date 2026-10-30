@@ -156,6 +156,10 @@ NS_SWIFT_NAME(PlaybackService)
 - (void)startPlayback;
 - (void)stopPlayback;
 - (void)playPause;
+#if TARGET_OS_IOS
+/// Absolute timestamp seek for clip previews.
+- (void)seekToTime:(NSInteger)milliseconds NS_SWIFT_NAME(seek(toMilliseconds:));
+#endif
 - (void)play;
 - (void)pause;
 - (BOOL)next;

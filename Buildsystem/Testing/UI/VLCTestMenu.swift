@@ -212,6 +212,30 @@ class VLCTestMenu: XCTestCase {
         let handle = end.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         handle.press(forDuration: 0.1, thenDragTo: handle.withOffset(CGVector(dx: 100, dy: 0)))
         XCTAssertNotEqual(end.value as? String, before)
+        let start = app.descendants(matching: .any)["Clip start"].firstMatch
+        let startHandle = start.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        startHandle.press(forDuration: 0.1, thenDragTo: end.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+        // Keep the twelve-second preview away from EOF so this checks the
+        // selected clip boundary rather than natural track completion.
+        for _ in 0..<14 { app.buttons["CLIP_START_DECREASE"].tap() }
+        for _ in 0..<3 { app.buttons["CLIP_END_DECREASE"].tap() }
+        let startTime = try XCTUnwrap(start.value as? String)
+        let endTime = try XCTUnwrap(end.value as? String)
+        let selection = XCTAttachment(string: "Preview selection: \(startTime) to \(endTime)")
+        selection.lifetime = .keepAlways
+        add(selection)
+        let previewTime = app.staticTexts["clipPreviewTime"]
+        XCTAssertEqual(previewTime.label, startTime)
+        app.buttons["Play or pause"].tap()
+        let progresses = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            previewTime.label != startTime && previewTime.label != endTime
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [progresses], timeout: 8), .completed)
+        let reachesEnd = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", endTime), object: previewTime)
+        XCTAssertEqual(XCTWaiter.wait(for: [reachesEnd], timeout: 20), .completed)
+        let remainsAtEnd = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", endTime), object: previewTime)
+        remainsAtEnd.isInverted = true
+        XCTAssertEqual(XCTWaiter.wait(for: [remainsAtEnd], timeout: 2), .completed)
         let editorImage = XCTAttachment(screenshot: app.screenshot())
         editorImage.name = "Clip editor"
         editorImage.lifetime = .keepAlways

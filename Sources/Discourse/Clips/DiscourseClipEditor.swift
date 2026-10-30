@@ -33,6 +33,28 @@ struct DiscourseClipRange: Equatable {
     }
 }
 
+/// A preview start is an explicit, one-shot seek, never a correction of VLC's
+/// asynchronous position reports. Wait for resumed audio before issuing it.
+struct DiscourseClipPreview {
+    private(set) var pendingStart: Double?
+    private var resumeAnchor: Double?
+
+    mutating func requestStart(at seconds: Double) {
+        pendingStart = seconds
+        resumeAnchor = nil
+    }
+
+    mutating func seekTarget(position: Double, isPlaying: Bool, isInteracting: Bool) -> Double? {
+        guard isPlaying, !isInteracting else { resumeAnchor = nil; return nil }
+        guard let target = pendingStart else { return nil }
+        guard let anchor = resumeAnchor else { resumeAnchor = position; return nil }
+        guard position >= anchor + 0.5 else { return nil }
+        pendingStart = nil
+        resumeAnchor = nil
+        return target
+    }
+}
+
 private final class DiscourseClipHandle: UIControl {
     var adjust: ((Double) -> Void)?
     override func accessibilityIncrement() { adjust?(1) }
@@ -97,6 +119,7 @@ final class DiscourseClipEditor: UIView {
         trackEnd.text = DiscourseClipRange.time(range.duration)
         trackEnd.textAlignment = .right
         positionLabel.backgroundColor = DiscourseColors.current.primaryText.withAlphaComponent(0.12)
+        positionLabel.accessibilityIdentifier = "clipPreviewTime"
         positionLabel.layer.cornerRadius = 7
         positionLabel.clipsToBounds = true
         positionLine.backgroundColor = DiscourseColors.current.primaryText

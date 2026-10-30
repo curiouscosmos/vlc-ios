@@ -958,6 +958,28 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 #endif
 }
 
+#if TARGET_OS_IOS
+- (void)seekToTime:(NSInteger)milliseconds
+{
+    NSInteger duration = _restoredPaused ? (NSInteger)(_metadata.playbackDuration.doubleValue * 1000) : self.mediaDuration;
+    if (duration <= 0) return;
+    NSInteger target = MIN(MAX(milliseconds, 0), MIN(duration, INT32_MAX));
+    if (_restoredPaused) {
+        self.playbackPosition = (float)target / duration;
+    } else {
+        // Preview timestamps must not depend on fractional byte-offset estimates.
+        _mediaPlayer.time = [VLCTime timeWithInt:(int)target];
+        _majorPositionChangeInProgress = 1;
+    }
+    NSMutableDictionary *snapshot = [[self playbackSnapshot] mutableCopy];
+    if (snapshot) {
+        snapshot[@"position"] = @(target);
+        _lastReadySnapshot = snapshot;
+        [RDPlaybackSnapshot save:snapshot];
+    }
+}
+#endif
+
 - (void)setABLoopFromPosition:(double)from toPosition:(double)to
 {
     [_mediaPlayer setABLoopFromPosition:from toPosition:to];

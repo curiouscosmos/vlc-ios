@@ -160,6 +160,35 @@ final class DiscourseClipTests: XCTestCase {
         }
     }
 
+    func testPreviewSeeksOnceDespiteOptimisticAndStaleVLCTimestamps() {
+        var preview = DiscourseClipPreview()
+        preview.requestStart(at: 46)
+        XCTAssertNil(preview.seekTarget(position: 92, isPlaying: false, isInteracting: false))
+        XCTAssertNil(preview.seekTarget(position: 92, isPlaying: true, isInteracting: false))
+        XCTAssertEqual(preview.seekTarget(position: 92.5, isPlaying: true, isInteracting: false), 46)
+        // Reproduce the simulator trace: VLC first echoes the requested time,
+        // then reports an earlier timestamp. Neither report may re-arm a seek.
+        for position in [46.0, 14, 14.5, 15, 45, 46, 47, 60] {
+            XCTAssertNil(preview.seekTarget(position: position, isPlaying: true, isInteracting: false))
+        }
+        XCTAssertNil(preview.pendingStart)
+        preview.requestStart(at: 46)
+        XCTAssertNil(preview.seekTarget(position: 60, isPlaying: true, isInteracting: false))
+        XCTAssertEqual(preview.seekTarget(position: 60.5, isPlaying: true, isInteracting: false), 46)
+    }
+
+    func testPreviewWaitsForResumeAndDraggingBeforeOneShotSeek() {
+        var preview = DiscourseClipPreview()
+        preview.requestStart(at: 20)
+        XCTAssertNil(preview.seekTarget(position: 0, isPlaying: true, isInteracting: false))
+        XCTAssertNil(preview.seekTarget(position: 0, isPlaying: true, isInteracting: false))
+        XCTAssertNil(preview.seekTarget(position: 1, isPlaying: true, isInteracting: true))
+        preview.requestStart(at: 30)
+        XCTAssertNil(preview.seekTarget(position: 1, isPlaying: true, isInteracting: false))
+        XCTAssertEqual(preview.seekTarget(position: 1.5, isPlaying: true, isInteracting: false), 30)
+        XCTAssertNil(preview.seekTarget(position: 2, isPlaying: true, isInteracting: false))
+    }
+
     func testCancellationInvalidatesPendingWork() {
         let exporter = DiscourseClipExporter()
         let done = expectation(description: "Cancelled load does not deliver")
