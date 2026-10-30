@@ -236,7 +236,7 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
     }
 
     private var portraitVerticalSpacing: CGFloat {
-        return isCompactScreen ? 10.0 : 20.0
+        return isCompactScreen || (clipEditing && bounds.height < 750) ? 10.0 : 20.0
     }
 
     // Landscape margin: wide on iPad, tighter on the narrower iPhone panes.
@@ -790,15 +790,14 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
                                                                                           constant: -2 * padding)
         landscapeThumbnailWidthConstraint.priority = isPad ? UILayoutPriority(999) : .defaultHigh
 
-        // Portrait: the artwork is a square that fills the content width.
-        // Regular screens have the vertical room, so the size is required;
-        // compact screens keep it high-priority so it yields when too short.
+        // Prefer full-width artwork, but let it shrink before the transport
+        // leaves the safe area when the clip panel or metadata needs more room.
         let compactWidthConstraint = thumbnailImageView.widthAnchor.constraint(equalTo: thumbnailView.widthAnchor)
         compactWidthConstraint.priority = .defaultHigh - 1
         portraitThumbnailWidthCompactConstraint = compactWidthConstraint
 
         let regularWidthConstraint = thumbnailImageView.widthAnchor.constraint(equalTo: thumbnailView.widthAnchor)
-        regularWidthConstraint.priority = .required
+        regularWidthConstraint.priority = .defaultHigh - 1
         portraitThumbnailWidthRegularConstraint = regularWidthConstraint
 
         // The width constraints yield when the pane is too short. Without a floor

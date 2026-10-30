@@ -108,6 +108,58 @@ final class DiscourseClipTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testClipPlayerKeepsTransportInsideSafeArea() {
+        for size in [CGSize(width: 393, height: 852), CGSize(width: 375, height: 667)] {
+            let window = UIWindow(frame: CGRect(origin: .zero, size: size))
+            let host = UIViewController()
+            host.additionalSafeAreaInsets = size.height > 700
+                ? UIEdgeInsets(top: 59, left: 0, bottom: 34, right: 0)
+                : UIEdgeInsets(top: 20, left: 0, bottom: 0, right: 0)
+            window.rootViewController = host
+            window.isHidden = false
+            defer { window.isHidden = true }
+            let player = AudioPlayerView(frame: window.bounds)
+            player.translatesAutoresizingMaskIntoConstraints = false
+            host.view.addSubview(player)
+            NSLayoutConstraint.activate([
+                player.leadingAnchor.constraint(equalTo: host.view.leadingAnchor),
+                player.trailingAnchor.constraint(equalTo: host.view.trailingAnchor),
+                player.topAnchor.constraint(equalTo: host.view.topAnchor),
+                player.bottomAnchor.constraint(equalTo: host.view.bottomAnchor),
+                player.navigationBarView.heightAnchor.constraint(equalToConstant: 44)
+            ])
+            player.updateLabels(title: "Es Dhammo Sanantano 001", artist: "Osho",
+                                album: "Es Dhammo Sanantano 001", isQueueHidden: true)
+            player.shouldEnableSeekButtons(true)
+            player.setClipEditing(true)
+            let editor = DiscourseClipEditor(range: DiscourseClipRange(duration: 5869, position: 689))
+            editor.range.moveEnd(to: 1485)
+            editor.setPosition(711)
+            editor.translatesAutoresizingMaskIntoConstraints = false
+            player.progressionView.addSubview(editor)
+            NSLayoutConstraint.activate([
+                editor.leadingAnchor.constraint(equalTo: player.progressionView.leadingAnchor, constant: 12),
+                editor.trailingAnchor.constraint(equalTo: player.progressionView.trailingAnchor, constant: -12),
+                editor.topAnchor.constraint(equalTo: player.progressionView.topAnchor),
+                editor.bottomAnchor.constraint(equalTo: player.progressionView.bottomAnchor)
+            ])
+            for _ in 0..<3 { window.layoutIfNeeded(); player.setNeedsLayout() }
+            window.layoutIfNeeded()
+            XCTAssertLessThanOrEqual(player.controlsStackView.frame.maxY,
+                                     player.safeAreaLayoutGuide.layoutFrame.maxY,
+                                     "Transport clipped at \(size)")
+            XCTAssertGreaterThanOrEqual(player.controlsStackView.frame.minY, player.progressionView.frame.maxY)
+            let image = UIGraphicsImageRenderer(bounds: player.bounds).image { context in
+                player.layer.render(in: context.cgContext)
+            }
+            let attachment = XCTAttachment(image: image)
+            attachment.name = "clip-full-player-\(Int(size.height))"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
     func testCancellationInvalidatesPendingWork() {
         let exporter = DiscourseClipExporter()
         let done = expectation(description: "Cancelled load does not deliver")
