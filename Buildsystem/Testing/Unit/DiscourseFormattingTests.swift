@@ -71,6 +71,28 @@ final class DiscourseFormattingTests: XCTestCase {
         XCTAssertEqual(DiscourseCountFormatter.string(for: -5), "0")
     }
 
+    func testPlayerHeartUsesLargeSizeOnlyWithoutLikes() throws {
+        let control = DiscourseLikeControl()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
+        let controller = UIViewController()
+        window.rootViewController = controller
+        controller.view.addSubview(control)
+        control.frame = CGRect(x: 0, y: 0, width: 80, height: 44)
+        window.isHidden = false
+        defer { window.isHidden = true }
+        let stack = try XCTUnwrap(control.subviews.compactMap { $0 as? UIStackView }.first)
+        let heart = try XCTUnwrap(stack.arrangedSubviews.compactMap { $0 as? UIImageView }.first)
+        control.style = .player
+        for (count, expectedSize) in [(0, 24.0), (2, 18.0), (0, 24.0)] {
+            control.configure(isLiked: false, count: count, title: "Track", isPending: false)
+            window.layoutIfNeeded()
+            XCTAssertEqual(heart.bounds.width, expectedSize, accuracy: 0.01)
+        }
+        control.style = .surface
+        window.layoutIfNeeded()
+        XCTAssertEqual(heart.bounds.width, 18, accuracy: 0.01)
+    }
+
     func testLikeCountsAppearOnlyWhenPositive() {
         let control = DiscourseLikeControl()
         let stack = control.subviews.compactMap { $0 as? UIStackView }.first!

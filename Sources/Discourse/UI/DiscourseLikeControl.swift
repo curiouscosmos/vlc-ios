@@ -36,7 +36,7 @@ struct DiscourseLikeState {
 
 final class DiscourseLikeControl: UIControl {
     /// Where the control is drawn: on a themed surface (cards, rows, headers) or
-    /// on the audio player's dark navigation bar.
+    /// in the audio player's action row.
     enum Style {
         case surface
         case player
@@ -49,6 +49,8 @@ final class DiscourseLikeControl: UIControl {
     private let stackView = UIStackView()
     private let heartView = UIImageView()
     private let countLabel = UILabel()
+    private lazy var heartWidth = heartView.widthAnchor.constraint(equalToConstant: 18)
+    private lazy var heartHeight = heartView.heightAnchor.constraint(equalToConstant: 18)
 
     private var isLiked = false
     private var likeCount = 0
@@ -71,7 +73,7 @@ final class DiscourseLikeControl: UIControl {
         return stackView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
     }
 
-    /// The heart is small on purpose; keep the touch target at least 44 pt.
+    /// Keep the touch target at least 44 pt for both heart sizes.
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         let dx = min(0, (bounds.width - 44) / 2)
         let dy = min(0, (bounds.height - 44) / 2)
@@ -109,8 +111,8 @@ final class DiscourseLikeControl: UIControl {
         NSLayoutConstraint.activate([
             stackView.centerXAnchor.constraint(equalTo: centerXAnchor),
             stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            heartView.widthAnchor.constraint(equalToConstant: 18),
-            heartView.heightAnchor.constraint(equalToConstant: 18)
+            heartWidth,
+            heartHeight
         ])
 
         updateTheme()
@@ -124,8 +126,6 @@ final class DiscourseLikeControl: UIControl {
         self.title = title
         self.isPending = isPending
 
-        heartView.image = UIImage(systemName: isLiked ? "heart.fill" : "heart",
-                                  withConfiguration: Self.symbolConfiguration)
         countLabel.text = DiscourseCountFormatter.string(for: likeCount)
         countLabel.isHidden = likeCount == 0
         alpha = isPending ? 0.6 : 1
@@ -169,6 +169,15 @@ final class DiscourseLikeControl: UIControl {
     // MARK: - Theme
 
     func updateTheme() {
+        let standalonePlayerHeart = style == .player && likeCount == 0
+        let size: CGFloat = standalonePlayerHeart ? 24 : 18
+        heartWidth.constant = size
+        heartHeight.constant = size
+        heartView.image = UIImage(systemName: isLiked ? "heart.fill" : "heart",
+                                  withConfiguration: standalonePlayerHeart
+                                    ? UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
+                                    : Self.symbolConfiguration)
+        invalidateIntrinsicContentSize()
         let colors = DiscourseColors.current
         switch style {
         case .surface:

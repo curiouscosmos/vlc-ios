@@ -123,6 +123,7 @@ payloads/collections), `DiscourseHistoryStore` (max 24, newest first), `Discours
 - **Likes/downloads**: `DiscourseLikeControl` + `DiscourseLikeActions` and `DiscourseDownloadControl` +
   `DiscourseDownloadActions` are the only render/action paths; cards/rows are accessibility containers holding a
   transparent `DiscourseAccessibilityButton` and the heart; catalogue cards show a `3/11` download badge.
+  The expanded player uses a 24 pt heart with no likes and the compact 18 pt heart beside positive counts.
 - **Mixer screen**: wave hero (equalizer mark, **Background Music Mixer** + subtitle), track cards (artwork, title, duration, checkmark; long-press drag reorder, swipe delete), a dashed **Tap + to add an audio file** slot and a pinned panel (grabber, play/pause, **Mixer on/off** + status, Loop pill, volume with minus/plus and percentage; tapping the title/status toggles the switch). Detail rows swipe left for **Add to Playlist** (upstream picker, streaming URL + identity); the expanded player has a Like / Discourse / Playlist / Noise row, a circular accent play button and 30 s skips (row hidden in landscape). All fork screens observe theme/likes/downloads/progress and reconfigure only affected visible rows.
 
 ### 4.7 Discourse playback bridge (`Sources/Discourse/Playback/`)
