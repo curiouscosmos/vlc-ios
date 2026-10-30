@@ -37,6 +37,19 @@ enum DiscourseDurationFormatter {
 }
 
 enum DiscourseMetadataText {
+    static func trackSubtitle(title: String, discourseName: String, durationSeconds: Double?) -> String {
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = discourseName.trimmingCharacters(in: .whitespacesAndNewlines)
+        var parts: [String] = []
+        if let duration = DiscourseDurationFormatter.string(forSeconds: durationSeconds) {
+            parts.append(duration)
+        }
+        if !name.isEmpty, name.caseInsensitiveCompare(title) != .orderedSame {
+            parts.append(name)
+        }
+        return parts.joined(separator: " · ")
+    }
+
     /// `english` → `English`; unknown values keep their capitalisation.
     static func language(_ raw: String) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)

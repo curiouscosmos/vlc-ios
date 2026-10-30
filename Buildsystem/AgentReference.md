@@ -118,6 +118,8 @@ payloads/collections), `DiscourseHistoryStore` (max 24, newest first), `Discours
   Carousel headers ignore section insets so all Home headings align at the same 16 pt leading edge.
 - **Playlist cards**: ordinary playlist rows and automatic favourite collections use 12 pt corners, track surfaces
   and track borders; list cards are at least 112 pt tall with 112 × 88 pt aspect-fill artwork and track counts; favourite cards have 8 pt spacing.
+- **Track rows**: vertically centred title and subtitle; duration comes first, and a discourse name matching the
+  title (ignoring case and surrounding whitespace) is omitted. Shared by Home, search and favourite tracks.
 - **Likes/downloads**: `DiscourseLikeControl` + `DiscourseLikeActions` and `DiscourseDownloadControl` +
   `DiscourseDownloadActions` are the only render/action paths; cards/rows are accessibility containers holding a
   transparent `DiscourseAccessibilityButton` and the heart; catalogue cards show a `3/11` download badge.

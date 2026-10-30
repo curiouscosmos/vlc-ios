@@ -119,7 +119,14 @@ final class DiscourseRowView: UIView {
         containerView.addSubview(likeControl)
         containerView.addSubview(accessibilityButton)
 
+        let textLayout = UILayoutGuide()
+        containerView.addLayoutGuide(textLayout)
         NSLayoutConstraint.activate([
+            textLayout.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            textLayout.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            textLayout.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            titleLabel.topAnchor.constraint(equalTo: textLayout.topAnchor),
+            subtitleLabel.bottomAnchor.constraint(equalTo: textLayout.bottomAnchor),
             containerView.topAnchor.constraint(equalTo: topAnchor, constant: 3),
             containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
             containerView.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -131,11 +138,11 @@ final class DiscourseRowView: UIView {
             artworkView.widthAnchor.constraint(equalToConstant: 52),
             artworkView.heightAnchor.constraint(equalTo: artworkView.widthAnchor),
 
-            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 10),
+            titleLabel.topAnchor.constraint(greaterThanOrEqualTo: containerView.topAnchor, constant: 10),
 
             subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
-            subtitleLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -10),
+            subtitleLabel.bottomAnchor.constraint(lessThanOrEqualTo: containerView.bottomAnchor, constant: -10),
 
             downloadControl.trailingAnchor.constraint(equalTo: likeControl.leadingAnchor, constant: -10),
             downloadControl.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
@@ -213,17 +220,9 @@ final class DiscourseRowView: UIView {
         let title = track.title.trimmingCharacters(in: .whitespacesAndNewlines)
         titleLabel.text = title
 
-        // The duration moved into the metadata line; the trailing slot now holds
-        // the like control.
-        var subtitleParts: [String] = []
-        let discourseName = track.discourseName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !discourseName.isEmpty {
-            subtitleParts.append(discourseName)
-        }
-        if let duration = DiscourseDurationFormatter.string(forSeconds: track.durationSeconds) {
-            subtitleParts.append(duration)
-        }
-        subtitleLabel.text = subtitleParts.joined(separator: " · ")
+        subtitleLabel.text = DiscourseMetadataText.trackSubtitle(title: title,
+                                                                discourseName: track.discourseName,
+                                                                durationSeconds: track.durationSeconds)
 
         self.isPlaying = isPlaying
         setAccessoryControlsHidden(false)

@@ -17,6 +17,15 @@ import UIKit
 @testable import VLC
 
 final class DiscourseFormattingTests: XCTestCase {
+    func testTrackSubtitleOmitsDuplicateTitleAndKeepsDurationFirst() {
+        XCTAssertEqual(DiscourseMetadataText.trackSubtitle(title: "Talk 001", discourseName: " talk 001 ",
+                                                          durationSeconds: 5940), "1:39:00")
+        XCTAssertEqual(DiscourseMetadataText.trackSubtitle(title: "Talk 001", discourseName: "Series",
+                                                          durationSeconds: 5940), "1:39:00 · Series")
+        XCTAssertEqual(DiscourseMetadataText.trackSubtitle(title: "Talk", discourseName: "Talk",
+                                                          durationSeconds: nil), "")
+    }
+
     func testCatalogueIndexLetters() {
         XCTAssertEqual(DiscourseCatalogueViewController.indexLetter(for: " A Bird on the Wing"), "A")
         XCTAssertEqual(DiscourseCatalogueViewController.indexLetter(for: "écho"), "E")
