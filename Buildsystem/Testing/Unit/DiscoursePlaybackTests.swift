@@ -59,6 +59,22 @@ final class DiscoursePlaybackTests: XCTestCase {
                 "duration": 120_000.0, "shuffle": shuffled, "order": shuffled ? [2, 0, 1] : [], "repeat": 0]
     }
 
+    func testSnapshotPreservesTrackThumbnailAcrossJSONRestoration() throws {
+        let media = try XCTUnwrap(DiscourseMediaFactory.media(for: try decodeTrack(),
+                                                              discourse: nil,
+                                                              fallbackTrackNumber: 1,
+                                                              identityStore: DiscourseMediaIdentityStore(settings: settings)))
+        let artworkURL = try XCTUnwrap(media.metaData.artworkURL)
+        let item = try XCTUnwrap(RDPlaybackSnapshot.item(for: media))
+        var value = snapshot()
+        value["items"] = [item]
+        value["index"] = 0
+        let data = try JSONSerialization.data(withJSONObject: value)
+        let decoded = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let restored = try XCTUnwrap(RDPlaybackSnapshot.mediaList(decoded)?.media(at: 0))
+        XCTAssertEqual(restored.metaData.artworkURL, artworkURL)
+    }
+
     func testSnapshotRoundTripAndValidation() throws {
         let encoded = try JSONSerialization.data(withJSONObject: snapshot(shuffled: true))
         let valid = try XCTUnwrap(RDPlaybackSnapshot.validated(JSONSerialization.jsonObject(with: encoded)))
@@ -409,6 +425,14 @@ final class DiscoursePlaybackTests: XCTestCase {
         XCTAssertEqual(media.length.intValue, 1_234_500)
     }
 
+    func testMediaPrefersAudioObjectThumbnailOverDiscourseThumbnail() throws {
+        let media = try XCTUnwrap(DiscourseMediaFactory.media(for: try decodeTrack(),
+                                                              discourse: try decodeDiscourse(thumbnail: "/thumbnails/other.jpg"),
+                                                              fallbackTrackNumber: 1,
+                                                              identityStore: DiscourseMediaIdentityStore(settings: settings)))
+        XCTAssertEqual(media.metaData.artworkURL, try decodeTrack().thumbnailURL)
+    }
+
     func testMediaIdentityIsReadableFromThePlayerItem() throws {
         let store = DiscourseMediaIdentityStore(settings: settings)
         let media = try XCTUnwrap(DiscourseMediaFactory.media(for: try decodeTrack(),
@@ -501,12 +525,12 @@ final class DiscoursePlaybackTests: XCTestCase {
         return try JSONDecoder().decode(DiscourseAudio.self, from: Data(json.utf8))
     }
 
-    private func decodeDiscourse() throws -> Discourse {
+    private func decodeDiscourse(thumbnail: String = "/thumbnails/1.jpg") throws -> Discourse {
         let json = """
         {
             "id": "discourse-1",
             "title": "The Book of Secrets",
-            "thumbnail_url": "/thumbnails/1.jpg",
+            "thumbnail_url": "\(thumbnail)",
             "language": "english",
             "slug": "the-book-of-secrets",
             "total_tracks": 12,

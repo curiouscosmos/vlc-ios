@@ -266,6 +266,7 @@ final class DiscoursePlayback {
         let identity = DiscourseMediaFactory.identity(of: media)
         return ["url": url.absoluteString, "title": media.metaData.title ?? url.lastPathComponent,
                 "artist": media.metaData.artist ?? "", "album": media.metaData.album ?? "",
+                "artworkURL": media.metaData.artworkURL?.absoluteString ?? "",
                 "audioID": identity?.audioID ?? "", "discourseID": identity?.discourseID ?? "",
                 "duration": max(0, media.length.intValue)]
     }
@@ -343,6 +344,9 @@ final class DiscoursePlayback {
             media.metaData.title = item["title"] as? String
             media.metaData.artist = item["artist"] as? String
             media.metaData.album = item["album"] as? String
+            if let artwork = item["artworkURL"] as? String, !artwork.isEmpty {
+                media.metaData.artworkURL = URL(string: artwork)
+            }
             media.length = VLCTime(int: Int32(clamping: item["duration"] as? Int ?? 0))
             media.metaData.setExtraValue(audioID, forKey: DiscourseMediaIdentity.audioExtraKey)
             media.metaData.setExtraValue(item["discourseID"] as? String ?? "", forKey: DiscourseMediaIdentity.discourseExtraKey)

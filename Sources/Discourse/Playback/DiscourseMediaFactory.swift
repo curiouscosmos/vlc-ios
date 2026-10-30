@@ -150,7 +150,6 @@ enum DiscourseMediaFactory {
     }
 
     private static func artworkURL(for track: DiscourseAudio, discourse: Discourse?) -> URL? {
-        let raw = discourse?.thumbnailURLString ?? track.discourseThumbnailURLString
-        return DiscourseURLResolver.resolve(raw)
+        return track.thumbnailURL ?? DiscourseURLResolver.resolve(discourse?.thumbnailURLString)
     }
 }

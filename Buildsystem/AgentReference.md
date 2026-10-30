@@ -47,14 +47,16 @@ scene delegate.
   a plain white spinner. Expanded audio artwork swipes horizontally: left = Next, right = Previous (commit at ¼ width
   or 500 pt/s; Reduce Motion uses a cut).
 - **Paused queue restoration (iOS only).** `VLCPlaybackService` checkpoints
-  `Application Support/PlaybackSnapshot.json` (version 1: queue URLs, display metadata, discourse ids, selected index,
+  `Application Support/PlaybackSnapshot.json` (version 1: queue URLs, display metadata, optional artwork URL, discourse ids, selected index,
   shuffle order, repeat mode, duration, position ms); `RDPlaybackSnapshot` (`DiscoursePlayback.swift`) validates and
   writes atomically. It saves on queue/track change, seek, pause, stop, background, and every 5 s while playing. The
   scene requests restoration once after the passcode gate; a new playback request wins. Restoration uses the
   configure-only path (mini player paused) and applies the position once seekable; stop and natural completion keep the
   final position (bypassing the near-end restart rule). Missing files and offline streams keep metadata for retry;
   restoration sends no start notification or stats. `RDPlaybackSnapshotMigrationAttempted` marks the one-time legacy
-  `.m3u` fallback; corrupt snapshots leave the player empty. The mixer never auto-starts.
+  `.m3u` fallback; corrupt snapshots leave the player empty. Artwork URLs are restored for both player views; older
+  snapshots without artwork remain readable and acquire artwork when the track is played again from the catalogue.
+  The mixer never auto-starts.
 
 ### 4.3 Library, networking and storage
 
@@ -125,7 +127,7 @@ payloads/collections), `DiscourseHistoryStore` (max 24, newest first), `Discours
 
 Builds `VLCMedia`/`VLCMediaList` and calls the upstream entry point; no second player or queue type.
 `DiscourseMediaFactory` maps a track: verified local download else resolved remote URL; title/artist `Osho`/album
-discourse title; artwork, track number, duration; identity via `rd.discourseID`/`rd.audioID` extras plus the
+discourse title; artwork (audio `discourse_thumbnail_url` first, discourse thumbnail fallback), track number, duration; identity via `rd.discourseID`/`rd.audioID` extras plus the
 `DiscourseMediaIdentityStore` URL index (`.m3u` cannot carry extras) — always attribute with `identity(of:)`.
 `DiscoursePlayback.play(tracks:discourse:startingAt:)` drops unusable URLs, applies the resume fraction to the first
 item only (≥1 s, never the last 5 s, ≤0.98, never completed) and calls `playMediaList`; the one-item
