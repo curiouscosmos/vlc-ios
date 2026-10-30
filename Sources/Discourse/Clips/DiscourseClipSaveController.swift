@@ -40,7 +40,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         cell.textLabel?.textColor = DiscourseColors.current.primaryText
         cell.detailTextLabel?.textColor = DiscourseColors.current.primaryText.withAlphaComponent(0.65)
         let share = indexPath.row == 0
-        cell.textLabel?.text = share ? NSLocalizedString("CLIP_SHARE_IN_APP", comment: "") : NSLocalizedString("CLIP_DOWNLOAD", comment: "")
+        cell.textLabel?.text = share ? NSLocalizedString("CLIP_SHARE_TRACK_LINK", comment: "") : NSLocalizedString("CLIP_DOWNLOAD", comment: "")
         cell.detailTextLabel?.text = share ? NSLocalizedString("CLIP_SHARE_DESCRIPTION", comment: "") : status ?? NSLocalizedString("CLIP_DOWNLOAD_DESCRIPTION", comment: "")
         cell.imageView?.image = UIImage(systemName: share ? "square.and.arrow.up" : "arrow.down.to.line")
         cell.imageView?.tintColor = DiscourseColors.current.accent
@@ -48,6 +48,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         cell.textLabel?.font = .preferredFont(forTextStyle: .headline)
         cell.detailTextLabel?.font = .preferredFont(forTextStyle: .subheadline)
         cell.textLabel?.adjustsFontForContentSizeCategory = true
+        cell.textLabel?.numberOfLines = 0
         cell.detailTextLabel?.adjustsFontForContentSizeCategory = true
         cell.detailTextLabel?.numberOfLines = 0
         cell.accessibilityLabel = cell.textLabel?.text
@@ -56,9 +57,12 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         if indexPath.row == 0 {
-            let alert = UIAlertController(title: NSLocalizedString("CLIP_COMING_SOON", comment: ""), message: nil, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: NSLocalizedString("BUTTON_OK", comment: ""), style: .default))
-            present(alert, animated: true)
+            guard let url = DiscourseDeepLink.clipURL(discourseID: track.discourseID, audioID: track.id,
+                                                       start: range.start, end: range.end) else { return }
+            let activity = UIActivityViewController(activityItems: [track.title, url], applicationActivities: nil)
+            activity.popoverPresentationController?.sourceView = tableView
+            activity.popoverPresentationController?.sourceRect = tableView.rectForRow(at: indexPath)
+            present(activity, animated: true)
         } else if !busy { download() }
     }
     private func download() {

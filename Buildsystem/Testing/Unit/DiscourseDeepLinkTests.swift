@@ -50,6 +50,27 @@ final class DiscourseDeepLinkTests: XCTestCase {
         XCTAssertEqual(parsed?.audioID, "audio-id")
     }
 
+    func testClipURLIncludesDiscourseTrackAndSelectedSeconds() throws {
+        let discourseID = "1a98eec7-c66d-5f9b-a31f-449dfb541eaa"
+        let audioID = "575089a6-42f7-5288-97cc-d5c2a7fdadb2"
+        let url = try XCTUnwrap(DiscourseDeepLink.clipURL(discourseID: discourseID, audioID: audioID, start: 60, end: 90))
+        XCTAssertEqual(url.absoluteString,
+                       "https://rajneeshdiscourse.com/discourses/\(discourseID)/tracks/\(audioID)?start=60&end=90")
+        let parsed = try XCTUnwrap(DiscourseDeepLink(url: url))
+        XCTAssertEqual(parsed.discourseID, discourseID)
+        XCTAssertEqual(parsed.audioID, audioID)
+    }
+
+    func testClipURLPreservesFractionalSecondsAndRejectsInvalidRanges() throws {
+        let url = try XCTUnwrap(DiscourseDeepLink.clipURL(discourseID: "d", audioID: "a", start: 0.25, end: 2.75))
+        XCTAssertEqual(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
+                       [URLQueryItem(name: "start", value: "0.25"), URLQueryItem(name: "end", value: "2.75")])
+        for (start, end) in [(-1.0, 2.0), (2, 2), (2, 1), (.nan, 2), (0, .infinity)] {
+            XCTAssertNil(DiscourseDeepLink.clipURL(discourseID: "d", audioID: "a", start: start, end: end))
+        }
+        XCTAssertNil(DiscourseDeepLink.clipURL(discourseID: "", audioID: "a", start: 0, end: 2))
+    }
+
     func testUnrelatedURLsAreRejected() {
         XCTAssertNil(DiscourseDeepLink(url: URL(string: "https://rajneeshdiscourse.com/")!))
         XCTAssertNil(DiscourseDeepLink(url: URL(string: "https://rajneeshdiscourse.com/discourses")!))

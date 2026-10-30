@@ -80,4 +80,17 @@ final class DiscourseDeepLink: NSObject {
         components.path = "/discourses/\(discourseID)/tracks/\(audioID)"
         return components.url
     }
+
+    /// Public clip links carry the selected endpoints in seconds.
+    static func clipURL(discourseID: String, audioID: String, start: Double, end: Double) -> URL? {
+        guard start.isFinite, end.isFinite, start >= 0, end >= start + 1,
+              let track = trackURL(discourseID: discourseID, audioID: audioID),
+              var components = URLComponents(url: track, resolvingAgainstBaseURL: false) else { return nil }
+        func seconds(_ value: Double) -> String {
+            value.rounded() == value ? String(format: "%.0f", locale: Locale(identifier: "en_US_POSIX"), value) : String(value)
+        }
+        components.queryItems = [URLQueryItem(name: "start", value: seconds(start)),
+                                 URLQueryItem(name: "end", value: seconds(end))]
+        return components.url
+    }
 }

@@ -169,7 +169,7 @@ class VLCTestMenu: XCTestCase {
         XCTAssertTrue(app.buttons["Filter"].waitForExistence(timeout: 5))
     }
 
-    func testClipEditorAndSharePlaceholder() throws {
+    func testClipEditorAndShareLink() throws {
         helper.tapTabBarItem(VLCAccessibilityIdentifier.discourses)
         let card = app.collectionViews.cells.firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 20))
@@ -247,9 +247,15 @@ class VLCTestMenu: XCTestCase {
         drawerImage.name = "Save Clip drawer"
         drawerImage.lifetime = .keepAlways
         add(drawerImage)
-        app.tables.cells.containing(.staticText, identifier: "Share in App").firstMatch.tap()
-        XCTAssertTrue(app.alerts["Coming soon"].waitForExistence(timeout: 5))
-        app.alerts.buttons.firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Share clip link with anyone"].exists)
+        app.tables.cells.containing(.staticText, identifier: "Share Link to Track").firstMatch.tap()
+        let shareSheet = app.otherElements["ActivityListView"]
+        XCTAssertTrue(shareSheet.waitForExistence(timeout: 5))
+        XCTAssertTrue(shareSheet.cells["Copy"].exists)
+        let shareImage = XCTAttachment(screenshot: app.screenshot())
+        shareImage.name = "Share clip link"
+        shareImage.lifetime = .keepAlways
+        add(shareImage)
     }
 
     func testDiscourseLikeTogglesFromTheDetailHeader() {

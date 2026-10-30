@@ -1075,9 +1075,8 @@
 "CLIP_CUT" = "Cut";
 "CLIP_SELECTED" = "Selected: %@";
 "CLIP_SAVE" = "Save Clip";
-"CLIP_SHARE_DESCRIPTION" = "Share with friends within the app";
+"CLIP_SHARE_DESCRIPTION" = "Share clip link with anyone";
 "CLIP_DOWNLOAD_DESCRIPTION" = "Save clip to your device";
-"CLIP_COMING_SOON" = "Coming soon";
 "CLIP_EXPORTING" = "Cutting clip…";
 "CLIP_DOWNLOADING" = "Downloading track… %d%%";
 "CLIP_FAILED" = "Could not create clip. Tap to retry.";
@@ -1088,7 +1087,7 @@
 /* New strings */
 "CLIP_DOWNLOAD" = "Download Clip";
 "CLIP_END" = "Clip end";
-"CLIP_SHARE_IN_APP" = "Share in App";
+"CLIP_SHARE_TRACK_LINK" = "Share Link to Track";
 "CLIP_START" = "Clip start";
 
 /* Clip source download consent */
