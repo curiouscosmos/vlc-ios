@@ -135,6 +135,13 @@ class AudioPlayerViewController: PlayerViewController {
     private var clipEditor: DiscourseClipEditor?
     private var clipTrackID: String?
     private var clipTimer: Timer?
+    /// Seeks to the start bracket are rate-limited: libvlc keeps reporting the
+    /// old position for a while after a seek, and reacting to every position
+    /// tick used to restart the same one-second fragment forever.
+    private var clipSeekPending = false
+    private var clipSeekIssuedAt: TimeInterval = 0
+    private var clipSeekAttempts = 0
+    private var clipPausedAtEnd = false
     private lazy var clipButton = playerAction(symbol: "scissors", action: #selector(toggleClip))
 
     private func endClipEditing() {
@@ -143,10 +150,17 @@ class AudioPlayerViewController: PlayerViewController {
         clipEditor?.removeFromSuperview()
         clipEditor = nil
         clipTrackID = nil
+        resetClipPreviewState()
         mediaScrubProgressBar.isHidden = false
         audioPlayerView.setClipEditing(false)
         clipButton.configuration?.baseForegroundColor = .white
         clipButton.configuration?.background.backgroundColor = .clear
+    }
+
+    private func resetClipPreviewState() {
+        clipSeekPending = false
+        clipSeekAttempts = 0
+        clipPausedAtEnd = false
     }
 
     @objc private func clipEnteredBackground() {
@@ -167,6 +181,10 @@ class AudioPlayerViewController: PlayerViewController {
             return
         }
         let editor = DiscourseClipEditor(range: DiscourseClipRange(duration: duration, position: Double(playbackService.playbackPosition) * duration))
+        // Clipping is a deliberate edit: stop the music so the range can be
+        // adjusted and previewed from the start bracket.
+        if playbackService.isPlaying { playbackService.pause() }
+        resetClipPreviewState()
         clipEditor = editor
         clipTrackID = track.id
         editor.translatesAutoresizingMaskIntoConstraints = false
@@ -182,7 +200,18 @@ class AudioPlayerViewController: PlayerViewController {
         clipButton.configuration?.baseForegroundColor = DiscourseColors.current.accent
         clipButton.configuration?.cornerStyle = .capsule
         clipButton.configuration?.background.backgroundColor = DiscourseColors.current.accent.withAlphaComponent(0.25)
-        editor.seek = { [weak self] seconds in self?.playbackService.playbackPosition = Float(seconds / duration) }
+        editor.seek = { [weak self] seconds in
+            guard let self else { return }
+            self.clipPausedAtEnd = false
+            self.clipSeekPending = false
+            self.clipSeekAttempts = 0
+            self.playbackService.playbackPosition = Float(seconds / duration)
+        }
+        editor.startDidChange = { [weak self] seconds in
+            guard let self, !self.playbackService.isPlaying else { return }
+            self.clipPausedAtEnd = false
+            self.playbackService.playbackPosition = Float(seconds / duration)
+        }
         editor.cut = { [weak self, weak editor] in
             guard let self, let editor else { return }
             self.playbackService.pause()
@@ -196,15 +225,56 @@ class AudioPlayerViewController: PlayerViewController {
         clipTimer = timer
     }
 
+    /// Minimum distance before the start bracket that triggers a realignment.
+    /// Keeps keyframe rounding from causing a seek on every position tick.
+    private static let clipSeekTolerance = 0.4
+    /// How long libvlc gets to apply a seek before another one is allowed.
+    private static let clipSeekInterval: TimeInterval = 0.75
+
     private func updateClipPreview() {
         guard let editor = clipEditor else { return }
         guard currentDiscourseTrack()?.id == clipTrackID else { endClipEditing(); return }
-        let position = Double(playbackService.playbackPosition) * editor.range.duration
-        editor.setPosition(position)
-        if playbackService.isPlaying {
-            if position >= editor.range.end - 0.1 { playbackService.pause() }
-            else if position < editor.range.start { playbackService.playbackPosition = Float(editor.range.start / editor.range.duration) }
+        let duration = editor.range.duration
+        let position = Double(playbackService.playbackPosition) * duration
+        if !editor.isUserInteracting { editor.setPosition(position) }
+        guard !editor.isUserInteracting else {
+            clipSeekPending = false
+            clipSeekAttempts = 0
+            return
         }
+
+        guard playbackService.isPlaying else {
+            if position < editor.range.end - 0.5 { clipPausedAtEnd = false }
+            return
+        }
+
+        if position >= editor.range.end {
+            if !clipPausedAtEnd {
+                clipPausedAtEnd = true
+                playbackService.pause()
+            }
+            return
+        }
+        clipPausedAtEnd = false
+
+        guard position < editor.range.start - Self.clipSeekTolerance else {
+            clipSeekPending = false
+            clipSeekAttempts = 0
+            return
+        }
+
+        let now = Date.timeIntervalSinceReferenceDate
+        if clipSeekPending {
+            guard now - clipSeekIssuedAt >= Self.clipSeekInterval else { return }
+            clipSeekPending = false
+        }
+        // A handful of attempts is enough for a seekable track; further retries
+        // would only rebuild the seek storm this guard exists to prevent.
+        guard clipSeekAttempts < 4 else { return }
+        clipSeekAttempts += 1
+        clipSeekPending = true
+        clipSeekIssuedAt = now
+        playbackService.playbackPosition = Float(editor.range.start / duration)
     }
 
     private var playlistActions: EditActions?
@@ -719,6 +789,7 @@ extension AudioPlayerViewController: AudioPlayerViewDelegate {
         if let editor = clipEditor, !playbackService.isPlaying {
             let position = Double(playbackService.playbackPosition) * editor.range.duration
             if position < editor.range.start || position >= editor.range.end - 0.1 {
+                resetClipPreviewState()
                 playbackService.playbackPosition = Float(editor.range.start / editor.range.duration)
             }
         }

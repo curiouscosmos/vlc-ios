@@ -156,7 +156,7 @@ Before changing observable behaviour, read the corresponding §6 contract in [Ag
 - Disabled Mixer panel labels are “Mixer” and “Background music”.
 - Playlists shows its logo/empty-state text only when ordinary playlists and presentable favourite collections are both empty.
 - Playlist list cards use 112 × 88 pt aspect-fill artwork, at least 112 pt height and a track count (details in reference §4.6).
-- Clip Share supports discourse tracks: draggable range defaults to current time + 60 s, minimum 1 s, no maximum beyond the track. Cut opens Save Clip; Share in App says Coming soon; Clip requires a verified download; missing sources show a dismissible download prompt. The action row has the track-card download control (green when complete); Add to Playlist precedes Discourse in the top bar. Download Clip exports original audio locally as M4A and saves through Files.
+- Clip Share supports discourse tracks: draggable range defaults to current time + 60 s, minimum 1 s, no maximum beyond the track. Entering the editor pauses playback; Play previews from the start bracket to the end bracket and stops at the end. Cut opens Save Clip; Share in App says Coming soon; Clip requires a verified download; missing sources show a dismissible download prompt. The action row has the track-card download control (green when complete); Add to Playlist precedes Discourse in the top bar. Download Clip exports original audio locally as M4A and saves through Files.
 - Expanded-player hearts match the action icons at zero likes; positive counts keep the compact heart.
 - Track cards show the title once; subtitles put duration first and omit a matching discourse name.
 - Dark is the default; light, Dynamic Type, accessibility and localisation must work.

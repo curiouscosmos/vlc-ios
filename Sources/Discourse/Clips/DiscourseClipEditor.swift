@@ -50,6 +50,12 @@ final class DiscourseClipEditor: UIView {
     var range: DiscourseClipRange { didSet { update() } }
     var cut: (() -> Void)?
     var seek: ((Double) -> Void)?
+    /// Called whenever the start bracket moves so the playhead can follow it.
+    var startDidChange: ((Double) -> Void)?
+    /// True while the user is dragging a bracket or the timeline thumb, so the
+    /// player does not fight the gesture with automatic range corrections.
+    var isUserInteracting: Bool { timeline.isTracking || draggingHandle }
+    private var draggingHandle = false
     private let timeline = DiscourseClipTimeline()
     private let startHandle = DiscourseClipHandle()
     private let endHandle = DiscourseClipHandle()
@@ -95,7 +101,9 @@ final class DiscourseClipEditor: UIView {
             handle.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(drag(_:))))
         }
         startHandle.adjust = { [weak self] delta in
-            guard let self else { return }; self.range.moveStart(to: self.range.start + delta)
+            guard let self else { return }
+            self.range.moveStart(to: self.range.start + delta)
+            self.startDidChange?(self.range.start)
         }
         endHandle.adjust = { [weak self] delta in
             guard let self else { return }; self.range.moveEnd(to: self.range.end + delta)
@@ -154,9 +162,20 @@ final class DiscourseClipEditor: UIView {
     }
 
     @objc private func drag(_ gesture: UIPanGestureRecognizer) {
+        switch gesture.state {
+        case .began, .changed: draggingHandle = true
+        case .ended, .cancelled, .failed: draggingHandle = false
+        default: break
+        }
+        guard gesture.state == .began || gesture.state == .changed || gesture.state == .ended else { return }
         let track = timeline.convert(timeline.trackRect(forBounds: timeline.bounds), to: self)
         let value = ((gesture.location(in: self).x - track.minX) / max(1, track.width) * range.duration).rounded()
-        if gesture.view === startHandle { range.moveStart(to: value) } else { range.moveEnd(to: value) }
+        if gesture.view === startHandle {
+            range.moveStart(to: value)
+            if gesture.state == .ended { startDidChange?(range.start) }
+        } else {
+            range.moveEnd(to: value)
+        }
     }
 
     @objc private func scrub() { seek?(min(range.end, max(range.start, Double(timeline.value)))) }
