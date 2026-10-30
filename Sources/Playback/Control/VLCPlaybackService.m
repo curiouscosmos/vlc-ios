@@ -1374,6 +1374,32 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     [_listPlayer pause];
 }
 
+// Download handoff: retain both queue orders and restore the position when seekable.
+- (void)replacePlayingMedia:(VLCMedia *)media
+{
+    VLCMedia *previous = self.currentlyPlayingMedia;
+    if (!self.isPlaying || !previous || !media.url.isFileURL) return;
+    VLCMediaList *active = _shuffleMode ? _shuffledList : _mediaList;
+    NSInteger index = [active indexOfMedia:previous];
+    if (index < 0 || index >= active.count) return;
+    float position = MAX(0.f, MIN(0.999999f, _mediaPlayer.position));
+    int milliseconds = MAX(0, _mediaPlayer.time.intValue);
+    [self pause];
+    for (VLCMediaList *list in @[_mediaList ?: active, _shuffledList ?: active]) {
+        NSInteger item = [list indexOfMedia:previous];
+        if (item >= 0 && item < list.count) {
+            [list insertMedia:media atIndex:(NSUInteger)item];
+            [list removeMediaAtIndex:(NSUInteger)item + 1];
+        }
+    }
+    _currentIndex = index;
+    _startPosition = position;
+#if TARGET_OS_IOS
+    _unknownDurationPosition = milliseconds;
+#endif
+    [_listPlayer playItemAtNumber:@(index)];
+}
+
 - (void)playItemAtIndex:(NSUInteger)index
 {
     self.stopAfterCurrentItem = NO;

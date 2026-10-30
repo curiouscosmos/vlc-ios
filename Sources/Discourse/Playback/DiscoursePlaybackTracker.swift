@@ -68,6 +68,8 @@ final class DiscoursePlaybackTracker {
         }
         isStarted = true
 
+        notificationCenter.addObserver(self, selector: #selector(downloadsChanged),
+                                       name: .discourseDownloadsDidChange, object: nil)
         let names = [VLCPlaybackServicePlaybackDidStart,
                      VLCPlaybackServicePlaybackDidPause,
                      VLCPlaybackServicePlaybackWillStop,
@@ -92,6 +94,20 @@ final class DiscoursePlaybackTracker {
                                        object: nil)
     }
 
+    @objc private func downloadsChanged() {
+        guard playbackService.isPlaying,
+              let current = playbackService.currentlyPlayingMedia,
+              current.url?.isFileURL == false,
+              let identity = DiscourseMediaFactory.identity(of: current),
+              DiscourseDownloadStore.shared.localURL(for: identity.audioID) != nil,
+              let track = registry.track(id: identity.audioID),
+              let local = DiscourseMediaFactory.media(for: track, discourse: nil, fallbackTrackNumber: 1) else { return }
+        local.metaData.title = current.metaData.title
+        local.metaData.album = current.metaData.album
+        local.addOptions(playbackService.mediaOptionsDictionary)
+        playbackService.replacePlaying(local)
+    }
+
     // MARK: - Notifications
 
     @objc private func handlePlaybackNotification(_ notification: Notification) {
@@ -99,6 +115,7 @@ final class DiscoursePlaybackTracker {
         case Notification.Name(VLCPlaybackServicePlaybackPositionUpdated),
              Notification.Name(VLCPlaybackServicePlaybackDidStart):
             tick()
+            if notification.name == Notification.Name(VLCPlaybackServicePlaybackDidStart) { downloadsChanged() }
         case Notification.Name(VLCPlaybackServicePlaybackDidPause),
              Notification.Name(VLCPlaybackServicePlaybackWillStop),
              Notification.Name(VLCPlaybackServicePlaybackDidFail):

@@ -148,7 +148,8 @@ maps; `localURL(for:)` answers only for an existing non-empty file, and launch p
 files. `DiscourseDownloadManager` runs one background `URLSession`
 (`online.sandalbar.rajneesh-discourse.downloads`), three concurrent transfers, a pending queue,
 `taskDescription = audioID|discourseID` for relaunch reattachment, ≤2%-step progress, and
-missing/downloading/downloaded/failed states; `VLCAppDelegate` forwards background-session events. A verified
+missing/downloading/downloaded/failed states; `VLCAppDelegate` forwards background-session events. Download notifications reach `DiscoursePlaybackTracker`, which hands an actively playing remote discourse track to `VLCPlaybackService.replacePlayingMedia` once its local file is verified. Both queue orders and position are retained; paused/stopped tracks never auto-start.
+A verified
 download wins over streaming; single-track and whole-discourse download, cancel, remove and remove-all are supported.
 
 ### 4.8.1 Local clips
