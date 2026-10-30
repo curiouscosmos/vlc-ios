@@ -47,6 +47,11 @@ private final class DiscourseClipTimeline: UISlider {
 }
 
 final class DiscourseClipEditor: UIView {
+    static func preferredHeight(for traits: UITraitCollection) -> CGFloat {
+        UIFontMetrics.default.scaledValue(for: 168, compatibleWith: traits)
+            + (traits.preferredContentSizeCategory.isAccessibilityCategory ? 64 : 0)
+    }
+
     var range: DiscourseClipRange { didSet { update() } }
     var cut: (() -> Void)?
     var seek: ((Double) -> Void)?
@@ -60,7 +65,15 @@ final class DiscourseClipEditor: UIView {
     private let startHandle = DiscourseClipHandle()
     private let endHandle = DiscourseClipHandle()
     private let selection = UIView()
-    private let times = UILabel()
+    private let rail = UIView()
+    private let startTime = UILabel()
+    private let endTime = UILabel()
+    private let separator = UILabel()
+    private let trackStart = UILabel()
+    private let trackEnd = UILabel()
+    private let positionLabel = UILabel()
+    private let positionLine = UIView()
+    private var adjustmentButtons: [UIButton] = []
     private let summary = UILabel()
     private let cutButton = UIButton(type: .system)
 
@@ -68,34 +81,81 @@ final class DiscourseClipEditor: UIView {
         self.range = range
         super.init(frame: .zero)
         backgroundColor = DiscourseColors.current.surfaceStart.withAlphaComponent(0.9)
-        times.textColor = DiscourseColors.current.primaryText
         summary.textColor = DiscourseColors.current.primaryText
         layer.cornerRadius = 16
         layer.borderWidth = 1
         layer.borderColor = UIColor.separator.cgColor
-        times.font = .preferredFont(forTextStyle: .caption1)
-        times.adjustsFontForContentSizeCategory = true
-        times.textAlignment = .center
-        summary.font = .preferredFont(forTextStyle: .subheadline)
+        for label in [startTime, endTime, separator, trackStart, trackEnd, positionLabel] {
+            label.font = .preferredFont(forTextStyle: .caption1, compatibleWith: .current)
+            label.adjustsFontForContentSizeCategory = true
+            label.textColor = DiscourseColors.current.primaryText
+            label.textAlignment = .center
+        }
+        separator.text = "—"
+        trackStart.text = "00:00"
+        trackStart.textAlignment = .left
+        trackEnd.text = DiscourseClipRange.time(range.duration)
+        trackEnd.textAlignment = .right
+        positionLabel.backgroundColor = DiscourseColors.current.primaryText.withAlphaComponent(0.12)
+        positionLabel.layer.cornerRadius = 7
+        positionLabel.clipsToBounds = true
+        positionLine.backgroundColor = DiscourseColors.current.primaryText
+        positionLine.isUserInteractionEnabled = false
+        summary.font = .preferredFont(forTextStyle: .subheadline, compatibleWith: .current)
         summary.adjustsFontForContentSizeCategory = true
         summary.numberOfLines = 0
+        summary.textAlignment = .center
+        timeline.minimumTrackTintColor = .clear
+        timeline.maximumTrackTintColor = .clear
         timeline.minimumValue = 0
         timeline.maximumValue = Float(range.duration)
-        timeline.tintColor = .secondaryLabel
-        timeline.setThumbImage(UIImage(named: "sliderThumb"), for: .normal)
+        rail.backgroundColor = .systemGray
+        rail.layer.cornerRadius = 2
+        rail.isUserInteractionEnabled = false
+        let thumb = UIGraphicsImageRenderer(size: CGSize(width: 10, height: 10)).image { context in
+            DiscourseColors.current.primaryText.setFill()
+            context.cgContext.fillEllipse(in: CGRect(x: 0, y: 0, width: 10, height: 10))
+        }
+        timeline.setThumbImage(thumb, for: .normal)
         timeline.accessibilityLabel = NSLocalizedString("PLAYBACK_POSITION", comment: "")
         timeline.addTarget(self, action: #selector(scrub), for: .valueChanged)
         selection.backgroundColor = DiscourseColors.current.accent
         selection.isUserInteractionEnabled = false
-        [times, timeline, selection, startHandle, endHandle, summary, cutButton].forEach(addSubview)
+        [startTime, endTime, separator, rail, timeline, selection, positionLine, positionLabel, trackStart, trackEnd, startHandle, endHandle, summary, cutButton].forEach(addSubview)
+        let adjustments = [
+            ("CLIP_START_DECREASE", NSLocalizedString("CLIP_START_DECREASE", comment: "Decrease clip start by one second")),
+            ("CLIP_START_INCREASE", NSLocalizedString("CLIP_START_INCREASE", comment: "Increase clip start by one second")),
+            ("CLIP_END_DECREASE", NSLocalizedString("CLIP_END_DECREASE", comment: "Decrease clip end by one second")),
+            ("CLIP_END_INCREASE", NSLocalizedString("CLIP_END_INCREASE", comment: "Increase clip end by one second"))
+        ]
+        for (index, adjustment) in adjustments.enumerated() {
+            let button = UIButton(type: .system)
+            button.setImage(UIImage(systemName: index % 2 == 0 ? "minus" : "plus",
+                                    withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .regular)), for: .normal)
+            let outline = UIView(frame: CGRect(x: 10, y: 10, width: 24, height: 24))
+            outline.tag = 100
+            outline.isUserInteractionEnabled = false
+            outline.layer.cornerRadius = 7
+            outline.layer.borderWidth = 1
+            outline.layer.borderColor = DiscourseColors.current.primaryText.withAlphaComponent(0.25).cgColor
+            outline.backgroundColor = DiscourseColors.current.primaryText.withAlphaComponent(0.04)
+            button.insertSubview(outline, at: 0)
+            button.tintColor = DiscourseColors.current.primaryText
+            button.accessibilityLabel = adjustment.1
+            button.accessibilityIdentifier = adjustment.0
+            button.tag = index
+            button.addTarget(self, action: #selector(adjustEndpoint(_:)), for: .touchUpInside)
+            adjustmentButtons.append(button)
+            addSubview(button)
+        }
         for (handle, key) in [(startHandle, NSLocalizedString("CLIP_START", comment: "")), (endHandle, NSLocalizedString("CLIP_END", comment: ""))] {
             handle.isAccessibilityElement = true
             handle.accessibilityTraits = .adjustable
             handle.accessibilityLabel = key
             let bar = UIView()
-            bar.backgroundColor = .white
-            bar.layer.cornerRadius = 5
-            bar.frame = CGRect(x: 17, y: 9, width: 10, height: 26)
+            bar.backgroundColor = DiscourseColors.current.primaryText
+            bar.layer.cornerRadius = 4
+            bar.frame = CGRect(x: 18, y: 10, width: 8, height: 24)
             bar.isUserInteractionEnabled = false
             handle.addSubview(bar)
             handle.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(drag(_:))))
@@ -119,6 +179,7 @@ final class DiscourseClipEditor: UIView {
         cutButton.configuration = config
         cutButton.accessibilityLabel = config.title
         cutButton.addTarget(self, action: #selector(cutTapped), for: .touchUpInside)
+        setPosition(range.start)
         update()
     }
 
@@ -126,18 +187,55 @@ final class DiscourseClipEditor: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let scale = max(1, bounds.height / 140)
-        times.frame = CGRect(x: 12, y: 4, width: bounds.width - 24, height: 26 * scale)
-        timeline.frame = CGRect(x: 22, y: 30 * scale, width: bounds.width - 44, height: 44)
+        let scale = max(1, UIFontMetrics.default.scaledValue(for: 168, compatibleWith: traitCollection) / 168)
+        let stacked = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        let half = stacked ? bounds.width - 24 : (bounds.width - 40) / 2
+        let rowHeight = stacked ? max(44, 22 * scale) : 44 * scale
+        let labelWidth = max(0, half - 88)
+        for (index, label) in [startTime, endTime].enumerated() {
+            let x = stacked ? 12 : 12 + CGFloat(index) * (half + 16)
+            let y = stacked ? CGFloat(index) * rowHeight : 0
+            adjustmentButtons[index * 2].frame = CGRect(x: x, y: y, width: 44, height: rowHeight)
+            label.frame = CGRect(x: x + 44, y: y, width: labelWidth, height: rowHeight)
+            label.adjustsFontSizeToFitWidth = true
+            adjustmentButtons[index * 2 + 1].frame = CGRect(x: x + half - 44, y: y, width: 44, height: rowHeight)
+        }
+        separator.isHidden = stacked
+        separator.frame = CGRect(x: bounds.midX - 8, y: 0, width: 16, height: rowHeight)
+        let timelineY = stacked ? max(52 * scale, rowHeight * 2 + positionLabel.intrinsicContentSize.height + 8) : 52 * scale
+        timeline.frame = CGRect(x: 22, y: timelineY, width: bounds.width - 44, height: 44)
         let track = timeline.convert(timeline.trackRect(forBounds: timeline.bounds), to: self)
         let startX = track.minX + track.width * range.start / range.duration
         let endX = track.minX + track.width * range.end / range.duration
+        rail.frame = track
         selection.frame = CGRect(x: startX, y: track.midY - 2, width: endX - startX, height: 4)
+        selection.layer.cornerRadius = 2
         startHandle.frame = CGRect(x: startX - 22, y: track.midY - 22, width: 44, height: 44)
         endHandle.frame = CGRect(x: endX - 22, y: track.midY - 22, width: 44, height: 44)
-        let buttonWidth = min(bounds.width - 24, max(120, cutButton.intrinsicContentSize.width))
-        summary.frame = CGRect(x: 12, y: 78 * scale, width: bounds.width - buttonWidth - 36, height: bounds.height - 82 * scale)
-        cutButton.frame = CGRect(x: bounds.width - buttonWidth - 12, y: 80 * scale, width: buttonWidth, height: 44 * scale)
+        let thumb = timeline.convert(timeline.thumbRect(forBounds: timeline.bounds, trackRect: timeline.trackRect(forBounds: timeline.bounds), value: timeline.value), to: self)
+        positionLabel.sizeToFit()
+        let labelHeight = positionLabel.bounds.height + 8
+        let width = positionLabel.bounds.width + 8
+        positionLabel.frame = CGRect(x: min(bounds.width - width - 8, max(8, thumb.midX - width / 2)), y: track.midY - labelHeight - 12, width: width, height: labelHeight)
+        positionLine.frame = CGRect(x: thumb.midX - 0.5, y: track.midY, width: 1, height: 32)
+        bringSubviewToFront(timeline)
+        bringSubviewToFront(startHandle)
+        bringSubviewToFront(endHandle)
+        trackStart.frame = CGRect(x: track.minX, y: track.maxY + 14, width: track.width / 2, height: 22 * scale)
+        trackEnd.frame = CGRect(x: track.midX, y: track.maxY + 14, width: track.width / 2, height: 22 * scale)
+        let buttonWidth = min(bounds.width - 24, max(100, cutButton.intrinsicContentSize.width))
+        let cutHeight = max(44, cutButton.intrinsicContentSize.height)
+        if stacked {
+            let summaryHeight = summary.sizeThatFits(CGSize(width: bounds.width - 24, height: .greatestFiniteMagnitude)).height
+            summary.frame = CGRect(x: 12, y: trackEnd.frame.maxY + 8, width: bounds.width - 24, height: summaryHeight)
+            cutButton.frame = CGRect(x: bounds.width - buttonWidth - 12, y: summary.frame.maxY + 8, width: buttonWidth, height: cutHeight)
+        } else {
+            summary.frame = CGRect(x: 12, y: 118 * scale, width: bounds.width - buttonWidth - 36, height: bounds.height - 122 * scale)
+            cutButton.frame = CGRect(x: bounds.width - buttonWidth - 12, y: summary.frame.midY - cutHeight / 2, width: buttonWidth, height: cutHeight)
+        }
+        for button in adjustmentButtons {
+            button.viewWithTag(100)?.center = CGPoint(x: button.bounds.midX, y: button.bounds.midY)
+        }
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -151,10 +249,16 @@ final class DiscourseClipEditor: UIView {
 
     func setPosition(_ seconds: Double) {
         if !timeline.isTracking { timeline.value = Float(seconds) }
+        positionLabel.text = DiscourseClipRange.time(Double(timeline.value))
+        setNeedsLayout()
     }
 
     private func update() {
-        times.text = "\(DiscourseClipRange.time(range.start))  —  \(DiscourseClipRange.time(range.end))"
+        startTime.text = DiscourseClipRange.time(range.start)
+        endTime.text = DiscourseClipRange.time(range.end)
+        let enabled = [range.start >= 1, range.end - range.start >= 2,
+                       range.end - range.start >= 2, range.duration - range.end >= 1]
+        for (button, enabled) in zip(adjustmentButtons, enabled) { button.isEnabled = enabled }
         summary.text = String(format: NSLocalizedString("CLIP_SELECTED", comment: ""), DiscourseClipRange.time(range.end - range.start))
         startHandle.accessibilityValue = DiscourseClipRange.time(range.start)
         endHandle.accessibilityValue = DiscourseClipRange.time(range.end)
@@ -178,7 +282,16 @@ final class DiscourseClipEditor: UIView {
         }
     }
 
-    @objc private func scrub() { seek?(min(range.end, max(range.start, Double(timeline.value)))) }
+    @objc private func adjustEndpoint(_ button: UIButton) {
+        let delta: Double = button.tag % 2 == 0 ? -1 : 1
+        if button.tag < 2 { startHandle.adjust?(delta) } else { endHandle.adjust?(delta) }
+    }
+
+    @objc private func scrub() {
+        timeline.value = Float(min(range.end, max(range.start, Double(timeline.value))))
+        setPosition(Double(timeline.value))
+        seek?(Double(timeline.value))
+    }
     @objc private func cutTapped() { cut?() }
 }
 

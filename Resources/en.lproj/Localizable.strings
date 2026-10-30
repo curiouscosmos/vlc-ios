@@ -1093,3 +1093,9 @@
 
 /* Clip source download consent */
 "CLIP_DOWNLOAD_REQUIRED" = "You must download the track to cut the clip.";
+
+/* Clip endpoint adjustments */
+"CLIP_START_DECREASE" = "Decrease clip start by one second"; /* Decrease clip start by one second */
+"CLIP_START_INCREASE" = "Increase clip start by one second"; /* Increase clip start by one second */
+"CLIP_END_DECREASE" = "Decrease clip end by one second"; /* Decrease clip end by one second */
+"CLIP_END_INCREASE" = "Increase clip end by one second"; /* Increase clip end by one second */

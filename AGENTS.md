@@ -158,6 +158,7 @@ Before changing observable behaviour, read the corresponding §6 contract in [Ag
 - Playlists shows its logo/empty-state text only when ordinary playlists and presentable favourite collections are both empty.
 - Playlist list cards use 112 × 88 pt aspect-fill artwork, at least 112 pt height and a track count (details in reference §4.6).
 - Clip Share supports discourse tracks: draggable range defaults to current time + 60 s, minimum 1 s, no maximum beyond the track. Entering the editor pauses playback; Play previews from the start bracket to the end bracket and stops at the end. Cut opens Save Clip; Share in App says Coming soon; Clip requires a verified download; missing sources show a dismissible download prompt. The action row has the track-card download control (green when complete); Add to Playlist precedes Discourse in the top bar. Download Clip exports original audio locally as M4A and saves through Files.
+- Clip panel has separate one-second start/end adjustment buttons, disabled at range limits; full-track edge labels, a floating playhead time, and Selected duration beside Cut. Base height is 168 pt with Dynamic Type scaling; transport alignment stays fixed.
 - Expanded-player hearts match the action icons at zero likes; positive counts keep the compact heart.
 - Track cards show the title once; subtitles put duration first and omit a matching discourse name.
 - Dark is the default; light, Dynamic Type, accessibility and localisation must work.
@@ -168,7 +169,7 @@ Before changing persisted state, read the key/type/owner table in [AgentReferenc
 
 ## 8. Testing and verification
 
-Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **167 unit tests** and **18 UI tests** (§3.5).
+Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **169 unit tests** and **18 UI tests** (§3.5).
 
 Manual: clean build; local playback/playlists/background/lock screen; five tabs and branding; catalogue paging/filters/refresh; detail queue continuation; Home sections/states; like persistence and rollback; 60 s qualification and 24 h stats dedupe; downloads (progress/cancel/remove/offline); mixer add/select/reorder/remove/clear/follow/volume/relaunch; VoiceOver, Dynamic Type, light theme; offline, interruption, route change and media-services reset on a device. UI tests cover navigation, catalogue → detail, search, Home, the like round trip, the download round trip (skips on a slow CDN), the mixer picker, playback history, payload-less favourites, and the clip editor/save drawer placeholder.
 

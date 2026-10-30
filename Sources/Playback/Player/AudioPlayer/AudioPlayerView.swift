@@ -355,7 +355,7 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
 
     func setClipEditing(_ editing: Bool) {
         clipEditing = editing
-        progressionViewHeightConstraint.constant = editing ? UIFontMetrics.default.scaledValue(for: 140) : (isLandscapeLayout ? 30 : 70)
+        progressionViewHeightConstraint.constant = editing ? DiscourseClipEditor.preferredHeight(for: traitCollection) : (isLandscapeLayout ? 30 : 70)
     }
 
     func setupProgressView(with view: MediaScrubProgressBar) {
@@ -611,11 +611,11 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
         if isLandscape {
             NSLayoutConstraint.deactivate(portraitConstraints)
             NSLayoutConstraint.activate(landscapeConstraints)
-            progressionViewHeightConstraint.constant = clipEditing ? UIFontMetrics.default.scaledValue(for: 140) : 30
+            progressionViewHeightConstraint.constant = clipEditing ? DiscourseClipEditor.preferredHeight(for: traitCollection) : 30
         } else {
             NSLayoutConstraint.deactivate(landscapeConstraints)
             NSLayoutConstraint.activate(portraitConstraints)
-            progressionViewHeightConstraint.constant = clipEditing ? UIFontMetrics.default.scaledValue(for: 140) : 70
+            progressionViewHeightConstraint.constant = clipEditing ? DiscourseClipEditor.preferredHeight(for: traitCollection) : 70
         }
 
         updatePortraitThumbnailWidthConstraint()
