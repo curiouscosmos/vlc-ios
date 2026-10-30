@@ -264,6 +264,8 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
     private var landscapeConstraints: [NSLayoutConstraint] = []
 
     private var isLandscapeLayout: Bool = false
+    private var controlsStackViewLeadingConstraint: NSLayoutConstraint?
+    private var controlsStackViewTrailingConstraint: NSLayoutConstraint?
 
     private var thumbnailImageViewLeadingConstraint: NSLayoutConstraint?
     private var thumbnailImageViewTrailingConstraint: NSLayoutConstraint?
@@ -430,6 +432,8 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
         portraitThumbnailWidthRegularConstraint?.constant = -2 * portraitInset
         portraitProgressionLeadingConstraint?.constant = clipEditing ? 8 : portraitInset
         portraitProgressionTrailingConstraint?.constant = clipEditing ? -8 : -portraitInset
+        controlsStackViewLeadingConstraint?.constant = clipEditing ? portraitInset - 8 : 0
+        controlsStackViewTrailingConstraint?.constant = clipEditing ? 8 - portraitInset : 0
 
         let portraitSpacing = portraitVerticalSpacing
 
@@ -904,8 +908,10 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
 
         let controlsStackViewLeading = controlsStackView.leadingAnchor.constraint(equalTo: progressionView.leadingAnchor)
         controlsStackViewLeading.priority = .defaultHigh
+        controlsStackViewLeadingConstraint = controlsStackViewLeading
         let controlsStackViewTrailing = controlsStackView.trailingAnchor.constraint(equalTo: progressionView.trailingAnchor)
         controlsStackViewTrailing.priority = .defaultHigh
+        controlsStackViewTrailingConstraint = controlsStackViewTrailing
 
         sharedConstraints.append(contentsOf: [
             controlsStackView.heightAnchor.constraint(equalToConstant: 60.0),
