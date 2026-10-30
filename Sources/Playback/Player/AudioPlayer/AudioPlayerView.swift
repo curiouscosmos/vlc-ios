@@ -349,6 +349,13 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
         albumLabel.textColor = .white
     }
 
+    private var clipEditing = false
+
+    func setClipEditing(_ editing: Bool) {
+        clipEditing = editing
+        progressionViewHeightConstraint.constant = editing ? UIFontMetrics.default.scaledValue(for: 140) : (isLandscapeLayout ? 30 : 70)
+    }
+
     func setupProgressView(with view: MediaScrubProgressBar) {
         view.translatesAutoresizingMaskIntoConstraints = false
         progressionView.addSubview(view)
@@ -421,8 +428,8 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
         thumbnailImageViewTrailingConstraint?.constant = -portraitInset
         portraitThumbnailWidthCompactConstraint?.constant = -2 * portraitInset
         portraitThumbnailWidthRegularConstraint?.constant = -2 * portraitInset
-        portraitProgressionLeadingConstraint?.constant = portraitInset
-        portraitProgressionTrailingConstraint?.constant = -portraitInset
+        portraitProgressionLeadingConstraint?.constant = clipEditing ? 8 : portraitInset
+        portraitProgressionTrailingConstraint?.constant = clipEditing ? -8 : -portraitInset
 
         let portraitSpacing = portraitVerticalSpacing
 
@@ -600,11 +607,11 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
         if isLandscape {
             NSLayoutConstraint.deactivate(portraitConstraints)
             NSLayoutConstraint.activate(landscapeConstraints)
-            progressionViewHeightConstraint.constant = 30
+            progressionViewHeightConstraint.constant = clipEditing ? UIFontMetrics.default.scaledValue(for: 140) : 30
         } else {
             NSLayoutConstraint.deactivate(landscapeConstraints)
             NSLayoutConstraint.activate(portraitConstraints)
-            progressionViewHeightConstraint.constant = 70
+            progressionViewHeightConstraint.constant = clipEditing ? UIFontMetrics.default.scaledValue(for: 140) : 70
         }
 
         updatePortraitThumbnailWidthConstraint()

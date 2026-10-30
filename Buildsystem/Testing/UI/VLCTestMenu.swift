@@ -169,6 +169,42 @@ class VLCTestMenu: XCTestCase {
         XCTAssertTrue(app.buttons["Filter"].waitForExistence(timeout: 5))
     }
 
+    func testClipEditorAndSharePlaceholder() {
+        helper.tapTabBarItem(VLCAccessibilityIdentifier.discourses)
+        let card = app.collectionViews.cells.firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 20))
+        card.tap()
+        let play = app.buttons["discoursePlayAll"]
+        XCTAssertTrue(play.waitForExistence(timeout: 20))
+        play.tap()
+        let clip = app.buttons["discourseClip"]
+        XCTAssertTrue(clip.waitForExistence(timeout: 20))
+        let ready = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: clip)
+        wait(for: [ready], timeout: 30)
+        clip.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["Clip start"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["Clip end"].firstMatch.exists)
+        let end = app.descendants(matching: .any)["Clip end"].firstMatch
+        let before = end.value as? String
+        let handle = end.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        handle.press(forDuration: 0.1, thenDragTo: handle.withOffset(CGVector(dx: 100, dy: 0)))
+        XCTAssertNotEqual(end.value as? String, before)
+        let editorImage = XCTAttachment(screenshot: app.screenshot())
+        editorImage.name = "Clip editor"
+        editorImage.lifetime = .keepAlways
+        add(editorImage)
+        app.buttons["Cut"].tap()
+        XCTAssertTrue(app.navigationBars["Save Clip"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tables.cells.containing(.staticText, identifier: "Download Clip").firstMatch.exists)
+        let drawerImage = XCTAttachment(screenshot: app.screenshot())
+        drawerImage.name = "Save Clip drawer"
+        drawerImage.lifetime = .keepAlways
+        add(drawerImage)
+        app.tables.cells.containing(.staticText, identifier: "Share in App").firstMatch.tap()
+        XCTAssertTrue(app.alerts["Coming soon"].waitForExistence(timeout: 5))
+        app.alerts.buttons.firstMatch.tap()
+    }
+
     func testDiscourseLikeTogglesFromTheDetailHeader() {
         helper.tapTabBarItem(VLCAccessibilityIdentifier.discourses)
 

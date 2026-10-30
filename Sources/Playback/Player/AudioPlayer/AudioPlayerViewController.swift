@@ -129,6 +129,77 @@ class AudioPlayerViewController: PlayerViewController {
 #if os(iOS)
     // MARK: - Fork: discourse likes
 
+    deinit { clipTimer?.invalidate() }
+
+    private static let clipCleanup: Void = DiscourseClipExporter.cleanInterruptedExports()
+    private var clipEditor: DiscourseClipEditor?
+    private var clipTrackID: String?
+    private var clipTimer: Timer?
+    private lazy var clipButton = playerAction(symbol: "scissors", action: #selector(toggleClip))
+
+    private func endClipEditing() {
+        clipTimer?.invalidate()
+        clipTimer = nil
+        clipEditor?.removeFromSuperview()
+        clipEditor = nil
+        clipTrackID = nil
+        mediaScrubProgressBar.isHidden = false
+        audioPlayerView.setClipEditing(false)
+        clipButton.configuration?.baseForegroundColor = .white
+        clipButton.configuration?.background.backgroundColor = .clear
+    }
+
+    @objc private func clipEnteredBackground() {
+        guard clipEditor != nil else { return }
+        playbackService.pause()
+        endClipEditing()
+    }
+
+    @objc private func toggleClip() {
+        if clipEditor != nil { endClipEditing(); return }
+        let duration = Double(playbackService.mediaDuration) / 1000
+        guard let track = currentDiscourseTrack(), playbackService.isSeekable, duration.isFinite, duration >= 1 else { return }
+        let editor = DiscourseClipEditor(range: DiscourseClipRange(duration: duration, position: Double(playbackService.playbackPosition) * duration))
+        clipEditor = editor
+        clipTrackID = track.id
+        editor.translatesAutoresizingMaskIntoConstraints = false
+        audioPlayerView.progressionView.addSubview(editor)
+        NSLayoutConstraint.activate([
+            editor.leadingAnchor.constraint(equalTo: audioPlayerView.progressionView.leadingAnchor, constant: 12),
+            editor.trailingAnchor.constraint(equalTo: audioPlayerView.progressionView.trailingAnchor, constant: -12),
+            editor.topAnchor.constraint(equalTo: audioPlayerView.progressionView.topAnchor),
+            editor.bottomAnchor.constraint(equalTo: audioPlayerView.progressionView.bottomAnchor)
+        ])
+        mediaScrubProgressBar.isHidden = true
+        audioPlayerView.setClipEditing(true)
+        clipButton.configuration?.baseForegroundColor = DiscourseColors.current.accent
+        clipButton.configuration?.cornerStyle = .capsule
+        clipButton.configuration?.background.backgroundColor = DiscourseColors.current.accent.withAlphaComponent(0.25)
+        editor.seek = { [weak self] seconds in self?.playbackService.playbackPosition = Float(seconds / duration) }
+        editor.cut = { [weak self, weak editor] in
+            guard let self, let editor else { return }
+            self.playbackService.pause()
+            let sheet = UINavigationController(rootViewController: DiscourseClipSaveController(track: track, range: editor.range))
+            sheet.sheetPresentationController?.detents = [.medium()]
+            sheet.sheetPresentationController?.prefersGrabberVisible = true
+            self.present(sheet, animated: true)
+        }
+        let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in self?.updateClipPreview() }
+        RunLoop.main.add(timer, forMode: .common)
+        clipTimer = timer
+    }
+
+    private func updateClipPreview() {
+        guard let editor = clipEditor else { return }
+        guard currentDiscourseTrack()?.id == clipTrackID else { endClipEditing(); return }
+        let position = Double(playbackService.playbackPosition) * editor.range.duration
+        editor.setPosition(position)
+        if playbackService.isPlaying {
+            if position >= editor.range.end - 0.1 { playbackService.pause() }
+            else if position < editor.range.start { playbackService.playbackPosition = Float(editor.range.start / editor.range.duration) }
+        }
+    }
+
     private var playlistActions: EditActions?
     private lazy var discourseButton = playerAction(symbol: "text.bubble", action: #selector(openDiscourse))
     private lazy var noiseButton = playerAction(symbol: "waveform.slash", action: #selector(toggleNoise))
@@ -180,11 +251,18 @@ class AudioPlayerViewController: PlayerViewController {
     }
 
     private func setupDiscourseLikeButton() {
+        _ = Self.clipCleanup
+        NotificationCenter.default.addObserver(self, selector: #selector(clipEnteredBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         noiseButton.accessibilityIdentifier = "noiseReduction"
         noiseButton.accessibilityLabel = NSLocalizedString("NOISE_REDUCTION", comment: "")
         discourseLikeButton.contentHorizontalAlignment = .center
         audioPlayerView.actionStackView.addArrangedSubview(discourseLikeButton)
-        audioPlayerView.actionStackView.addArrangedSubview(discourseButton)
+        clipButton.accessibilityLabel = NSLocalizedString("CLIP_BUTTON", comment: "")
+        clipButton.accessibilityIdentifier = "discourseClip"
+        audioPlayerView.actionStackView.addArrangedSubview(clipButton)
+        mediaNavigationBar.insertArrangedSubview(discourseButton, at: mediaNavigationBar.arrangedSubviews.firstIndex(of: mediaNavigationBar.queueButton) ?? 0)
+        discourseButton.accessibilityLabel = NSLocalizedString("DISCOURSE", comment: "")
+        discourseButton.widthAnchor.constraint(equalTo: mediaNavigationBar.heightAnchor).isActive = true
         audioPlayerView.actionStackView.addArrangedSubview(playerAction(symbol: "text.badge.plus", action: #selector(addCurrentTrackToPlaylist)))
         audioPlayerView.actionStackView.addArrangedSubview(noiseButton)
         NSLayoutConstraint.activate([
@@ -217,6 +295,8 @@ class AudioPlayerViewController: PlayerViewController {
 
     @objc private func updateDiscourseLike() {
         discourseButton.isEnabled = currentDiscourseTrack() != nil
+        clipButton.isEnabled = currentDiscourseTrack() != nil && playbackService.isSeekable && playbackService.mediaDuration >= 1000
+        if clipEditor != nil && currentDiscourseTrack()?.id != clipTrackID { endClipEditing() }
         refreshNoiseButton()
         guard let track = currentDiscourseTrack() else {
             discourseLikeButton.isHidden = true
@@ -271,6 +351,9 @@ class AudioPlayerViewController: PlayerViewController {
     }
 
     override func viewWillDisappear(_ animated: Bool) {
+#if os(iOS)
+        if presentedViewController == nil { endClipEditing() }
+#endif
         if playerController.isInterfaceLocked {
             setPlayerInterfaceEnabled(true)
         }
@@ -596,6 +679,14 @@ extension AudioPlayerViewController: AudioPlayerViewDelegate {
     }
 
     func audioPlayerViewDelegateDidTapPlayButton(_ audioPlayerView: AudioPlayerView) {
+#if os(iOS)
+        if let editor = clipEditor, !playbackService.isPlaying {
+            let position = Double(playbackService.playbackPosition) * editor.range.duration
+            if position < editor.range.start || position >= editor.range.end - 0.1 {
+                playbackService.playbackPosition = Float(editor.range.start / editor.range.duration)
+            }
+        }
+#endif
         playbackService.playPause()
         audioPlayerView.updatePlayButton(isPlaying: playbackService.isPlaying)
     }
@@ -656,6 +747,8 @@ extension AudioPlayerViewController {
         super.playbackPositionUpdated(playbackService)
 #if os(iOS)
         refreshNoiseButton()
+        clipButton.isEnabled = currentDiscourseTrack() != nil && playbackService.isSeekable && playbackService.mediaDuration >= 1000
+        updateClipPreview()
 #endif
     }
 

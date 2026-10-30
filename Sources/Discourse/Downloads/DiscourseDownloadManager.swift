@@ -86,7 +86,7 @@ final class DiscourseDownloadManager: NSObject {
 
     func state(for audioID: String) -> DiscourseDownloadState {
         let snapshot: (progress: Double?, failed: Bool) = queue.sync {
-            (progress[audioID], failures[audioID] != nil)
+            (progress[audioID] ?? (pending.contains { $0.audioID == audioID } ? 0 : nil), failures[audioID] != nil)
         }
         if let fraction = snapshot.progress {
             return .downloading(progress: fraction)

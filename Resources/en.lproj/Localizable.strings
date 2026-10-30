@@ -1069,3 +1069,24 @@
 /* New strings */
 "Unavailable" = "Unavailable"; /* Favourite media unavailable */
 "Use the heart controls to add favourites." = "Use the heart controls to add favourites."; /* Empty automatic collection */
+
+/* Local audio clips */
+"CLIP_BUTTON" = "Clip";
+"CLIP_CUT" = "Cut";
+"CLIP_SELECTED" = "Selected: %@";
+"CLIP_SAVE" = "Save Clip";
+"CLIP_SHARE_DESCRIPTION" = "Share with friends within the app";
+"CLIP_DOWNLOAD_DESCRIPTION" = "Save clip to your device";
+"CLIP_COMING_SOON" = "Coming soon";
+"CLIP_EXPORTING" = "Cutting clip…";
+"CLIP_DOWNLOADING" = "Downloading track… %d%%";
+"CLIP_FAILED" = "Could not create clip. Tap to retry.";
+
+/* New strings */
+"DISCOURSE" = "Discourse";
+
+/* New strings */
+"CLIP_DOWNLOAD" = "Download Clip";
+"CLIP_END" = "Clip end";
+"CLIP_SHARE_IN_APP" = "Share in App";
+"CLIP_START" = "Clip start";

@@ -124,7 +124,7 @@ payloads/collections), `DiscourseHistoryStore` (max 24, newest first), `Discours
   `DiscourseDownloadActions` are the only render/action paths; cards/rows are accessibility containers holding a
   transparent `DiscourseAccessibilityButton` and the heart; catalogue cards show a `3/11` download badge.
   The expanded player uses a 24 pt heart with no likes and the compact 18 pt heart beside positive counts.
-- **Mixer screen**: wave hero (equalizer mark, **Background Music Mixer** + subtitle), track cards (artwork, title, duration, checkmark; long-press drag reorder, swipe delete), a dashed **Tap + to add an audio file** slot and a pinned panel (grabber, play/pause, **Mixer on/off** + status, Loop pill, volume with minus/plus and percentage; tapping the title/status toggles the switch). Detail rows swipe left for **Add to Playlist** (upstream picker, streaming URL + identity); the expanded player has a Like / Discourse / Playlist / Noise row, a circular accent play button and 30 s skips (row hidden in landscape). All fork screens observe theme/likes/downloads/progress and reconfigure only affected visible rows.
+- **Mixer screen**: wave hero (equalizer mark, **Background Music Mixer** + subtitle), track cards (artwork, title, duration, checkmark; long-press drag reorder, swipe delete), a dashed **Tap + to add an audio file** slot and a pinned panel (grabber, play/pause, **Mixer on/off** + status, Loop pill, volume with minus/plus and percentage; tapping the title/status toggles the switch). Detail rows swipe left for **Add to Playlist** (upstream picker, streaming URL + identity); the expanded player has a Like / Clip / Playlist / Noise row (Discourse moves immediately before Queue in the top toolbar), a circular accent play button and 30 s skips (row hidden in landscape). All fork screens observe theme/likes/downloads/progress and reconfigure only affected visible rows.
 
 ### 4.7 Discourse playback bridge (`Sources/Discourse/Playback/`)
 
@@ -150,6 +150,10 @@ files. `DiscourseDownloadManager` runs one background `URLSession`
 `taskDescription = audioID|discourseID` for relaunch reattachment, ≤2%-step progress, and
 missing/downloading/downloaded/failed states; `VLCAppDelegate` forwards background-session events. A verified
 download wins over streaming; single-track and whole-discourse download, cancel, remove and remove-all are supported.
+
+### 4.8.1 Local clips
+
+`Sources/Discourse/Clips/` owns range selection, the Save Clip drawer and AVFoundation M4A export. The audio controller integrates the editor into the progression area and previews with the existing VLC player; no additional player or audio-session changes. Handles and VoiceOver adjustments retain a minimum one-second range. Clips use original source audio, without mixer or noise processing. The source is reused or downloaded through the existing manager and retained. Export creates a temporary hard link (copy fallback) with the original URL extension because AVFoundation rejects the store’s `.audio` filenames; cleanup removes that link along with the output. Pending downloads report downloading at 0% while queued. Temporary `DiscourseClips/<operation>/` exports are removed after picker completion/cancel, errors, and once when the player initializes after relaunch. No new persisted defaults or backend routes.
 
 ### 4.9 Audio Mixer (`Sources/Discourse/Mixer/`)
 
@@ -214,6 +218,10 @@ Background `URLSession`; single-track and whole-discourse download; per-track pr
 missing/downloading/downloaded/failed; green tick; play locally only when verified; cancel/remove/remove all (confirm
 "Remove all downloaded tracks from this discourse?"); no orphan files; report a repeated failure once.
 
+### 6.6.1 Clip Share
+
+Discourse tracks with a finite seekable duration of at least one second expose Clip next to Noise Cancellation. Selection begins at the current position and ends 60 seconds later, bounded by duration; at the end, move the start back to preserve one second. Handles cannot cross; 60 seconds is only a default. Play previews the selection; seeks clamp into the range and preview pauses at its end without modifying repeat settings. Track changes or closing the player leave editing. Cut pauses and opens Save Clip with Share in App (Coming soon) and Download Clip. Export waits for a verified full source, cuts locally to AAC/M4A, and opens Save to Files. Failures support retry; cancel leaves source downloads running. Export is foreground-only and cancels on background. Hardware timing and Files acceptance remain manual checks.
+
 ### 6.7 Audio Mixer
 
 A second player for explicitly added local files only; order, selection and switches persisted;
@@ -260,6 +268,7 @@ crash); writes are synchronous/serialised; never store the key, the UUID in logs
 | `playback_history` | `Bool` (absent = true) | `DiscoursePlaybackSettings` |
 | `audio_mixer_files/_selected/_enabled/_loop/_volume` | URLs / URL / bool / bool / int | `DiscourseAudioMixer` |
 | `PlaybackSnapshot.json` | versioned snapshot | `VLCPlaybackService` (§4.2) |
+| Clip exports | temporary `DiscourseClips/` files, cleaned after export workflow / relaunch | clip exporter |
 | Downloads / mixer imports | Application Support files | download store / file importer |
 | API responses | `Caches/DiscourseAPI/*.json` (10 MB) | `DiscourseAPICache` |
 
@@ -319,6 +328,8 @@ crash); writes are synchronous/serialised; never store the key, the UUID in logs
 50. **Mixer imports are app-owned copies**; removing a row deletes only that copy.
 51. **Optional permissions removed** (alarm, biometrics, photo saving, iCloud Documents); Local Network is the only prompt and the `NSUbiquitousKeyValueStore` entitlement stays for other services.
 
+52. **Clip Share** exports original audio as M4A through Files; Share in App is a placeholder. Export cancels on background. Physical-device preview timing and Files acceptance remain pending.
+
 Add new deviations here as they are found; never hide a gap.
 
 ## 11. Upstream sync policy
@@ -334,7 +345,7 @@ Fork touch points (upstream files we intentionally edit):
 - `Sources/Playback/Control/VLCPlaybackService.{h,m}` and `VLCPlaybackService+MediaLibrary.m` — RNNoise switching,
   audio session, snapshot hooks, paused retention.
 - `Sources/Playback/Player/` — `PlayerViewController`, `AudioPlayerViewController`, `VideoPlayerViewController`,
-  `MediaMoreOptionsActionSheet` + subviews, `ActionSheetCell`: white spinner, noise switch, discourse heart, Share row.
+  `AudioPlayerView`, `MediaMoreOptionsActionSheet` + subviews, `ActionSheetCell`: white spinner, noise switch, discourse heart, Share row, Clip editor integration and height.
 - `Sources/App/iOS/TabBarCoordinator.swift` — five tabs, index, accent, bar modes, local library, album/deep links,
   tracker/mixer startup, likes refresh. `VLCAppDelegate.m` — defaults, background downloads, web-activity links.
   `Sources/App/VLCAppCoordinator.{h,m}`, `VLCAppSceneDelegate.m` — registration, deferred links, restoration.
