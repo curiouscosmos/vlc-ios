@@ -162,3 +162,77 @@ final class DiscourseClipEditor: UIView {
     @objc private func scrub() { seek?(min(range.end, max(range.start, Double(timeline.value)))) }
     @objc private func cutTapped() { cut?() }
 }
+
+/// Download consent comes before entering the range editor.
+final class DiscourseClipDownloadPrompt: UIViewController {
+    private let download: () -> Void
+
+    init(download: @escaping () -> Void) {
+        self.download = download
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        view.accessibilityViewIsModal = true
+        let card = UIView()
+        card.backgroundColor = DiscourseColors.current.surfaceStart
+        card.layer.cornerRadius = 20
+        card.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(card)
+        let close = UIButton(type: .system)
+        close.setImage(UIImage(systemName: "xmark"), for: .normal)
+        close.tintColor = DiscourseColors.current.primaryText
+        close.accessibilityLabel = NSLocalizedString("BUTTON_CLOSE", comment: "")
+        close.accessibilityIdentifier = "clipDownloadClose"
+        close.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+        let message = UILabel()
+        message.text = NSLocalizedString("CLIP_DOWNLOAD_REQUIRED", comment: "")
+        message.textColor = DiscourseColors.current.primaryText
+        message.font = .preferredFont(forTextStyle: .body)
+        message.adjustsFontForContentSizeCategory = true
+        message.numberOfLines = 0
+        message.textAlignment = .center
+        let button = UIButton(type: .system)
+        var configuration = UIButton.Configuration.filled()
+        configuration.title = NSLocalizedString("BUTTON_DOWNLOAD", comment: "")
+        configuration.baseBackgroundColor = DiscourseColors.current.accent
+        button.configuration = configuration
+        button.accessibilityLabel = configuration.title
+        button.accessibilityIdentifier = "clipDownloadConfirm"
+        button.addTarget(self, action: #selector(downloadTapped), for: .touchUpInside)
+        for child in [close, message, button] {
+            child.translatesAutoresizingMaskIntoConstraints = false
+            card.addSubview(child)
+        }
+        let width = card.widthAnchor.constraint(equalTo: view.safeAreaLayoutGuide.widthAnchor, multiplier: 0.85)
+        width.priority = .defaultHigh
+        NSLayoutConstraint.activate([
+            width,
+            card.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            card.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            card.widthAnchor.constraint(lessThanOrEqualToConstant: 380),
+            close.topAnchor.constraint(equalTo: card.topAnchor, constant: 4),
+            close.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -4),
+            close.widthAnchor.constraint(equalToConstant: 44),
+            close.heightAnchor.constraint(equalToConstant: 44),
+            message.topAnchor.constraint(equalTo: close.bottomAnchor, constant: 4),
+            message.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 24),
+            message.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -24),
+            button.topAnchor.constraint(equalTo: message.bottomAnchor, constant: 24),
+            button.leadingAnchor.constraint(equalTo: message.leadingAnchor),
+            button.trailingAnchor.constraint(equalTo: message.trailingAnchor),
+            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            button.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -24)
+        ])
+    }
+
+    @objc private func closeTapped() { dismiss(animated: true) }
+    @objc private func downloadTapped() {
+        let action = download
+        dismiss(animated: true) { action() }
+    }
+}

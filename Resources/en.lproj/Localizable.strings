@@ -1090,3 +1090,6 @@
 "CLIP_END" = "Clip end";
 "CLIP_SHARE_IN_APP" = "Share in App";
 "CLIP_START" = "Clip start";
+
+/* Clip source download consent */
+"CLIP_DOWNLOAD_REQUIRED" = "You must download the track to cut the clip.";

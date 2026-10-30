@@ -71,11 +71,14 @@ final class DiscourseDownloadControl: UIControl {
     private var downloadState: DiscourseDownloadState = .missing
     private var trackTitle = ""
 
-    private static let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 15,
-                                                                         weight: .semibold)
+    private let iconSize: CGFloat
+    private var symbolConfiguration: UIImage.SymbolConfiguration {
+        return UIImage.SymbolConfiguration(pointSize: iconSize - 3, weight: .semibold)
+    }
     private static let ringSize: CGFloat = 22
 
-    init() {
+    init(iconSize: CGFloat = 18) {
+        self.iconSize = iconSize
         super.init(frame: .zero)
         setup()
     }
@@ -119,8 +122,8 @@ final class DiscourseDownloadControl: UIControl {
         NSLayoutConstraint.activate([
             iconView.centerXAnchor.constraint(equalTo: centerXAnchor),
             iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 18),
-            iconView.heightAnchor.constraint(equalToConstant: 18)
+            iconView.widthAnchor.constraint(equalToConstant: iconSize),
+            iconView.heightAnchor.constraint(equalToConstant: iconSize)
         ])
 
         updateTheme()
@@ -158,7 +161,7 @@ final class DiscourseDownloadControl: UIControl {
             iconView.isHidden = false
             setRingVisible(false)
             iconView.image = UIImage(systemName: "arrow.down.circle",
-                                     withConfiguration: Self.symbolConfiguration)
+                                     withConfiguration: symbolConfiguration)
         case .downloading(let progress):
             iconView.isHidden = true
             setRingVisible(true)
@@ -167,12 +170,12 @@ final class DiscourseDownloadControl: UIControl {
             iconView.isHidden = false
             setRingVisible(false)
             iconView.image = UIImage(systemName: "arrow.down.circle.fill",
-                                     withConfiguration: Self.symbolConfiguration)
+                                     withConfiguration: symbolConfiguration)
         case .failed:
             iconView.isHidden = false
             setRingVisible(false)
             iconView.image = UIImage(systemName: "exclamationmark.circle",
-                                     withConfiguration: Self.symbolConfiguration)
+                                     withConfiguration: symbolConfiguration)
         }
 
         updateAccessibility()

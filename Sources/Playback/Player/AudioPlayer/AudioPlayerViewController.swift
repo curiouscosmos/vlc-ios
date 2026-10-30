@@ -159,6 +159,13 @@ class AudioPlayerViewController: PlayerViewController {
         if clipEditor != nil { endClipEditing(); return }
         let duration = Double(playbackService.mediaDuration) / 1000
         guard let track = currentDiscourseTrack(), playbackService.isSeekable, duration.isFinite, duration >= 1 else { return }
+        guard DiscourseDownloadStore.shared.localURL(for: track.id) != nil else {
+            let prompt = DiscourseClipDownloadPrompt { DiscourseDownloadManager.shared.download(track) }
+            prompt.modalPresentationStyle = .overFullScreen
+            prompt.modalTransitionStyle = .crossDissolve
+            present(prompt, animated: true)
+            return
+        }
         let editor = DiscourseClipEditor(range: DiscourseClipRange(duration: duration, position: Double(playbackService.playbackPosition) * duration))
         clipEditor = editor
         clipTrackID = track.id
@@ -202,6 +209,8 @@ class AudioPlayerViewController: PlayerViewController {
 
     private var playlistActions: EditActions?
     private lazy var discourseButton = playerAction(symbol: "text.bubble", action: #selector(openDiscourse))
+    private lazy var playlistButton = playerAction(symbol: "text.badge.plus", action: #selector(addCurrentTrackToPlaylist))
+    private let playerDownloadControl = DiscourseDownloadControl(iconSize: 28)
     private lazy var noiseButton = playerAction(symbol: "waveform.slash", action: #selector(toggleNoise))
 
     private func playerAction(symbol: String, action: Selector) -> UIButton {
@@ -233,6 +242,19 @@ class AudioPlayerViewController: PlayerViewController {
         actions.addToPlaylist()
     }
 
+    @objc private func togglePlayerDownload() {
+        guard let track = currentDiscourseTrack() else { return }
+        DiscourseDownloadActions.toggle(track)
+    }
+
+    private func refreshPlayerDownload() {
+        let track = currentDiscourseTrack()
+        playerDownloadControl.isEnabled = track != nil
+        playerDownloadControl.alpha = track == nil ? 0.4 : 1
+        playerDownloadControl.configure(with: track.map { DiscourseDownloadManager.shared.state(for: $0.id) } ?? .missing,
+                                        title: track?.title ?? "")
+    }
+
     @objc private func toggleNoise() {
         _ = playbackService.setNoiseReduction(enabled: !playbackService.noiseReductionEnabled)
         refreshNoiseButton()
@@ -261,9 +283,15 @@ class AudioPlayerViewController: PlayerViewController {
         clipButton.accessibilityIdentifier = "discourseClip"
         audioPlayerView.actionStackView.addArrangedSubview(clipButton)
         mediaNavigationBar.insertArrangedSubview(discourseButton, at: mediaNavigationBar.arrangedSubviews.firstIndex(of: mediaNavigationBar.queueButton) ?? 0)
+        mediaNavigationBar.insertArrangedSubview(playlistButton, at: mediaNavigationBar.arrangedSubviews.firstIndex(of: discourseButton) ?? 0)
+        playlistButton.accessibilityLabel = NSLocalizedString("ADD_TO_PLAYLIST", comment: "")
+        playlistButton.accessibilityIdentifier = "discoursePlayerPlaylist"
+        playlistButton.widthAnchor.constraint(equalTo: mediaNavigationBar.heightAnchor).isActive = true
         discourseButton.accessibilityLabel = NSLocalizedString("DISCOURSE", comment: "")
         discourseButton.widthAnchor.constraint(equalTo: mediaNavigationBar.heightAnchor).isActive = true
-        audioPlayerView.actionStackView.addArrangedSubview(playerAction(symbol: "text.badge.plus", action: #selector(addCurrentTrackToPlaylist)))
+        playerDownloadControl.accessibilityIdentifier = "discoursePlayerDownload"
+        playerDownloadControl.addTarget(self, action: #selector(togglePlayerDownload), for: .touchUpInside)
+        audioPlayerView.actionStackView.addArrangedSubview(playerDownloadControl)
         audioPlayerView.actionStackView.addArrangedSubview(noiseButton)
         NSLayoutConstraint.activate([
             discourseLikeButton.widthAnchor.constraint(equalTo: audioPlayerView.actionStackView.widthAnchor,
@@ -284,6 +312,10 @@ class AudioPlayerViewController: PlayerViewController {
         }
         center.addObserver(self,
                            selector: #selector(updateDiscourseLike),
+                           name: .discourseDownloadsDidChange,
+                           object: nil)
+        center.addObserver(self,
+                           selector: #selector(updateDiscourseLike),
                            name: .discourseLikesDidChange,
                            object: nil)
         center.addObserver(self,
@@ -296,7 +328,11 @@ class AudioPlayerViewController: PlayerViewController {
     @objc private func updateDiscourseLike() {
         discourseButton.isEnabled = currentDiscourseTrack() != nil
         clipButton.isEnabled = currentDiscourseTrack() != nil && playbackService.isSeekable && playbackService.mediaDuration >= 1000
-        if clipEditor != nil && currentDiscourseTrack()?.id != clipTrackID { endClipEditing() }
+        if let audioID = clipTrackID,
+           currentDiscourseTrack()?.id != audioID || DiscourseDownloadStore.shared.localURL(for: audioID) == nil {
+            endClipEditing()
+        }
+        refreshPlayerDownload()
         refreshNoiseButton()
         guard let track = currentDiscourseTrack() else {
             discourseLikeButton.isHidden = true

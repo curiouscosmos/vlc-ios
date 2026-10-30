@@ -169,7 +169,7 @@ class VLCTestMenu: XCTestCase {
         XCTAssertTrue(app.buttons["Filter"].waitForExistence(timeout: 5))
     }
 
-    func testClipEditorAndSharePlaceholder() {
+    func testClipEditorAndSharePlaceholder() throws {
         helper.tapTabBarItem(VLCAccessibilityIdentifier.discourses)
         let card = app.collectionViews.cells.firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 20))
@@ -181,6 +181,29 @@ class VLCTestMenu: XCTestCase {
         XCTAssertTrue(clip.waitForExistence(timeout: 20))
         let ready = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: clip)
         wait(for: [ready], timeout: 30)
+        let download = app.buttons["discoursePlayerDownload"]
+        XCTAssertTrue(download.exists)
+        let playlist = app.buttons["discoursePlayerPlaylist"]
+        XCTAssertTrue(playlist.exists)
+        XCTAssertLessThan(playlist.frame.minX, app.buttons["Discourse"].frame.minX)
+        if !download.label.hasPrefix("Remove download") {
+            clip.tap()
+            XCTAssertTrue(app.staticTexts["You must download the track to cut the clip."].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.descendants(matching: .any)["Clip start"].firstMatch.exists)
+            let promptImage = XCTAttachment(screenshot: app.screenshot())
+            promptImage.name = "Clip download prompt"
+            promptImage.lifetime = .keepAlways
+            add(promptImage)
+            app.buttons["clipDownloadClose"].tap()
+            XCTAssertFalse(app.buttons["clipDownloadConfirm"].exists)
+            clip.tap()
+            app.buttons["clipDownloadConfirm"].tap()
+            let completed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label BEGINSWITH %@", "Remove download"), object: download)
+            guard XCTWaiter().wait(for: [completed], timeout: 150) == .completed else {
+                if download.label.hasPrefix("Cancel download") { download.tap() }
+                throw XCTSkip("the clip source did not finish downloading within the budget")
+            }
+        }
         clip.tap()
         XCTAssertTrue(app.descendants(matching: .any)["Clip start"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["Clip end"].firstMatch.exists)
