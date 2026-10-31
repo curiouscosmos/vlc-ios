@@ -267,22 +267,15 @@ class AudioPlayerViewController: PlayerViewController {
                 guard let self else { return }
                 let colors = DiscourseColors.current
                 let editing = self.clipEditor != nil
-                if !button.isEnabled && !colors.isDark {
-                    button.configuration?.baseForegroundColor = colors.accent
-                    button.configuration?.background.backgroundColor = colors.accent.withAlphaComponent(0.12)
-                    button.configuration?.cornerStyle = .capsule
-                    button.configuration?.imageColorTransformer = nil
-                } else {
-                    button.configuration?.baseForegroundColor = editing ? colors.accent : .white
-                    button.configuration?.background.backgroundColor = editing
-                        ? colors.accent.withAlphaComponent(0.25)
-                        : .clear
-                    // UIKit dims disabled glyphs; on the dark player the Clip icon
-                    // must stay legible while the track cannot be clipped yet.
-                    button.configuration?.imageColorTransformer = !button.isEnabled && colors.isDark
-                        ? UIConfigurationColorTransformer { _ in .white }
-                        : nil
-                }
+                button.configuration?.baseForegroundColor = editing ? colors.accent : .white
+                button.configuration?.background.backgroundColor = editing
+                    ? colors.accent.withAlphaComponent(0.25)
+                    : .clear
+                // UIKit dims disabled glyphs; the Clip action stays legible on the
+                // blurred artwork in both themes while it cannot be used yet.
+                button.configuration?.imageColorTransformer = !button.isEnabled
+                    ? UIConfigurationColorTransformer { _ in .white }
+                    : nil
             }
         }
         button.addTarget(self, action: action, for: .touchUpInside)

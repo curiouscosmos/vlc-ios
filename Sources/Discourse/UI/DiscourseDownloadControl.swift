@@ -240,10 +240,10 @@ final class DiscourseDownloadControl: UIControl {
 
         switch downloadState {
         case .missing:
-            if !isEnabled && !colors.isDark {
-                iconView.tintColor = colors.accent
-            } else if highContrastIcon && colors.isDark {
+            if highContrastIcon {
                 iconView.tintColor = .white
+            } else if !isEnabled && !colors.isDark {
+                iconView.tintColor = colors.accent
             } else {
                 iconView.tintColor = colors.secondaryText
             }
