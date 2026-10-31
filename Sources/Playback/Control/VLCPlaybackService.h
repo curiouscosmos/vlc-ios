@@ -200,6 +200,7 @@ NS_SWIFT_NAME(PlaybackService)
 - (NSInteger)currentMediaProjection;
 
 - (void)recoverDisplayedMetadata;
+- (void)refreshCurrentMediaMetadata;
 - (void)recoverPlaybackState;
 - (void)disableSubtitlesIfNeeded;
 

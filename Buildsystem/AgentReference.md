@@ -58,7 +58,8 @@ scene delegate.
   restoration sends no start notification or stats. `RDPlaybackSnapshotMigrationAttempted` marks the one-time legacy
   `.m3u` fallback; corrupt snapshots leave the player empty. Artwork URLs are restored for both player views. If an
   older snapshot has no URL, the playback tracker fetches the current audio object and applies its
-  `discourse_thumbnail_url`; explicit track artwork takes precedence over a local-library thumbnail.
+  `discourse_thumbnail_url`, then refreshes the service metadata so both player views display it; explicit track
+  artwork takes precedence over a local-library thumbnail.
   The mixer never auto-starts.
 
 ### 4.3 Library, networking and storage

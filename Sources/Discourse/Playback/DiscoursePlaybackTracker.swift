@@ -147,6 +147,7 @@ final class DiscoursePlaybackTracker {
            let artworkURL = track.thumbnailURL {
             if media.metaData.artworkURL != artworkURL {
                 media.metaData.artworkURL = artworkURL
+                playbackService.refreshCurrentMediaMetadata()
             }
             return
         }
@@ -163,6 +164,7 @@ final class DiscoursePlaybackTracker {
                   let artworkURL = track.thumbnailURL else { return }
             if current.metaData.artworkURL != artworkURL {
                 current.metaData.artworkURL = artworkURL
+                self.playbackService.refreshCurrentMediaMetadata()
             }
         }
     }

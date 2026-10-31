@@ -2477,6 +2477,11 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         [self.delegate displayMetadataForPlaybackService:self metadata:_metadata];
 }
 
+- (void)refreshCurrentMediaMetadata
+{
+    [self setNeedsMetadataUpdate];
+}
+
 - (void)recoverPlaybackState
 {
     if ([self.delegate respondsToSelector:@selector(mediaPlayerStateChanged:isPlaying:currentMediaHasTrackToChooseFrom:currentMediaHasChapters:forPlaybackService:)])
