@@ -76,13 +76,16 @@ final class DiscourseDownloadControl: UIControl {
     }
 
     private let iconSize: CGFloat
+    /// Player actions sit on artwork, where the muted row treatment disappears.
+    private let highContrastIcon: Bool
     private var symbolConfiguration: UIImage.SymbolConfiguration {
         return UIImage.SymbolConfiguration(pointSize: iconSize - 3, weight: .semibold)
     }
     private static let ringSize: CGFloat = 22
 
-    init(iconSize: CGFloat = 18) {
+    init(iconSize: CGFloat = 18, highContrastIcon: Bool = false) {
         self.iconSize = iconSize
+        self.highContrastIcon = highContrastIcon
         super.init(frame: .zero)
         setup()
     }
@@ -237,7 +240,13 @@ final class DiscourseDownloadControl: UIControl {
 
         switch downloadState {
         case .missing:
-            iconView.tintColor = !isEnabled && !colors.isDark ? colors.accent : colors.secondaryText
+            if !isEnabled && !colors.isDark {
+                iconView.tintColor = colors.accent
+            } else if highContrastIcon && colors.isDark {
+                iconView.tintColor = .white
+            } else {
+                iconView.tintColor = colors.secondaryText
+            }
         case .downloading:
             iconView.tintColor = colors.accent
         case .downloaded:

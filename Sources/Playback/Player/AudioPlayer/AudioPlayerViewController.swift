@@ -252,7 +252,7 @@ class AudioPlayerViewController: PlayerViewController {
     private var playlistActions: EditActions?
     private lazy var discourseButton = playerAction(symbol: "text.bubble", action: #selector(openDiscourse))
     private lazy var playlistButton = playerAction(symbol: "text.badge.plus", action: #selector(addCurrentTrackToPlaylist))
-    private let playerDownloadControl = DiscourseDownloadControl(iconSize: 28)
+    private let playerDownloadControl = DiscourseDownloadControl(iconSize: 28, highContrastIcon: true)
     private lazy var noiseButton = playerAction(symbol: "waveform.slash", action: #selector(toggleNoise))
 
     private func playerAction(symbol: String, action: Selector) -> UIButton {
@@ -266,15 +266,22 @@ class AudioPlayerViewController: PlayerViewController {
             button.configurationUpdateHandler = { [weak self] button in
                 guard let self else { return }
                 let colors = DiscourseColors.current
+                let editing = self.clipEditor != nil
                 if !button.isEnabled && !colors.isDark {
                     button.configuration?.baseForegroundColor = colors.accent
                     button.configuration?.background.backgroundColor = colors.accent.withAlphaComponent(0.12)
                     button.configuration?.cornerStyle = .capsule
+                    button.configuration?.imageColorTransformer = nil
                 } else {
-                    button.configuration?.baseForegroundColor = self.clipEditor == nil ? .white : colors.accent
-                    button.configuration?.background.backgroundColor = self.clipEditor == nil
-                        ? .clear
-                        : colors.accent.withAlphaComponent(0.25)
+                    button.configuration?.baseForegroundColor = editing ? colors.accent : .white
+                    button.configuration?.background.backgroundColor = editing
+                        ? colors.accent.withAlphaComponent(0.25)
+                        : .clear
+                    // UIKit dims disabled glyphs; on the dark player the Clip icon
+                    // must stay legible while the track cannot be clipped yet.
+                    button.configuration?.imageColorTransformer = !button.isEnabled && colors.isDark
+                        ? UIConfigurationColorTransformer { _ in .white }
+                        : nil
                 }
             }
         }
