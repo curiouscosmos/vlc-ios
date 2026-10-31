@@ -39,6 +39,7 @@ final class DiscoursePlaybackTracker {
 
     private var progress = DiscoursePlaybackProgress()
     private var isStarted = false
+    private var artworkLookups: Set<String> = []
 
     init(playbackService: PlaybackService = .sharedInstance(),
          client: DiscourseAPIClient = .shared,
@@ -70,6 +71,8 @@ final class DiscoursePlaybackTracker {
 
         notificationCenter.addObserver(self, selector: #selector(downloadsChanged),
                                        name: .discourseDownloadsDidChange, object: nil)
+        notificationCenter.addObserver(self, selector: #selector(restoreCurrentTrackArtwork),
+                                       name: Notification.Name(VLCPlaybackServicePlaybackMetadataDidChange), object: nil)
         let names = [VLCPlaybackServicePlaybackDidStart,
                      VLCPlaybackServicePlaybackDidPause,
                      VLCPlaybackServicePlaybackWillStop,
@@ -83,6 +86,7 @@ final class DiscoursePlaybackTracker {
                                            name: Notification.Name(name),
                                            object: nil)
         }
+        restoreCurrentTrackArtwork()
 
         notificationCenter.addObserver(self,
                                        selector: #selector(saveProgress),
@@ -114,6 +118,7 @@ final class DiscoursePlaybackTracker {
         switch notification.name {
         case Notification.Name(VLCPlaybackServicePlaybackPositionUpdated),
              Notification.Name(VLCPlaybackServicePlaybackDidStart):
+            restoreCurrentTrackArtwork()
             tick()
             if notification.name == Notification.Name(VLCPlaybackServicePlaybackDidStart) { downloadsChanged() }
         case Notification.Name(VLCPlaybackServicePlaybackDidPause),
@@ -126,6 +131,39 @@ final class DiscoursePlaybackTracker {
             progress.end()
         default:
             break
+        }
+    }
+
+    /// Restored media can have no artwork URL in an older playback snapshot,
+    /// or a discourse-level fallback URL. Resolve the audio object and use its
+    /// own `discourse_thumbnail_url` for the mini player and full player.
+    @objc private func restoreCurrentTrackArtwork() {
+        guard let media = playbackService.currentlyPlayingMedia,
+              let identity = DiscourseMediaFactory.identity(of: media, identityStore: identityStore),
+              !identity.audioID.isEmpty,
+              !identity.discourseID.isEmpty else { return }
+
+        if let track = registry.track(id: identity.audioID),
+           let artworkURL = track.thumbnailURL {
+            if media.metaData.artworkURL != artworkURL {
+                media.metaData.artworkURL = artworkURL
+            }
+            return
+        }
+
+        let lookupKey = "\(identity.discourseID):\(identity.audioID)"
+        guard artworkLookups.insert(lookupKey).inserted else { return }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard let tracks = try? await self.client.discourseTracks(discourseID: identity.discourseID),
+                  let track = tracks.first(where: { $0.id == identity.audioID }) else { return }
+            self.registry.register(tracks: [track])
+            guard let current = self.playbackService.currentlyPlayingMedia,
+                  DiscourseMediaFactory.identity(of: current, identityStore: self.identityStore)?.audioID == identity.audioID,
+                  let artworkURL = track.thumbnailURL else { return }
+            if current.metaData.artworkURL != artworkURL {
+                current.metaData.artworkURL = artworkURL
+            }
         }
     }
 

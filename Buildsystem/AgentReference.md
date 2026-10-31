@@ -56,8 +56,9 @@ scene delegate.
   configure-only path (mini player paused) and applies the position once seekable; stop and natural completion keep the
   final position (bypassing the near-end restart rule). Missing files and offline streams keep metadata for retry;
   restoration sends no start notification or stats. `RDPlaybackSnapshotMigrationAttempted` marks the one-time legacy
-  `.m3u` fallback; corrupt snapshots leave the player empty. Artwork URLs are restored for both player views; older
-  snapshots without artwork remain readable and acquire artwork when the track is played again from the catalogue.
+  `.m3u` fallback; corrupt snapshots leave the player empty. Artwork URLs are restored for both player views. If an
+  older snapshot has no URL, the playback tracker fetches the current audio object and applies its
+  `discourse_thumbnail_url`; explicit track artwork takes precedence over a local-library thumbnail.
   The mixer never auto-starts.
 
 ### 4.3 Library, networking and storage

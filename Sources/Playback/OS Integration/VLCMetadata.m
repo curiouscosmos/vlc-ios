@@ -52,7 +52,11 @@ static const CGFloat kVLCArtworkMaxPixelSize = 1024.;
     // linked show), so they should still take the library-backed branch below.
     BOOL isSubscriptionMedia = media.nbSubscriptions > 0;
     BOOL isLibraryMedia = media && (!media.isExternalMedia || isSubscriptionMedia);
-    NSURL *artworkURL = isLibraryMedia ? media.thumbnail : mediaPlayer.media.metaData.artworkURL;
+    // Discourse media carries its own artwork URL even when the downloaded file
+    // is also represented in the local media library. Preserve that source as
+    // the authority; library thumbnails are only a fallback.
+    NSURL *mediaArtworkURL = mediaPlayer.media.metaData.artworkURL;
+    NSURL *artworkURL = mediaArtworkURL ?: (isLibraryMedia ? media.thumbnail : nil);
     if (_artworkURL != artworkURL && ![_artworkURL isEqual:artworkURL]) {
         _artworkURL = artworkURL;
         self.artworkImage = nil;
@@ -67,7 +71,11 @@ static const CGFloat kVLCArtworkMaxPixelSize = 1024.;
         self.albumTrackCount = @(media.album.numberOfTracks);
         self.discNumber = @(media.discNumber);
         self.albumName = media.album.title;
-        [self updateArtworkImage:[media thumbnailImage]];
+        if (mediaArtworkURL) {
+            [self loadArtworkFromURL:mediaArtworkURL];
+        } else {
+            [self updateArtworkImage:[media thumbnailImage]];
+        }
         self.isAudioOnly = ([media subtype] == VLCMLMediaSubtypeAlbumTrack || media.videoTracks.count == 0) ? YES : NO;
         self.identifier = @(media.identifier);
 
@@ -124,6 +132,35 @@ static const CGFloat kVLCArtworkMaxPixelSize = 1024.;
 
     self.artworkImage = artworkImage;
     _hasPreviewArtwork = NO;
+}
+
+- (void)loadArtworkFromURL:(NSURL *)artworkURL
+{
+    UIImage *cachedArtworkImage = [VLCThumbnailsCache cachedImageForURL:artworkURL
+                                                           maxPixelSize:kVLCArtworkMaxPixelSize];
+    if (cachedArtworkImage) {
+        [self updateArtworkImage:cachedArtworkImage];
+        return;
+    }
+
+    _hasPreviewArtwork = NO;
+    VLCPlaybackService *playbackService = [VLCPlaybackService sharedInstance];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
+        NSData *imageData = [NSData dataWithContentsOfURL:artworkURL];
+        if (!imageData) return;
+        UIImage *artworkImage = [VLCThumbnailsCache imageFromData:imageData
+                                                      forURL:artworkURL
+                                                maxPixelSize:kVLCArtworkMaxPixelSize];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (![self->_artworkURL isEqual:artworkURL]) return;
+            [self updateArtworkImage:artworkImage];
+            [playbackService recoverDisplayedMetadata];
+#if TARGET_OS_IOS
+            if ([[VLCKeychainCoordinator passcodeService] hasSecret]) return;
+#endif
+            [self populateInfoCenterFromMetadata];
+        });
+    });
 }
 
 - (BOOL)hasPlaceholderArtwork
@@ -206,7 +243,6 @@ static const CGFloat kVLCArtworkMaxPixelSize = 1024.;
 - (void)fillFromMetaDict:(VLCMediaPlayer *)mediaPlayer
 {
     VLCMediaMetaData *metadata = mediaPlayer.media.metaData;
-    VLCPlaybackService *playbackService = [VLCPlaybackService sharedInstance];
 
     if (metadata) {
         if (metadata.nowPlaying != nil) {
@@ -224,31 +260,7 @@ static const CGFloat kVLCArtworkMaxPixelSize = 1024.;
 
         NSURL *artworkURL = metadata.artworkURL;
         if ((!self.artworkImage || _hasPreviewArtwork) && artworkURL) {
-            UIImage *cachedArtworkImage = [VLCThumbnailsCache cachedImageForURL:artworkURL
-                                                                   maxPixelSize:kVLCArtworkMaxPixelSize];
-            if (cachedArtworkImage) {
-                [self updateArtworkImage:cachedArtworkImage];
-                return;
-            }
-
-            _hasPreviewArtwork = NO;
-            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
-                NSData *imageData = [NSData dataWithContentsOfURL:artworkURL];
-                if (imageData) {
-                    UIImage *artworkImage = [VLCThumbnailsCache imageFromData:imageData
-                                                                       forURL:artworkURL
-                                                                 maxPixelSize:kVLCArtworkMaxPixelSize];
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                        [self updateArtworkImage:artworkImage];
-                        [playbackService recoverDisplayedMetadata];
-#if TARGET_OS_IOS
-                        if ([[VLCKeychainCoordinator passcodeService] hasSecret])
-                            return;
-#endif
-                        [self populateInfoCenterFromMetadata];
-                    });
-                }
-            });
+            [self loadArtworkFromURL:artworkURL];
         }
     }
 }

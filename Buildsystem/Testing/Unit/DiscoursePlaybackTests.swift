@@ -60,11 +60,12 @@ final class DiscoursePlaybackTests: XCTestCase {
     }
 
     func testSnapshotPreservesTrackThumbnailAcrossJSONRestoration() throws {
-        let media = try XCTUnwrap(DiscourseMediaFactory.media(for: try decodeTrack(),
+        let media = try XCTUnwrap(DiscourseMediaFactory.media(for: try decodeTrack(thumbnail: "/images/default.png"),
                                                               discourse: nil,
                                                               fallbackTrackNumber: 1,
                                                               identityStore: DiscourseMediaIdentityStore(settings: settings)))
         let artworkURL = try XCTUnwrap(media.metaData.artworkURL)
+        XCTAssertEqual(artworkURL.absoluteString, "https://osho.b-cdn.net/OSHO/images/default.png")
         let item = try XCTUnwrap(RDPlaybackSnapshot.item(for: media))
         var value = snapshot()
         value["items"] = [item]
@@ -524,13 +525,14 @@ final class DiscoursePlaybackTests: XCTestCase {
     // MARK: - Fixtures
 
     private func decodeTrack(id: String = "audio-1",
-                             url: String = "https://osho.b-cdn.net/OSHO/discourses/1/1.mp3") throws -> DiscourseAudio {
+                             url: String = "https://osho.b-cdn.net/OSHO/discourses/1/1.mp3",
+                             thumbnail: String = "/thumbnails/1.jpg") throws -> DiscourseAudio {
         let json = """
         {
             "id": "\(id)",
             "discourse_id": "discourse-1",
             "discourse_name": "The Book of Secrets",
-            "discourse_thumbnail_url": "/thumbnails/1.jpg",
+            "discourse_thumbnail_url": "\(thumbnail)",
             "language": "english",
             "title": "The First Question",
             "audio_url": "\(url)",
