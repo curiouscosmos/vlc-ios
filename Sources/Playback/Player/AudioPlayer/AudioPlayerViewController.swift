@@ -262,13 +262,29 @@ class AudioPlayerViewController: PlayerViewController {
         configuration.baseForegroundColor = .white
         configuration.contentInsets = .zero
         button.configuration = configuration
+        if symbol == "scissors" {
+            button.configurationUpdateHandler = { [weak self] button in
+                guard let self else { return }
+                let colors = DiscourseColors.current
+                if !button.isEnabled && !colors.isDark {
+                    button.configuration?.baseForegroundColor = colors.accent
+                    button.configuration?.background.backgroundColor = colors.accent.withAlphaComponent(0.12)
+                    button.configuration?.cornerStyle = .capsule
+                } else {
+                    button.configuration?.baseForegroundColor = self.clipEditor == nil ? .white : colors.accent
+                    button.configuration?.background.backgroundColor = self.clipEditor == nil
+                        ? .clear
+                        : colors.accent.withAlphaComponent(0.25)
+                }
+            }
+        }
         button.addTarget(self, action: action, for: .touchUpInside)
         return button
     }
 
     @objc private func openDiscourse() {
-        guard let media = playbackService.currentlyPlayingMedia,
-              let identity = DiscourseMediaFactory.identity(of: media),
+        guard let identity = currentDiscourseIdentity(),
+              !identity.discourseID.isEmpty,
               let url = URL(string: "https://rajneeshdiscourse.com/discourses/\(identity.discourseID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? identity.discourseID)") else { return }
         dismiss(animated: true) {
             _ = VLCAppCoordinator.sharedInstance().handleDiscourseDeepLink(url)
@@ -292,7 +308,7 @@ class AudioPlayerViewController: PlayerViewController {
     private func refreshPlayerDownload() {
         let track = currentDiscourseTrack()
         playerDownloadControl.isEnabled = track != nil
-        playerDownloadControl.alpha = track == nil ? 0.4 : 1
+        playerDownloadControl.alpha = 1
         playerDownloadControl.configure(with: track.map { DiscourseDownloadManager.shared.state(for: $0.id) } ?? .missing,
                                         title: track?.title ?? "")
     }
@@ -368,7 +384,8 @@ class AudioPlayerViewController: PlayerViewController {
     }
 
     @objc private func updateDiscourseLike() {
-        discourseButton.isEnabled = currentDiscourseTrack() != nil
+        clipButton.setNeedsUpdateConfiguration()
+        discourseButton.isEnabled = currentDiscourseIdentity().map { !$0.discourseID.isEmpty } ?? false
         clipButton.isEnabled = currentDiscourseTrack() != nil && playbackService.isSeekable && playbackService.mediaDuration >= 1000
         if let audioID = clipTrackID,
            currentDiscourseTrack()?.id != audioID || DiscourseDownloadStore.shared.localURL(for: audioID) == nil {
@@ -394,11 +411,15 @@ class AudioPlayerViewController: PlayerViewController {
     }
 
     private func currentDiscourseTrack() -> DiscourseAudio? {
-        guard let media = playbackService.currentlyPlayingMedia,
-              let identity = DiscourseMediaFactory.identity(of: media) else {
+        guard let identity = currentDiscourseIdentity() else {
             return nil
         }
         return DiscourseTrackRegistry.shared.track(id: identity.audioID)
+    }
+
+    private func currentDiscourseIdentity() -> DiscourseMediaIdentity? {
+        guard let media = playbackService.currentlyPlayingMedia else { return nil }
+        return DiscourseMediaFactory.identity(of: media)
     }
 #endif
 

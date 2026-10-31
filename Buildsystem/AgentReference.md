@@ -44,8 +44,10 @@ scene delegate.
   its category) and handles interruptions, route changes and backgrounding. No `setCategory:` in app code.
 - Mini player: `VLCPlayerDisplayController` + `VLCAudioMiniPlayer`. Full player: `AudioPlayerViewController`
   (discourse heart before more-options; Share row for a discourse track) and `VideoPlayerViewController`; buffering is
-  a plain white spinner. Expanded audio artwork swipes horizontally: left = Next, right = Previous (commit at ¼ width
-  or 500 pt/s; Reduce Motion uses a cut).
+  a plain white spinner. The player’s Discourse header action uses the current media identity’s `discourse_id` and
+  remains enabled while the full track payload is being fetched. Disabled Clip and Download controls use the
+  light-theme accent for contrast. Expanded audio artwork swipes horizontally: left = Next, right = Previous (commit
+  at ¼ width or 500 pt/s; Reduce Motion uses a cut).
 - **Paused queue restoration (iOS only).** `VLCPlaybackService` checkpoints
   `Application Support/PlaybackSnapshot.json` (version 1: queue URLs, display metadata, optional artwork URL, discourse ids, selected index,
   shuffle order, repeat mode, duration, position ms); `RDPlaybackSnapshot` (`DiscoursePlayback.swift`) validates and

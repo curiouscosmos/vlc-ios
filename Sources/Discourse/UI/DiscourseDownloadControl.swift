@@ -71,6 +71,10 @@ final class DiscourseDownloadControl: UIControl {
     private var downloadState: DiscourseDownloadState = .missing
     private var trackTitle = ""
 
+    override var isEnabled: Bool {
+        didSet { updateTheme() }
+    }
+
     private let iconSize: CGFloat
     private var symbolConfiguration: UIImage.SymbolConfiguration {
         return UIImage.SymbolConfiguration(pointSize: iconSize - 3, weight: .semibold)
@@ -233,7 +237,7 @@ final class DiscourseDownloadControl: UIControl {
 
         switch downloadState {
         case .missing:
-            iconView.tintColor = colors.secondaryText
+            iconView.tintColor = !isEnabled && !colors.isDark ? colors.accent : colors.secondaryText
         case .downloading:
             iconView.tintColor = colors.accent
         case .downloaded:
