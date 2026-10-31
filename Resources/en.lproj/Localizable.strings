@@ -1062,7 +1062,6 @@
 /* New strings */
 "Favourite Discourses" = "Favourite Discourses"; /* Automatic playlist */
 "Favourite Tracks" = "Favourite Tracks"; /* Automatic playlist */
-"Retry" = "Retry"; /* Retry favourites */
 "Unavailable discourse" = "Unavailable discourse"; /* Favourite without metadata */
 "Unavailable track" = "Unavailable track"; /* Favourite without metadata */
 

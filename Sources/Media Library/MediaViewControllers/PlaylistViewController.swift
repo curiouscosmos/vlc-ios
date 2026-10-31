@@ -245,10 +245,8 @@ private final class FavouriteCollectionViewController: UICollectionViewControlle
             defer { self.collectionView.refreshControl?.endRefreshing(); self.refreshTask = nil }
             do {
                 try await self.store.refreshFavourites()
-                self.navigationItem.rightBarButtonItem = nil
             } catch {
-                self.navigationItem.rightBarButtonItem = UIBarButtonItem(title: NSLocalizedString("Retry", comment: "Retry favourites"),
-                    style: .plain, target: self, action: #selector(self.refresh))
+                // Refresh failures leave the cached favourites visible; pull to refresh retries.
             }
             self.reload()
         }
