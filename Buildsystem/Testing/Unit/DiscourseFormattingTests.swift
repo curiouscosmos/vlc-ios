@@ -9,7 +9,8 @@
  * like the upstream project it is derived from. See COPYING.
  *
  * Unit coverage for the compact count formatting used by the catalogue cards,
- * the track rows and the like controls (999 / 1.2k / 12k / 1m).
+ * the track rows and the like controls (999 / 1.2k / 12k / 1m), and for the
+ * track row's trailing controls keeping their width when a title is long.
  *****************************************************************************/
 
 import XCTest
@@ -110,5 +111,93 @@ final class DiscourseFormattingTests: XCTestCase {
         XCTAssertEqual(noLikes, DiscourseMetadataText.tracks(2))
         XCTAssertEqual(DiscourseMetadataText.summary(language: "", tracks: 2, likes: 1),
                        noLikes + " · " + DiscourseMetadataText.likes(1))
+    }
+
+    func testTrackRowKeepsTrailingControlsAtTheirIntrinsicWidth() throws {
+        // 430 pt reproduces the Pro Max tie the screenshots show; 320 pt is the
+        // narrowest supported phone. Positive like counts widen the group too.
+        for width in [CGFloat(320), 430] {
+            for likeCount in [0, 12_345] {
+                try assertTrailingControlsFit(at: width, likeCount: likeCount)
+            }
+        }
+    }
+
+    private func assertTrailingControlsFit(at width: CGFloat, likeCount: Int) throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: 480))
+        let controller = UIViewController()
+        window.rootViewController = controller
+        window.isHidden = false
+        defer { window.isHidden = true }
+
+        let cell = DiscourseTrackCell(style: .default,
+                                      reuseIdentifier: DiscourseTrackCell.reuseIdentifier)
+        controller.view.addSubview(cell)
+
+        let track = DiscourseAudio(id: "a1",
+                                   discourseID: "d1",
+                                   discourseName: "Ancient Music In The Pines",
+                                   title: "Ancient Music In The Pines 01",
+                                   audioURLString: "https://example.com/a.mp3",
+                                   durationSeconds: 5263)
+        cell.configure(with: track,
+                       position: 1,
+                       fraction: 0,
+                       isCompleted: false,
+                       isPlaying: false,
+                       like: DiscourseLikeState(isLiked: false, count: likeCount, isPending: false),
+                       download: .missing)
+
+        // A generous height keeps the row's horizontal arbitration under test.
+        cell.frame = CGRect(x: 0, y: 0, width: width, height: 200)
+        window.layoutIfNeeded()
+        cell.layoutIfNeeded()
+
+        let labels = allLabels(in: cell)
+        let title = try XCTUnwrap(labels.first { $0.text == track.title })
+        let duration = try XCTUnwrap(labels.first { $0.text == "1:27:43" })
+        let download = try XCTUnwrap(firstSubview(ofType: DiscourseDownloadControl.self, in: cell))
+        let like = try XCTUnwrap(firstSubview(ofType: DiscourseLikeControl.self, in: cell))
+
+        let trailing = [duration, download, like].map { $0.convert($0.bounds, to: cell.contentView) }
+        // The duration, download and like controls must never be squeezed into
+        // each other; a long title gives way and wraps instead.
+        XCTAssertGreaterThanOrEqual(trailing[0].width + 0.5, duration.intrinsicContentSize.width)
+        XCTAssertGreaterThanOrEqual(trailing[1].width + 0.5, download.intrinsicContentSize.width)
+        XCTAssertGreaterThanOrEqual(trailing[2].width + 0.5, like.intrinsicContentSize.width)
+        XCTAssertLessThanOrEqual(trailing[0].maxX, trailing[1].minX + 0.5)
+        XCTAssertLessThanOrEqual(trailing[1].maxX, trailing[2].minX + 0.5)
+
+        let titleFrame = title.convert(title.bounds, to: cell.contentView)
+        XCTAssertLessThanOrEqual(titleFrame.maxX, trailing[0].minX - 9)
+        let textHeight = (track.title as NSString).boundingRect(
+            with: CGSize(width: titleFrame.width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: title.font],
+            context: nil).height
+        XCTAssertGreaterThan(textHeight, title.font.lineHeight * 1.5,
+                             "a long title should use its second line")
+    }
+
+    // MARK: - Helpers
+
+    private func allLabels(in root: UIView) -> [UILabel] {
+        var result = (root as? UILabel).map { [$0] } ?? []
+        for subview in root.subviews {
+            result.append(contentsOf: allLabels(in: subview))
+        }
+        return result
+    }
+
+    private func firstSubview<T: UIView>(ofType type: T.Type, in root: UIView) -> T? {
+        if let match = root as? T {
+            return match
+        }
+        for subview in root.subviews {
+            if let match = firstSubview(ofType: type, in: subview) {
+                return match
+            }
+        }
+        return nil
     }
 }

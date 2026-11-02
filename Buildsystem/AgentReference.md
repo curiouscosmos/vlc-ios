@@ -114,7 +114,9 @@ payloads/collections), `DiscourseHistoryStore` (max 24, newest first), `Discours
   400 pt prefetch, force pull-to-refresh, language/sort `UIMenu` persisted in the filter store, request token drops
   stale answers, failures keep rendered rows. Home reuses the cell in `.tile` layout (160 pt).
 - **Detail**: sorted tracks, header (artwork, summary, **Play all**, heart), progress ring/speaker/checkmark, row and
-  nav-bar download actions, long-press Play/Play next/Add to queue/download.
+  nav-bar download actions, long-press Play/Play next/Add to queue/download. Track rows keep the duration, download
+  and like controls at their intrinsic width, so a long title wraps to its second line instead of compressing the
+  icons into each other.
 - **Search**: `UISearchController`, 350 ms debounce, `/discourses?search=` + `/discourse-audios?search=` together,
   **Discourses** then **Tracks**, lockstep paging to the deeper endpoint, idle/spinner/results/no-match/error states.
 - **Home**: `DiscourseHomeContent` builds Recently played, Recently played tracks (discourse history then library

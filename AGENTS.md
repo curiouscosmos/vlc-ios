@@ -161,6 +161,7 @@ Before changing observable behaviour, read the corresponding §6 contract in [Ag
 - Clip panel has separate one-second start/end adjustment buttons, disabled at range limits; full-track edge labels, a floating playhead time, and Selected duration beside Cut. Base height is 168 pt with Dynamic Type scaling; transport alignment stays fixed, and portrait artwork shrinks as needed to keep the bottom controls visible.
 - Expanded-player hearts match the action icons at zero likes; positive counts keep the compact heart.
 - Track cards show the title once; subtitles put duration first and omit a matching discourse name.
+- Detail track rows keep the duration, download and like controls at their intrinsic width; long titles wrap to a second line instead of squeezing the icons.
 - Dark is the default; light, Dynamic Type, accessibility and localisation must work.
 
 ## 7. Local persistence contract
@@ -169,7 +170,7 @@ Before changing persisted state, read the key/type/owner table in [AgentReferenc
 
 ## 8. Testing and verification
 
-Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **176 unit tests** and **18 UI tests** (§3.5).
+Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **177 unit tests** and **18 UI tests** (§3.5).
 
 Manual: clean build; local playback/playlists/background/lock screen; five tabs and branding; catalogue paging/filters/refresh; detail queue continuation; Home sections/states; like persistence and rollback; 60 s qualification and 24 h stats dedupe; downloads (progress/cancel/remove/offline); mixer add/select/reorder/remove/clear/follow/volume/relaunch; VoiceOver, Dynamic Type, light theme; offline, interruption, route change and media-services reset on a device. UI tests cover navigation, catalogue → detail, search, Home, the like round trip, the download round trip (skips on a slow CDN), the mixer picker, playback history, payload-less favourites, and clip preview progress and end stopping, and the clip editor/save drawer link sharing.
 

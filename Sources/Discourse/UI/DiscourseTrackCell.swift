@@ -89,6 +89,13 @@ final class DiscourseTrackCell: UITableViewCell {
         trailingStack.axis = .horizontal
         trailingStack.alignment = .center
         trailingStack.spacing = 10
+        // The duration and icons keep their width; a long title wraps to its
+        // second line instead of squeezing the controls into each other.
+        trailingStack.setContentCompressionResistancePriority(.required, for: .horizontal)
+        trailingStack.setContentHuggingPriority(.required, for: .horizontal)
+        downloadControl.setContentCompressionResistancePriority(.required, for: .horizontal)
+        likeControl.setContentCompressionResistancePriority(.required, for: .horizontal)
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         contentView.addSubview(containerView)
         containerView.addSubview(progressView)
