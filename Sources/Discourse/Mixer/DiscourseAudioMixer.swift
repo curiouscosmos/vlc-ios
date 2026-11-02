@@ -248,9 +248,12 @@ final class DiscourseAudioMixer: NSObject {
     }
 
     /// Arms the mixer when the main player is idle; otherwise toggles playback.
+    /// Pausing is an explicit off, not a momentary silence: it clears the
+    /// persisted switch so a later track cannot restart the mixer until the
+    /// user presses play again (AGENTS.md section 6.7).
     func togglePlayback() {
         if isPlaying {
-            pause()
+            setEnabled(false)
             return
         }
         if !isEnabled {

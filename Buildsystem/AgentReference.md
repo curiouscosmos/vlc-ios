@@ -167,8 +167,10 @@ touching the main queue, mini player or now-playing info. Storage: `audio_mixer_
 `audio_mixer_selected` (URL, not index), `audio_mixer_enabled` (`false`), `audio_mixer_loop` (`true`),
 `audio_mixer_volume` (50, clamped 1…100); stale container paths re-root at launch. It follows the main player 250 ms
 after start (audio only; video stops it), fades in ~200 ms, pauses/stops with it (~220 ms fade out), loops or stops at
-track end, reloads on loop change, and its play button only arms it. It shares the app's single `AVAudioSession` and
-handles interruptions, route loss and media-services resets. `DiscourseMixerFileImporter` copies document-picker
+track end, reloads on loop change, and its play button only arms it. Pausing from that button is an explicit off:
+it clears the persisted switch (and the panel shows the disabled labels), so a later main track cannot restart the
+mixer until the user presses play again. It shares the app's single `AVAudioSession` and handles interruptions,
+route loss and media-services resets. `DiscourseMixerFileImporter` copies document-picker
 selections into `Application Support/AudioMixer/<source-id>/`, so playback survives relaunch without a bookmark;
 removal deletes only app-owned copies.
 
@@ -231,9 +233,11 @@ Discourse tracks with a finite seekable duration of at least one second expose C
 
 A second player for explicitly added local files only; order, selection and switches persisted;
 add/remove/reorder/clear. Defaults off, loop on, volume 50 (1…100). Follows the main player (audio only),
-pauses/resumes/stops with it, stops on video, loops at the end when asked, fades in/out; volume never resets. One
-shared audio session; interruptions, route changes and media-services resets pause both and restore mixer state.
-**Clear all** confirms before deleting.
+pauses/resumes/stops with it, stops on video, loops at the end when asked, fades in/out; volume never resets. The
+play/pause button is also the user's off switch: pausing clears `audio_mixer_enabled`, so the mixer stays off for
+later tracks and relaunches until the user presses play (or the on/off toggle). One shared audio session;
+interruptions, route changes and media-services resets pause both and restore mixer state. **Clear all** confirms
+before deleting.
 
 ### 6.8 Design system
 

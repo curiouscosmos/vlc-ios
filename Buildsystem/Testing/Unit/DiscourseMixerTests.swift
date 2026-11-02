@@ -71,6 +71,36 @@ final class DiscourseMixerTests: XCTestCase {
         return url
     }
 
+    /// A silent mono WAV, so the mixer can load a real media without a fixture.
+    private func makeWAVFile(_ name: String, duration: Double = 0.2) throws -> URL {
+        let url = testDirectory.appendingPathComponent(name)
+        let sampleRate: UInt32 = 8000
+        let sampleCount = UInt32(Double(sampleRate) * duration)
+        let dataSize = sampleCount * 2
+
+        func append<T: FixedWidthInteger>(_ value: T, to data: inout Data) {
+            var littleEndian = value.littleEndian
+            withUnsafeBytes(of: &littleEndian) { data.append(contentsOf: $0) }
+        }
+
+        var data = Data()
+        data.append(contentsOf: Array("RIFF".utf8))
+        append(UInt32(36) + dataSize, to: &data)
+        data.append(contentsOf: Array("WAVEfmt ".utf8))
+        append(UInt32(16), to: &data)
+        append(UInt16(1), to: &data)                 // PCM
+        append(UInt16(1), to: &data)                 // mono
+        append(sampleRate, to: &data)
+        append(sampleRate * 2, to: &data)            // byte rate
+        append(UInt16(2), to: &data)                 // block align
+        append(UInt16(16), to: &data)                // bits per sample
+        data.append(contentsOf: Array("data".utf8))
+        append(dataSize, to: &data)
+        data.append(Data(repeating: 0, count: Int(dataSize)))
+        try data.write(to: url)
+        return url
+    }
+
     // MARK: - Defaults
 
     func testDefaultsMatchTheContract() {
@@ -92,6 +122,38 @@ final class DiscourseMixerTests: XCTestCase {
         mixer.togglePlayback()
         XCTAssertTrue(mixer.isEnabled)
         XCTAssertFalse(mixer.isPlaying)
+    }
+
+    func testPausingTurnsTheMixerOffForLaterTracks() throws {
+        let center = NotificationCenter()
+        let mixer = DiscourseAudioMixer(settings: settings,
+                                        notificationCenter: center,
+                                        playback: DiscourseMixerStubPlayback(),
+                                        fileImporter: fileImporter)
+        XCTAssertTrue(mixer.add(try makeWAVFile("Pause.wav")))
+
+        mixer.togglePlayback()
+        XCTAssertTrue(mixer.isPlaying)
+        XCTAssertTrue(mixer.isEnabled)
+
+        // The play/pause button is the user's off switch, and it persists.
+        mixer.togglePlayback()
+        XCTAssertFalse(mixer.isPlaying)
+        XCTAssertFalse(mixer.isEnabled)
+        XCTAssertFalse(makeMixer().isEnabled)
+
+        // The next main track must not restart a mixer the user turned off.
+        center.post(name: Notification.Name(VLCPlaybackServicePlaybackDidStart), object: nil)
+        let idle = expectation(description: "mixer stays off")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { idle.fulfill() }
+        wait(for: [idle], timeout: 1)
+        XCTAssertFalse(mixer.isPlaying)
+
+        // Only the user's play button brings it back.
+        mixer.togglePlayback()
+        XCTAssertTrue(mixer.isPlaying)
+        XCTAssertTrue(mixer.isEnabled)
+        mixer.setEnabled(false)
     }
 
     func testAddKeepsOrderAndSelectsTheFirstTrack() {
@@ -327,5 +389,19 @@ final class DiscourseMixerTests: XCTestCase {
                        "Morning Talk")
         XCTAssertEqual(DiscourseAudioMixer.displayTitle(for: fileURL("Talk%20Two.mp3")),
                        "Talk Two")
+    }
+}
+
+// MARK: - Stub
+
+/// The pause rule only needs the main player's running state; a stub keeps the
+/// test from starting real playback.
+private final class DiscourseMixerStubPlayback: PlaybackService {
+    override var isPlaying: Bool {
+        return true
+    }
+
+    override var numberOfVideoTracks: Int {
+        return 0
     }
 }
