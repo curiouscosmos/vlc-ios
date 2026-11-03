@@ -203,7 +203,10 @@ Starting one track builds a queue continuing with the rest of its discourse; a s
 list after fetching it, without interrupting playback. Index `n` continues at `n+1`. Mapping and resume rules are in
 §4.7. Position saves on pause/stop/next/media change/background and every 30 s, restores when the item starts,
 completes at the end and clears on replay-from-start. A play qualifies for history/stats after **60 s of actual
-playback** (pauses, buffering and seeks excluded); previous/next count.
+playback** (pauses, buffering and seeks excluded); previous/next count. A scrub-bar seek captures the chosen time at
+gesture time, holds the thumb and elapsed label until the player reports that time (or a timeout), and seeks audio by
+absolute timestamp because a streaming duration estimate can make the 0…1 position land elsewhere; later position
+updates therefore cannot re-apply the pre-seek time.
 
 ### 6.4 Likes
 
@@ -356,7 +359,7 @@ Fork touch points (upstream files we intentionally edit):
 - `Sources/Playback/Control/VLCPlaybackService.{h,m}` and `VLCPlaybackService+MediaLibrary.m` — RNNoise switching,
   audio session, snapshot hooks, paused retention and absolute-time clip seeking.
 - `Sources/Playback/Player/` — `PlayerViewController`, `AudioPlayerViewController`, `VideoPlayerViewController`,
-  `AudioPlayerView`, `MediaMoreOptionsActionSheet` + subviews, `ActionSheetCell`: white spinner, noise switch, discourse heart, Share row, Clip editor integration and 168 pt Dynamic Type-scaled height.
+  `AudioPlayerView`, `MediaMoreOptionsActionSheet` + subviews, `ActionSheetCell`: white spinner, noise switch, discourse heart, Share row, Clip editor integration, 168 pt Dynamic Type-scaled height and the scrub bar's captured seek intent with absolute audio seeks.
 - `Sources/App/iOS/TabBarCoordinator.swift` — five tabs, index, accent, bar modes, local library, album/deep links,
   tracker/mixer startup, likes refresh. `VLCAppDelegate.m` — defaults, background downloads, web-activity links.
   `Sources/App/VLCAppCoordinator.{h,m}`, `VLCAppSceneDelegate.m` — registration, deferred links, restoration.

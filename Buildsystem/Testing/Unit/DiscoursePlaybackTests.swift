@@ -192,6 +192,53 @@ final class DiscoursePlaybackTests: XCTestCase {
         XCTAssertFalse(service.isPlaying)
     }
 
+    func testScrubSeekCapturesTheTargetBeforePositionUpdates() throws {
+        var seek = ScrubSeek()
+        seek.update(fraction: Float(20 * 60) / Float(60 * 60), durationMilliseconds: 3_600_000)
+
+        // A live position update restores the slider before the throttled seek
+        // runs; the captured target must still be the user's 20 minutes.
+        XCTAssertEqual(try XCTUnwrap(seek.targetMilliseconds), 1_200_000)
+        XCTAssertEqual(try XCTUnwrap(seek.displayFraction(durationMilliseconds: 3_600_000)),
+                       1.0 / 3.0, accuracy: 0.0001)
+        XCTAssertEqual(seek.takeTarget(now: 10), 1_200_000)
+        XCTAssertNil(seek.takeTarget(now: 10.1))
+    }
+
+    func testScrubSeekHoldsTheSliderUntilThePlayerCatchesUp() {
+        var seek = ScrubSeek()
+        seek.update(fraction: 0.5, durationMilliseconds: 60_000)
+        XCTAssertEqual(seek.takeTarget(now: 10), 30_000)
+
+        XCTAssertFalse(seek.resolve(playedMilliseconds: 5_000, now: 10.5))
+        XCTAssertTrue(seek.isPending)
+
+        // The next position updates carry the seeked time and end the hold.
+        XCTAssertTrue(seek.resolve(playedMilliseconds: 30_200, now: 11))
+        XCTAssertFalse(seek.isPending)
+    }
+
+    func testScrubSeekTimesOutWhenThePlayerNeverReportsTheTarget() {
+        var seek = ScrubSeek()
+        seek.update(fraction: 0.25, durationMilliseconds: 60_000)
+        XCTAssertEqual(seek.takeTarget(now: 100), 15_000)
+        XCTAssertFalse(seek.resolve(playedMilliseconds: 5_000, now: 104))
+        XCTAssertTrue(seek.resolve(playedMilliseconds: 5_000, now: 105.1))
+        XCTAssertFalse(seek.isPending)
+    }
+
+    func testScrubSeekClampsTheSliderFraction() {
+        var seek = ScrubSeek()
+        seek.update(fraction: 1.5, durationMilliseconds: 10_000)
+        XCTAssertEqual(seek.targetMilliseconds, 10_000)
+        seek.update(fraction: -1, durationMilliseconds: 10_000)
+        XCTAssertEqual(seek.targetMilliseconds, 0)
+
+        var empty = ScrubSeek()
+        empty.update(fraction: 0.5, durationMilliseconds: 0)
+        XCTAssertNil(empty.targetMilliseconds)
+    }
+
     @MainActor
     func testNewPlaybackConfigurationWinsOverDiskRestore() throws {
         let service = PlaybackService()

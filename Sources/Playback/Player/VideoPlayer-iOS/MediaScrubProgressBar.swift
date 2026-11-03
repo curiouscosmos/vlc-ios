@@ -20,6 +20,9 @@ class MediaScrubProgressBar: UIStackView {
     weak var delegate: MediaScrubProgressBarDelegate?
     private var playbackService = PlaybackService.sharedInstance()
     private var positionSet: Bool = true
+    /// The user's pending seek, captured at gesture time so the delayed apply
+    /// cannot pick up a live position update instead (see `ScrubSeek`).
+    private var scrubSeek = ScrubSeek()
     private(set) var isScrubbing: Bool = false
     var shouldHideScrubLabels: Bool = false
 
@@ -186,10 +189,21 @@ class MediaScrubProgressBar: UIStackView {
 
     @objc func updateInterfacePosition() {
         if !isScrubbing {
-            progressSlider.value = playbackService.playbackPosition
+            let resolved = scrubSeek.resolve(playedMilliseconds: Int(playbackService.playedTime().intValue),
+                                             now: Date.timeIntervalSinceReferenceDate)
+            if !resolved, let fraction = scrubSeek.displayFraction(durationMilliseconds: playbackService.mediaDuration) {
+                // Hold the thumb at the user's target until the seek lands.
+                progressSlider.value = fraction
+            } else {
+                progressSlider.value = playbackService.playbackPosition
+            }
         }
 
-        elapsedTimeLabel.text = playbackService.playedTime().stringValue
+        if let target = scrubSeek.targetMilliseconds {
+            elapsedTimeLabel.text = VLCTime(number: NSNumber(value: target)).stringValue
+        } else {
+            elapsedTimeLabel.text = playbackService.playedTime().stringValue
+        }
 
         updateCurrentTime()
 
@@ -203,6 +217,9 @@ class MediaScrubProgressBar: UIStackView {
         let timeToDisplay: String = {
             switch RemainingTimeMode.current {
             case .remaining:
+                if let target = scrubSeek.targetMilliseconds {
+                    return VLCTime(number: NSNumber(value: target - playbackService.mediaDuration)).stringValue
+                }
                 return playbackService.remainingTime().stringValue
             case .total:
                 return playbackService.mediaLength.stringValue
@@ -221,9 +238,17 @@ class MediaScrubProgressBar: UIStackView {
     }
 
     func updateSliderWithValue(value: Float) {
-        perform(#selector(updatePlaybackPosition), with: nil, afterDelay: 0.3)
-        progressSlider.value = value / Float(playbackService.mediaDuration)
-        playbackService.playbackPosition = value / Float(playbackService.mediaDuration)
+        let duration = playbackService.mediaDuration
+        guard duration > 0 else {
+            return
+        }
+        scrubSeek.update(fraction: value / Float(duration), durationMilliseconds: duration)
+        NSObject.cancelPreviousPerformRequests(withTarget: self,
+                                               selector: #selector(updatePlaybackPosition),
+                                               object: nil)
+        positionSet = false
+        updatePlaybackPosition()
+        progressSlider.value = value / Float(duration)
 
         let newPosition = VLCTime(number: NSNumber.init(value: value))
         elapsedTimeLabel.text = newPosition.stringValue
@@ -238,7 +263,6 @@ class MediaScrubProgressBar: UIStackView {
         }
         elapsedTimeLabel.setNeedsLayout()
 
-        positionSet = false
         delegate?.mediaScrubProgressBarShouldResetIdleTimer?()
     }
 
@@ -351,23 +375,50 @@ private extension MediaScrubProgressBar {
     }
 
     @objc private func updatePlaybackPosition() {
-        if !positionSet {
-            playbackService.playbackPosition = progressSlider.value
-            playbackService.setNeedsMetadataUpdate()
-            positionSet = true
+        guard !positionSet else {
+            return
         }
+        guard let target = scrubSeek.takeTarget(now: Date.timeIntervalSinceReferenceDate) else {
+            return
+        }
+        positionSet = true
+        applySeek(to: target)
+        playbackService.setNeedsMetadataUpdate()
+    }
+
+    /// Audio seeks by absolute timestamp because a streaming duration estimate
+    /// can make the 0…1 position land at a different time. Video keeps the
+    /// upstream fraction seek.
+    private func applySeek(to targetMilliseconds: Int) {
+        let duration = playbackService.mediaDuration
+#if os(iOS)
+        if playbackService.metadata.isAudioOnly {
+            playbackService.seek(toMilliseconds: targetMilliseconds)
+            return
+        }
+#endif
+        guard duration > 0 else {
+            return
+        }
+        playbackService.playbackPosition = min(max(Float(targetMilliseconds) / Float(duration), 0), 1)
     }
 
     private func updateAccessibilityValue() {
+        let elapsed: VLCTime
+        if let target = scrubSeek.targetMilliseconds {
+            elapsed = VLCTime(number: NSNumber(value: target))
+        } else {
+            elapsed = playbackService.playedTime()
+        }
         switch RemainingTimeMode.current {
         case .total:
             accessibilityValue = String(format: NSLocalizedString("PLAYBACK_SCRUB_TOTAL_TIME_FORMAT", comment: "1: elapsed time, 2: total time"),
-                                        playbackService.playedTime().verboseStringValue,
+                                        elapsed.verboseStringValue,
                                         playbackService.mediaLength.verboseStringValue)
 
         case .remaining:
             accessibilityValue = String(format: NSLocalizedString("PLAYBACK_SCRUB_REMAINING_TIME_FORMAT", comment: "1: elapsed time, 2: remaining time"),
-                                        playbackService.playedTime().verboseStringValue,
+                                        elapsed.verboseStringValue,
                                         playbackService.remainingTime().verboseStringValue)
 
         }
@@ -388,8 +439,17 @@ private extension MediaScrubProgressBar {
         /* we need to limit the number of events sent by the slider, since otherwise, the user
          * wouldn't see the I-frames when seeking on current mobile devices. This isn't a problem
          * within the Simulator, but especially on older ARMv7 devices, it's clearly noticeable. */
-        perform(#selector(updatePlaybackPosition), with: nil, afterDelay: 0.3)
         if playbackService.mediaDuration > 0 {
+            // Capture the target now: a position update can restore the slider
+            // before the delayed seek runs.
+            scrubSeek.update(fraction: slider.value,
+                             durationMilliseconds: playbackService.mediaDuration)
+            NSObject.cancelPreviousPerformRequests(withTarget: self,
+                                                   selector: #selector(updatePlaybackPosition),
+                                                   object: nil)
+            perform(#selector(updatePlaybackPosition),
+                    with: nil,
+                    afterDelay: ScrubSeek.delay)
             if !isScrubbing {
                 progressSlider.value = playbackService.playbackPosition
             }
@@ -451,5 +511,78 @@ fileprivate enum RemainingTimeMode {
         let userDefault = UserDefaults.standard
         userDefault.set(!userDefault.bool(forKey: kVLCShowRemainingTime), forKey: kVLCShowRemainingTime)
         return current
+    }
+}
+
+// MARK: - Scrub seek
+
+/// The seek bar's delayed, coalesced seek. Position updates keep arriving
+/// between touch-up and the throttled seek, so the slider can be restored to
+/// the live position before the seek fires. Capture the user's target at
+/// gesture time and keep displaying it until the player reports the new time;
+/// otherwise a 20-minute seek could apply the old 4-minute position.
+struct ScrubSeek {
+    /// The scrub bar waits before applying a drag, so gestures do not flood
+    /// the player with seeks.
+    static let delay: TimeInterval = 0.3
+    /// A seek counts as landed once the reported time is this close.
+    static let toleranceMilliseconds: Int = 1_000
+    /// Stop holding the slider even if VLC never reports the target.
+    static let timeout: TimeInterval = 5
+
+    private(set) var targetMilliseconds: Int?
+    /// When the target was handed to the player; `nil` while still throttled.
+    private var issuedAt: TimeInterval?
+
+    var isPending: Bool {
+        return targetMilliseconds != nil
+    }
+
+    /// Records the user's chosen slider fraction and the media length at that
+    /// moment. Later slider changes are ignored until a new gesture.
+    mutating func update(fraction: Float, durationMilliseconds: Int) {
+        guard durationMilliseconds > 0, fraction.isFinite else {
+            return
+        }
+        let clamped = min(max(fraction, 0), 1)
+        targetMilliseconds = Int((Double(clamped) * Double(durationMilliseconds)).rounded())
+        issuedAt = nil
+    }
+
+    /// The absolute target to hand to the player once the throttle elapses.
+    /// Returns `nil` if there is no target or it was already applied.
+    mutating func takeTarget(now: TimeInterval) -> Int? {
+        guard let target = targetMilliseconds, issuedAt == nil else {
+            return nil
+        }
+        issuedAt = now
+        return target
+    }
+
+    /// Ends the hold once the player has caught up or the seek timed out.
+    /// Returns `true` when position updates may drive the slider again.
+    mutating func resolve(playedMilliseconds: Int, now: TimeInterval) -> Bool {
+        guard let target = targetMilliseconds else {
+            return true
+        }
+        if abs(playedMilliseconds - target) <= Self.toleranceMilliseconds {
+            targetMilliseconds = nil
+            issuedAt = nil
+            return true
+        }
+        if let issuedAt, now - issuedAt >= Self.timeout {
+            targetMilliseconds = nil
+            self.issuedAt = nil
+            return true
+        }
+        return false
+    }
+
+    /// The slider position to display while the seek is in flight.
+    func displayFraction(durationMilliseconds: Int) -> Float? {
+        guard let target = targetMilliseconds, durationMilliseconds > 0 else {
+            return nil
+        }
+        return min(max(Float(target) / Float(durationMilliseconds), 0), 1)
     }
 }
