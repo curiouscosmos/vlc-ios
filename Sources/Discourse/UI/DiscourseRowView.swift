@@ -213,6 +213,10 @@ final class DiscourseRowView: UIView {
         updateTheme()
     }
 
+    func updateDownload(_ state: DiscourseDownloadState) {
+        downloadControl.configure(with: state, title: titleLabel.text ?? "")
+    }
+
     func configure(with track: DiscourseAudio,
                    isPlaying: Bool,
                    like: DiscourseLikeState,

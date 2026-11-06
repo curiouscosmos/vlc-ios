@@ -32,6 +32,7 @@ final class DiscourseDetailViewController: UIViewController {
 
     private var tracks: [DiscourseAudio] = []
     private var hasLoaded = false
+    private var isApplyingTracks = false
     private var playingAudioID: String?
     private var requestToken = 0
     private var downloadMenuButton: UIBarButtonItem?
@@ -91,7 +92,7 @@ final class DiscourseDetailViewController: UIViewController {
                                                name: .discourseLikesDidChange,
                                                object: nil)
         NotificationCenter.default.addObserver(self,
-                                               selector: #selector(downloadsDidChange),
+                                               selector: #selector(downloadsDidChange(_:)),
                                                name: .discourseDownloadsDidChange,
                                                object: nil)
         updateTheme()
@@ -225,49 +226,26 @@ final class DiscourseDetailViewController: UIViewController {
         requestToken += 1
         let token = requestToken
 
-        if tracks.isEmpty {
-            if !forceRefresh,
-               let cached = client.cachedDiscourseTracks(discourseID: self.discourse.id),
-               !cached.isEmpty {
-                tracks = cached.sorted(by: Self.trackOrder)
-                hasLoaded = true
-                updateDownloadMenu()
-                playbackStore.register(tracks)
-                seedLikeCounts(tracks)
-                headerView.setPlayAllEnabled(true)
-                tableView.reloadData()
-                updatePlayingState()
-                showContent()
-                scrollToHighlightedTrackIfNeeded()
-            } else {
-                showLoading()
-            }
-        }
-
+        if tracks.isEmpty { showLoading() }
+        let client = self.client
+        let discourseID = discourse.id
         Task { @MainActor [weak self] in
             guard let self else { return }
-            do {
-                let fetched = try await self.client.discourseTracks(discourseID: self.discourse.id,
-                                                                    forceRefresh: forceRefresh)
+            if self.tracks.isEmpty && !forceRefresh {
+                let cached = await Task.detached(priority: .userInitiated) {
+                    client.cachedDiscourseTracks(discourseID: discourseID)?.sorted(by: Self.trackOrder)
+                }.value
                 guard token == self.requestToken else { return }
-
-                self.tracks = fetched.sorted(by: Self.trackOrder)
-                self.hasLoaded = true
-                self.updateDownloadMenu()
-                // Durations drive the progress rings even before a track plays.
-                self.playbackStore.register(self.tracks)
-                self.seedLikeCounts(self.tracks)
+                if let cached, !cached.isEmpty { self.applyTracks(cached) }
+            }
+            do {
+                let fetched = try await Task.detached(priority: .userInitiated) {
+                    try await client.discourseTracks(discourseID: discourseID, forceRefresh: forceRefresh)
+                        .sorted(by: Self.trackOrder)
+                }.value
+                guard token == self.requestToken else { return }
+                self.applyTracks(fetched)
                 self.refreshControl.endRefreshing()
-                self.headerView.setPlayAllEnabled(!self.tracks.isEmpty)
-                self.tableView.reloadData()
-                self.updatePlayingState()
-
-                if self.tracks.isEmpty {
-                    self.showEmptyState()
-                } else {
-                    self.showContent()
-                    self.scrollToHighlightedTrackIfNeeded()
-                }
             } catch {
                 guard token == self.requestToken else { return }
                 self.refreshControl.endRefreshing()
@@ -282,7 +260,28 @@ final class DiscourseDetailViewController: UIViewController {
         }
     }
 
-    private static func trackOrder(_ lhs: DiscourseAudio, _ rhs: DiscourseAudio) -> Bool {
+    private func applyTracks(_ fetched: [DiscourseAudio]) {
+        let changed = tracks != fetched
+        hasLoaded = true
+        if changed {
+            tracks = fetched
+            isApplyingTracks = true
+            playbackStore.register(tracks)
+            isApplyingTracks = false
+            seedLikeCounts(tracks)
+            updateDownloadMenu()
+            headerView.setPlayAllEnabled(!tracks.isEmpty)
+            playingAudioID = playback.currentIdentity()?.audioID
+            tableView.reloadData()
+        }
+        if tracks.isEmpty { showEmptyState() }
+        else {
+            showContent()
+            scrollToHighlightedTrackIfNeeded()
+        }
+    }
+
+    nonisolated private static func trackOrder(_ lhs: DiscourseAudio, _ rhs: DiscourseAudio) -> Bool {
         let left = lhs.trackNumber ?? Int.max
         let right = rhs.trackNumber ?? Int.max
         if left != right {
@@ -442,20 +441,23 @@ final class DiscourseDetailViewController: UIViewController {
     }
 
     /// Refreshes the menu and the visible download arrows in place.
-    @objc private func downloadsDidChange() {
-        updateDownloadMenu()
+    @objc private func downloadsDidChange(_ notification: Notification) {
+        let change = notification.discourseDownloadChange
+        guard change == nil || change?.discourseIDs.contains(discourse.id) == true else { return }
+        if change?.isProgressOnly != true { updateDownloadMenu() }
         for indexPath in tableView.indexPathsForVisibleRows ?? [] {
             guard tracks.indices.contains(indexPath.row),
-                  let cell = tableView.cellForRow(at: indexPath) as? DiscourseTrackCell else {
-                continue
-            }
-            configure(cell, at: indexPath.row)
+                  let cell = tableView.cellForRow(at: indexPath) as? DiscourseTrackCell else { continue }
+            let track = tracks[indexPath.row]
+            guard change == nil || change?.affects(audioID: track.id, discourseID: track.discourseID) == true else { continue }
+            cell.updateDownload(DiscourseDownloadManager.shared.state(for: track.id))
         }
     }
 
     /// The tracker saves a position or completes a track: refresh just that row
     /// so the ring follows playback without reloading the table.
     @objc private func progressDidChange(_ notification: Notification) {
+        guard !isApplyingTracks else { return }
         guard let audioID = notification.userInfo?[DiscoursePlaybackStore.audioIDKey] as? String,
               let row = tracks.firstIndex(where: { $0.id == audioID }) else {
             tableView.reloadData()

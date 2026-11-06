@@ -369,7 +369,7 @@ class AudioPlayerViewController: PlayerViewController {
                                object: nil)
         }
         center.addObserver(self,
-                           selector: #selector(updateDiscourseLike),
+                           selector: #selector(downloadsDidChange(_:)),
                            name: .discourseDownloadsDidChange,
                            object: nil)
         center.addObserver(self,
@@ -380,6 +380,18 @@ class AudioPlayerViewController: PlayerViewController {
                            selector: #selector(updateDiscourseLike),
                            name: .VLCThemeDidChangeNotification,
                            object: nil)
+        updateDiscourseLike()
+    }
+
+    @objc private func downloadsDidChange(_ notification: Notification) {
+        if let change = notification.discourseDownloadChange {
+            guard let identity = currentDiscourseIdentity(),
+                  change.affects(audioID: identity.audioID, discourseID: identity.discourseID) else { return }
+            if change.isProgressOnly {
+                refreshPlayerDownload()
+                return
+            }
+        }
         updateDiscourseLike()
     }
 

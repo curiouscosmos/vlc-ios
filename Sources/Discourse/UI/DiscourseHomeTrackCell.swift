@@ -68,6 +68,10 @@ final class DiscourseHomeTrackCell: UICollectionViewCell {
         set { rowView.onToggleDownload = newValue }
     }
 
+    func updateDownload(_ state: DiscourseDownloadState) {
+        rowView.updateDownload(state)
+    }
+
     func configure(with track: DiscourseAudio,
                    isPlaying: Bool,
                    like: DiscourseLikeState,

@@ -507,6 +507,22 @@ final class DiscourseStoresTests: XCTestCase {
 
     // MARK: - Playback
 
+    func testRegisteringUnchangedTracksDoesNotPostProgressAgain() {
+        let center = NotificationCenter()
+        let store = DiscoursePlaybackStore(settings: settings, notificationCenter: center)
+        let tracks = [Self.audio(id: "a1", discourseID: "d1", durationSeconds: 100)]
+        var changes = 0
+        let observer = center.addObserver(forName: .discoursePlaybackProgressDidChange, object: nil, queue: nil) { _ in
+            changes += 1
+        }
+        defer { center.removeObserver(observer) }
+        store.register(tracks)
+        store.register(tracks)
+        XCTAssertEqual(changes, 1)
+        store.register([Self.audio(id: "a1", discourseID: "d1", durationSeconds: 200)])
+        XCTAssertEqual(changes, 2)
+    }
+
     func testPlaybackIndexUpdatesPersistAndReset() {
         let store = DiscoursePlaybackStore(settings: settings, notificationCenter: NotificationCenter())
         store.register(id: "a1", discourseID: "d1", durationMilliseconds: 100_000)

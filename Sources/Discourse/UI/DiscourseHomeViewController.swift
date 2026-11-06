@@ -41,6 +41,8 @@ final class DiscourseHomeViewController: UIViewController {
     private var playingAudioID: String?
     private var playingLocalURL: URL?
     private var localTracks: [DiscourseLocalTrack] = []
+    private var localHistoryNeedsReload = true
+    private var isLoadingLocalHistory = false
 
     init(statsCache: DiscourseStatsCache = .shared,
          history: DiscourseHistoryStore = .shared,
@@ -89,19 +91,20 @@ final class DiscourseHomeViewController: UIViewController {
                                                name: .discourseLikesDidChange,
                                                object: nil)
         NotificationCenter.default.addObserver(self,
-                                               selector: #selector(downloadsDidChange),
+                                               selector: #selector(downloadsDidChange(_:)),
                                                name: .discourseDownloadsDidChange,
                                                object: nil)
         addPlaybackObservers()
         addMiniPlayerObservers()
 
-        reloadHistory()
+        mediaLibrary?.addObserver(self)
         loadStats(forceRefresh: false)
         updateTheme()
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        refreshLocalHistoryIfNeeded()
         reloadHistory()
         updatePlayingState()
         updateMiniPlayerInset()
@@ -230,30 +233,50 @@ final class DiscourseHomeViewController: UIViewController {
 
     private func reloadHistory() {
         let historyEnabled = DiscoursePlaybackSettings.isHistoryEnabled
-        localTracks = historyEnabled ? localHistoryTracks() : []
         applySections(DiscourseHomeContent.sections(recentDiscourses: history.recentlyPlayedDiscourses,
                                                     recentTracks: historyEnabled ? history.recentlyPlayedAudios : [],
                                                     topDiscourses: topDiscourses,
                                                     topTracks: topTracks,
-                                                    localTracks: localTracks,
+                                                    localTracks: historyEnabled ? localTracks : [],
                                                     historyEnabled: historyEnabled,
                                                     topListsLoading: isLoadingStats))
     }
 
-    /// The device library's own playback history (AGENTS section 6.1). The
-    /// library records a play itself, so Home only has to display it.
-    private func localHistoryTracks() -> [DiscourseLocalTrack] {
-        guard let history = mediaLibrary?.medialib.audioHistory() else {
-            return []
+    private func refreshLocalHistoryIfNeeded() {
+        guard DiscoursePlaybackSettings.isHistoryEnabled else {
+            localTracks = []
+            localHistoryNeedsReload = true
+            return
         }
-        return DiscourseLocalTrack.list(from: history)
+        guard localHistoryNeedsReload, !isLoadingLocalHistory, let mediaLibrary else { return }
+        localHistoryNeedsReload = false
+        isLoadingLocalHistory = true
+        Task { @MainActor [weak self] in
+            let tracks = await Task.detached(priority: .userInitiated) {
+                DiscourseLocalTrack.list(from: mediaLibrary.medialib.audioHistory() ?? [])
+            }.value
+            guard let self else { return }
+            self.isLoadingLocalHistory = false
+            self.localTracks = DiscoursePlaybackSettings.isHistoryEnabled ? tracks : []
+            self.reloadHistory()
+            if self.viewIfLoaded?.window != nil { self.refreshLocalHistoryIfNeeded() }
+        }
     }
 
     private func applySections(_ newSections: [DiscourseHomeSection]) {
+        guard sections != newSections else {
+            renderState()
+            return
+        }
+        let oldSections = sections
         sections = newSections
         seedLikeCounts(newSections)
-        collectionView.reloadData()
-        collectionView.collectionViewLayout.invalidateLayout()
+        if oldSections.map(\.kind) == newSections.map(\.kind) {
+            let changed = IndexSet(newSections.indices.filter { oldSections[$0] != newSections[$0] })
+            collectionView.reloadSections(changed)
+        } else {
+            collectionView.reloadData()
+        }
         renderState()
     }
 
@@ -287,12 +310,22 @@ final class DiscourseHomeViewController: UIViewController {
     }
 
     /// Updates the rendered download arrows in place.
-    @objc private func downloadsDidChange() {
+    @objc private func downloadsDidChange(_ notification: Notification) {
+        let change = notification.discourseDownloadChange
         for cell in collectionView.visibleCells {
-            guard let indexPath = collectionView.indexPath(for: cell) else {
-                continue
+            guard let indexPath = collectionView.indexPath(for: cell),
+                  sections.indices.contains(indexPath.section),
+                  sections[indexPath.section].items.indices.contains(indexPath.item) else { continue }
+            switch sections[indexPath.section].items[indexPath.item] {
+            case .discourse(let discourse):
+                guard change?.isProgressOnly != true,
+                      change == nil || change?.discourseIDs.contains(discourse.id) == true else { continue }
+                (cell as? DiscourseCardCell)?.configureDownloadBadge(downloadState(for: discourse))
+            case .track(let track):
+                guard change == nil || change?.affects(audioID: track.id, discourseID: track.discourseID) == true else { continue }
+                (cell as? DiscourseHomeTrackCell)?.updateDownload(downloadState(for: track))
+            case .localTrack, .loading: break
             }
-            reconfigure(cell, at: indexPath)
         }
     }
 
@@ -469,11 +502,14 @@ final class DiscourseHomeViewController: UIViewController {
     // MARK: - Actions
 
     @objc private func handleRefresh() {
+        localHistoryNeedsReload = true
+        refreshLocalHistoryIfNeeded()
         reloadHistory()
         loadStats(forceRefresh: true)
     }
 
     @objc private func historyDidChange() {
+        refreshLocalHistoryIfNeeded()
         reloadHistory()
     }
 
@@ -493,8 +529,8 @@ final class DiscourseHomeViewController: UIViewController {
         }
         playingAudioID = audioID
         playingLocalURL = localURL
-        if !sections.isEmpty {
-            collectionView.reloadData()
+        for cell in collectionView.visibleCells {
+            if let indexPath = collectionView.indexPath(for: cell) { reconfigure(cell, at: indexPath) }
         }
     }
 
@@ -681,5 +717,15 @@ private final class DiscourseHomeLoadingCell: UICollectionViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         spinner.startAnimating()
+    }
+}
+
+extension DiscourseHomeViewController: MediaLibraryObserver {
+    func medialibrary(_ medialibrary: MediaLibraryService, historyChangedOfType type: VLCMLHistoryType) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.localHistoryNeedsReload = true
+            if self.viewIfLoaded?.window != nil { self.refreshLocalHistoryIfNeeded() }
+        }
     }
 }

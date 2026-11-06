@@ -75,7 +75,7 @@ final class DiscourseCatalogueViewController: UIViewController {
                                                name: .discourseLikesDidChange,
                                                object: nil)
         NotificationCenter.default.addObserver(self,
-                                               selector: #selector(downloadsDidChange),
+                                               selector: #selector(downloadsDidChange(_:)),
                                                name: .discourseDownloadsDidChange,
                                                object: nil)
         addMiniPlayerObservers()
@@ -390,7 +390,9 @@ final class DiscourseCatalogueViewController: UIViewController {
 
     /// Updates the rendered hearts in place after a toggle settles.
     /// Updates the rendered download badges in place.
-    @objc private func downloadsDidChange() {
+    @objc private func downloadsDidChange(_ notification: Notification) {
+        let change = notification.discourseDownloadChange
+        guard change?.isProgressOnly != true else { return }
         for cell in collectionView.visibleCells {
             guard let card = cell as? DiscourseCardCell,
                   let indexPath = collectionView.indexPath(for: card),
@@ -399,9 +401,8 @@ final class DiscourseCatalogueViewController: UIViewController {
                 continue
             }
             let discourse = discourse(at: indexPath)
-            card.configure(with: discourse,
-                           like: likeState(for: discourse),
-                           downloads: downloadSummary(for: discourse))
+            guard change == nil || change?.discourseIDs.contains(discourse.id) == true else { continue }
+            card.configureDownloadBadge(downloadSummary(for: discourse))
         }
     }
 

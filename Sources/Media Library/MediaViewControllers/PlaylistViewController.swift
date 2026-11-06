@@ -208,7 +208,7 @@ private final class FavouriteCollectionViewController: UICollectionViewControlle
             return cell
         }
         NotificationCenter.default.addObserver(self, selector: #selector(reload), name: .discourseLikesDidChange, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(reload), name: .discourseDownloadsDidChange, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(downloadsDidChange(_:)), name: .discourseDownloadsDidChange, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(reload), name: .VLCThemeDidChangeNotification, object: nil)
         collectionView.refreshControl = UIRefreshControl()
         collectionView.refreshControl?.addTarget(self, action: #selector(refresh), for: .valueChanged)
@@ -221,6 +221,23 @@ private final class FavouriteCollectionViewController: UICollectionViewControlle
         let layout = collectionViewLayout as! UICollectionViewFlowLayout
         let size = CGSize(width: collectionView.bounds.width, height: kind == .tracks ? 100 : 160)
         if layout.itemSize != size { layout.itemSize = size }
+    }
+
+    @objc private func downloadsDidChange(_ notification: Notification) {
+        let change = notification.discourseDownloadChange
+        let metadata = store.favouriteMetadata
+        for cell in collectionView.visibleCells {
+            guard let indexPath = collectionView.indexPath(for: cell),
+                  let id = source.itemIdentifier(for: indexPath) else { continue }
+            if let row = cell as? DiscourseHomeTrackCell, let track = metadata.audios[id],
+               change == nil || change?.affects(audioID: id, discourseID: track.discourseID) == true {
+                row.updateDownload(DiscourseDownloadManager.shared.state(for: id))
+            } else if let card = cell as? DiscourseCardCell, let discourse = metadata.discourses[id],
+                      change?.isProgressOnly != true,
+                      change == nil || change?.discourseIDs.contains(id) == true {
+                card.configureDownloadBadge(.resolve(discourseID: id, totalTracks: discourse.totalTracks))
+            }
+        }
     }
 
     @objc private func reload() {

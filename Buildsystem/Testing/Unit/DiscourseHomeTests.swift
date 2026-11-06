@@ -166,6 +166,18 @@ final class DiscourseHomeTests: XCTestCase {
         XCTAssertEqual(sections[0].items.last, .localTrack(localTrack("f3")))
     }
 
+    func testLocalMetadataChangesInvalidateHomeSectionWithoutChangingIdentityDedupe() {
+        let original = localTrack("a")
+        let renamed = DiscourseLocalTrack(url: original.url, title: "Renamed", subtitle: original.subtitle,
+                                         artworkURL: original.artworkURL, durationSeconds: original.durationSeconds, media: nil)
+        let before = DiscourseHomeContent.sections(recentDiscourses: [], recentTracks: [], topDiscourses: [],
+                                                   topTracks: [], localTracks: [original], historyEnabled: true)
+        let after = DiscourseHomeContent.sections(recentDiscourses: [], recentTracks: [], topDiscourses: [],
+                                                  topTracks: [], localTracks: [renamed, original], historyEnabled: true)
+        XCTAssertNotEqual(before, after)
+        XCTAssertEqual(after.first?.items, [.localTrack(renamed)])
+    }
+
     // MARK: - Fixtures
 
     private func discourse(_ id: String) -> Discourse {

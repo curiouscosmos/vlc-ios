@@ -27,3 +27,27 @@ extension Notification.Name {
     /// The Audio Mixer's membership, selection, switches or playback changed.
     static let discourseMixerDidChange = Notification.Name("discourseMixerDidChange")
 }
+
+/// Missing payloads retain the legacy “refresh everything” behavior.
+struct DiscourseDownloadChange {
+    static let userInfoKey = "downloadChange"
+    var audioIDs: Set<String> = []
+    var discourseIDs: Set<String> = []
+    var isProgressOnly = false
+
+    func affects(audioID: String, discourseID: String) -> Bool {
+        audioIDs.contains(audioID) || (audioIDs.isEmpty && discourseIDs.contains(discourseID))
+    }
+
+    mutating func merge(_ other: DiscourseDownloadChange) {
+        audioIDs.formUnion(other.audioIDs)
+        discourseIDs.formUnion(other.discourseIDs)
+        isProgressOnly = isProgressOnly && other.isProgressOnly
+    }
+}
+
+extension Notification {
+    var discourseDownloadChange: DiscourseDownloadChange? {
+        userInfo?[DiscourseDownloadChange.userInfoKey] as? DiscourseDownloadChange
+    }
+}

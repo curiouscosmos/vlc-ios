@@ -331,7 +331,7 @@ final class DiscourseCardCell: UICollectionViewCell {
         onToggleLike?()
     }
 
-    private func configureDownloadBadge(_ summary: DiscourseDownloadSummary) {
+    func configureDownloadBadge(_ summary: DiscourseDownloadSummary) {
         downloadBadge.isHidden = !summary.isVisible
         guard summary.isVisible else {
             return

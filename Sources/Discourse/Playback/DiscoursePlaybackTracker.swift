@@ -69,7 +69,7 @@ final class DiscoursePlaybackTracker {
         }
         isStarted = true
 
-        notificationCenter.addObserver(self, selector: #selector(downloadsChanged),
+        notificationCenter.addObserver(self, selector: #selector(downloadsChanged(_:)),
                                        name: .discourseDownloadsDidChange, object: nil)
         notificationCenter.addObserver(self, selector: #selector(restoreCurrentTrackArtwork),
                                        name: Notification.Name(VLCPlaybackServicePlaybackMetadataDidChange), object: nil)
@@ -98,7 +98,17 @@ final class DiscoursePlaybackTracker {
                                        object: nil)
     }
 
-    @objc private func downloadsChanged() {
+    @objc private func downloadsChanged(_ notification: Notification) {
+        if let change = notification.discourseDownloadChange {
+            guard !change.isProgressOnly,
+                  let media = playbackService.currentlyPlayingMedia,
+                  let identity = DiscourseMediaFactory.identity(of: media),
+                  change.affects(audioID: identity.audioID, discourseID: identity.discourseID) else { return }
+        }
+        downloadsChanged()
+    }
+
+    private func downloadsChanged() {
         guard playbackService.isPlaying,
               let current = playbackService.currentlyPlayingMedia,
               current.url?.isFileURL == false,

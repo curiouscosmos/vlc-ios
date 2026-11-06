@@ -69,6 +69,10 @@ final class DiscourseSearchCell: UITableViewCell {
         accessibilityIdentifier = "discourseSearchDiscourse"
     }
 
+    func updateDownload(_ state: DiscourseDownloadState) {
+        rowView.updateDownload(state)
+    }
+
     func configure(with track: DiscourseAudio,
                    isPlaying: Bool,
                    like: DiscourseLikeState,

@@ -88,9 +88,10 @@ struct DiscourseLocalTrack: Hashable {
         }
     }
 
-    /// The media identity used to dedupe the merged Home list.
+    /// Compare rendered metadata so Home can detect changes to an existing file.
     static func == (lhs: DiscourseLocalTrack, rhs: DiscourseLocalTrack) -> Bool {
-        return lhs.url == rhs.url
+        return lhs.url == rhs.url && lhs.title == rhs.title && lhs.subtitle == rhs.subtitle
+            && lhs.artworkURL == rhs.artworkURL && lhs.durationSeconds == rhs.durationSeconds
     }
 
     func hash(into hasher: inout Hasher) {

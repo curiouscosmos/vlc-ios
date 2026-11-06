@@ -55,7 +55,7 @@ final class DiscoursePlaybackStore {
     /// Registers every track of a discourse so the card can show a progress
     /// ring. Tracks that disappeared from the discourse are dropped.
     func register(_ tracks: [DiscourseAudio], discourseID: String? = nil) {
-        queue.sync {
+        let changed = queue.sync { () -> Bool in
             var index = trackIndex()
 
             if let discourseID {
@@ -79,9 +79,11 @@ final class DiscoursePlaybackStore {
                 index[id] = TrackInfo(discourseID: track.discourseID, durationMilliseconds: resolvedDuration)
             }
 
+            guard index != self.index else { return false }
             saveTrackIndex(index)
+            return true
         }
-        postChange(audioID: nil)
+        if changed { postChange(audioID: nil) }
     }
 
     func register(id: String, discourseID: String, durationMilliseconds: Double) {

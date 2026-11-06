@@ -98,7 +98,7 @@ final class DiscourseSearchViewController: UIViewController {
                                                name: .discourseLikesDidChange,
                                                object: nil)
         NotificationCenter.default.addObserver(self,
-                                               selector: #selector(likesDidChange),
+                                               selector: #selector(downloadsDidChange(_:)),
                                                name: .discourseDownloadsDidChange,
                                                object: nil)
         addPlaybackObservers()
@@ -340,6 +340,18 @@ final class DiscourseSearchViewController: UIViewController {
         }
         for indexPath in tableView.indexPathsForVisibleRows ?? [] {
             tableView.reloadRows(at: [indexPath], with: .none)
+        }
+    }
+
+    @objc private func downloadsDidChange(_ notification: Notification) {
+        guard contentState == .results else { return }
+        let change = notification.discourseDownloadChange
+        for indexPath in tableView.indexPathsForVisibleRows ?? [] {
+            guard section(at: indexPath.section) == .tracks, results.tracks.indices.contains(indexPath.row),
+                  let cell = tableView.cellForRow(at: indexPath) as? DiscourseSearchCell else { continue }
+            let track = results.tracks[indexPath.row]
+            guard change == nil || change?.affects(audioID: track.id, discourseID: track.discourseID) == true else { continue }
+            cell.updateDownload(DiscourseDownloadManager.shared.state(for: track.id))
         }
     }
 

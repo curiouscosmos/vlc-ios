@@ -105,7 +105,7 @@ injectable (settings, service, date provider, notification centre). Changes post
 `DiscourseLikesStore` (liked sets, optimistic toggle + rollback, pending map, 7-day `/likes` gate, counts, favourite
 payloads/collections), `DiscourseHistoryStore` (max 24, newest first), `DiscourseStatsStore` (24 h `/stats` dedupe),
 `DiscourseStatsCache` (weekly lists, 3 h TTL, stale-on-failure, forced network read on expiry),
-`DiscoursePlaybackStore` (resume, completion, fractions, played, durations), `DiscoursePlaybackSettings`
+`DiscoursePlaybackStore` (resume, completion, fractions, played, durations; unchanged bulk registrations do not write or notify), `DiscoursePlaybackSettings`
 (`playback_history`), `DiscourseCatalogueFilterStore`, `DiscourseMediaIdentityStore` (bounded URL → identity),
 `DiscourseTrackRegistry` (in-memory payload cache, 256). Identity and playback track-info indexes decode once
 per store instance and remain owned by their serial queues; writes preserve the existing keys/formats. Queue creation
@@ -120,12 +120,14 @@ and continuation persist identity records in one batch, retaining the 512-entry 
 - **Detail**: sorted tracks, header (artwork, summary, **Play all**, heart), progress ring/speaker/checkmark, row and
   nav-bar download actions, long-press Play/Play next/Add to queue/download. Track rows keep the duration, download
   and like controls at their intrinsic width, so a long title wraps to its second line instead of compressing the
-  icons into each other.
+  icons into each other. Cache reads and track sorting run off the main actor; identical track lists skip registration and table reloads.
 - **Search**: `UISearchController`, 350 ms debounce, `/discourses?search=` + `/discourse-audios?search=` together,
   **Discourses** then **Tracks**, lockstep paging to the deeper endpoint, idle/spinner/results/no-match/error states.
 - **Home**: `DiscourseHomeContent` builds Recently played, Recently played tracks (discourse history then library
   history via `DiscourseLocalTrack`, hidden while history is off), Top discourses this week, Top tracks this week.
   Carousel headers ignore section insets so all Home headings align at the same 16 pt leading edge.
+  Local history is fetched/mapped off-main on first appearance, library history changes, or explicit refresh;
+  returning to Home reuses it. Unchanged sections skip reloads; stable section order reloads only changed sections.
 - **Playlist cards**: ordinary playlist rows and automatic favourite collections use 12 pt corners, track surfaces
   and track borders; list cards are at least 112 pt tall with 112 × 88 pt aspect-fill artwork and track counts; favourite cards have 8 pt spacing.
 - **Track rows**: vertically centred title and subtitle; duration comes first, and a discourse name matching the
@@ -134,6 +136,10 @@ and continuation persist identity records in one batch, retaining the 512-entry 
   `DiscourseDownloadActions` are the only render/action paths; cards/rows are accessibility containers holding a
   transparent `DiscourseAccessibilityButton` and the heart; catalogue cards show a `3/11` download badge.
   The expanded player uses a 24 pt heart with no likes and the compact 18 pt heart beside positive counts.
+  Download notifications carry changed audio/discourse IDs and distinguish byte progress from state changes.
+  Progress retains the 2% threshold and coalesces across tracks for 100 ms; completion/cancellation/removal publish
+  immediately. Screens update only affected download controls; progress does not rebuild menus, badges, hearts, or
+  favourite collections. Notifications without the payload retain the legacy full-refresh behavior.
 - **Mixer screen**: wave hero (equalizer mark, **Background Music Mixer** + subtitle), track cards (artwork, title, duration, checkmark; long-press drag reorder, swipe delete), a dashed **Tap + to add an audio file** slot and a pinned panel (grabber, play/pause, **Mixer on/off** + status, Loop pill, volume with minus/plus and percentage; tapping the title/status toggles the switch). Detail rows swipe left for **Add to Playlist** (upstream picker, streaming URL + identity); the expanded player has a Like / Clip / Download / Noise row (Add to Playlist and Discourse precede Queue in the top toolbar), a circular accent play button and 30 s skips (row hidden in landscape). All fork screens observe theme/likes/downloads/progress and reconfigure only affected visible rows.
 
 ### 4.7 Discourse playback bridge (`Sources/Discourse/Playback/`)
@@ -363,7 +369,7 @@ Fork touch points (upstream files we intentionally edit):
 - `Sources/Playback/Control/VLCPlaybackService.{h,m}` and `VLCPlaybackService+MediaLibrary.m` — RNNoise switching,
   audio session, snapshot hooks, asynchronous periodic checkpoints with cached queue metadata, paused retention and absolute-time clip seeking.
 - `Sources/Playback/Player/` — `PlayerViewController`, `AudioPlayerViewController`, `VideoPlayerViewController`,
-  `AudioPlayerView`, `MediaMoreOptionsActionSheet` + subviews, `ActionSheetCell`: white spinner, noise switch, discourse heart, Share row, Clip editor integration, 168 pt Dynamic Type-scaled height and the scrub bar's captured seek intent with absolute audio seeks.
+  `AudioPlayerView`, `MediaMoreOptionsActionSheet` + subviews, `ActionSheetCell`: white spinner, noise switch, discourse heart, targeted player download updates, Share row, Clip editor integration, 168 pt Dynamic Type-scaled height and the scrub bar's captured seek intent with absolute audio seeks.
 - `Sources/App/iOS/TabBarCoordinator.swift` — five tabs, index, accent, bar modes, local library, album/deep links,
   tracker/mixer startup, likes refresh. `VLCAppDelegate.m` — defaults, background downloads, web-activity links.
   `Sources/App/VLCAppCoordinator.{h,m}`, `VLCAppSceneDelegate.m` — registration, deferred links, restoration.
@@ -371,7 +377,7 @@ Fork touch points (upstream files we intentionally edit):
 - `Sources/Discourse/DeepLink/` + `Buildsystem/DeepLinks/` — parser, share URL, tests, AASA.
 - `Sources/Media Library/` — playlist accent/artwork/rounded thumbnails/favourite rows (`PlaylistViewController`,
   `CollectionArtworkHeader`, `PlaylistModel`, `MediaCollectionViewCell`, `MediaGridCollectionCell`,
-  `CollectionInfoFooter`); **Add to Audio Mixer** and local-library empty state (`MediaCategoryViewController`);
+  `CollectionInfoFooter`); targeted favourite-row download updates; **Add to Audio Mixer** and local-library empty state (`MediaCategoryViewController`);
   branded empty state (`VLCEmptyLibraryView`, `MediaViewController`).
 - `Sources/Settings/Model/SettingsSection.swift` and `Resources/iOS/Settings.bundle/*` — playback history, removed
   video/subtitle rows.

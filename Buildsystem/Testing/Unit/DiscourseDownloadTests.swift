@@ -63,6 +63,50 @@ final class DiscourseDownloadTests: XCTestCase {
         return source
     }
 
+    @MainActor
+    func testProgressNotificationsCoalesceIDsAndRemovalIsImmediate() async throws {
+        let center = NotificationCenter()
+        let manager = DiscourseDownloadManager(store: makeStore(), notificationCenter: center,
+                                                sessionConfiguration: .ephemeral)
+        let session = URLSession(configuration: .ephemeral)
+        defer { session.invalidateAndCancel() }
+        var changes: [DiscourseDownloadChange] = []
+        let progressDelivered = expectation(description: "Coalesced progress")
+        let observer = center.addObserver(forName: .discourseDownloadsDidChange, object: manager, queue: nil) { notification in
+            XCTAssertTrue(Thread.isMainThread)
+            guard let change = notification.discourseDownloadChange else { return XCTFail("Missing IDs") }
+            changes.append(change)
+            if change.isProgressOnly { progressDelivered.fulfill() }
+        }
+        defer { center.removeObserver(observer) }
+        for id in ["a1", "a2"] {
+            let task = session.downloadTask(with: try XCTUnwrap(URL(string: "https://example.com/\(id)")))
+            task.taskDescription = "\(id)|d1"
+            for written in [10, 20, 30] {
+                manager.urlSession(session, downloadTask: task, didWriteData: 10,
+                                   totalBytesWritten: Int64(written), totalBytesExpectedToWrite: 100)
+            }
+        }
+        XCTAssertTrue(changes.isEmpty)
+        await fulfillment(of: [progressDelivered], timeout: 2)
+        XCTAssertEqual(changes.count, 1)
+        XCTAssertEqual(changes.first?.audioIDs, ["a1", "a2"])
+        XCTAssertEqual(changes.first?.discourseIDs, ["d1"])
+        manager.removeAll(discourseID: "d1")
+        XCTAssertEqual(changes.count, 2)
+        XCTAssertFalse(try XCTUnwrap(changes.last).isProgressOnly)
+        XCTAssertTrue(try XCTUnwrap(changes.last).affects(audioID: "a3", discourseID: "d1"))
+        XCTAssertFalse(try XCTUnwrap(changes.last).affects(audioID: "a4", discourseID: "d2"))
+    }
+
+    func testTargetedDownloadChangeDoesNotAffectOtherTracks() {
+        let change = DiscourseDownloadChange(audioIDs: ["a1"], discourseIDs: ["d1"], isProgressOnly: true)
+        XCTAssertTrue(change.affects(audioID: "a1", discourseID: "d1"))
+        XCTAssertFalse(change.affects(audioID: "a2", discourseID: "d1"))
+        XCTAssertFalse(change.affects(audioID: "a3", discourseID: "d2"))
+        XCTAssertNil(Notification(name: .discourseDownloadsDidChange).discourseDownloadChange)
+    }
+
     // MARK: - Records
 
     func testStoredFileIsFoundAndCounted() throws {

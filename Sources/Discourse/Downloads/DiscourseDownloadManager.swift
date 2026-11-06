@@ -53,6 +53,8 @@ final class DiscourseDownloadManager: NSObject {
     private let notificationCenter: NotificationCenter
     private let queue = DispatchQueue(label: "online.sandalbar.rajneesh-discourse.downloads.manager")
 
+    private var pendingChange: DiscourseDownloadChange?
+    private var progressNotification: DispatchWorkItem?
     private var session: URLSession!
     /// taskIdentifier → job for the tasks this process knows about.
     private var taskInfo: [Int: Job] = [:]
@@ -66,12 +68,13 @@ final class DiscourseDownloadManager: NSObject {
     private var backgroundCompletionHandler: (() -> Void)?
 
     init(store: DiscourseDownloadStore = .shared,
-         notificationCenter: NotificationCenter = .default) {
+         notificationCenter: NotificationCenter = .default,
+         sessionConfiguration: URLSessionConfiguration? = nil) {
         self.store = store
         self.notificationCenter = notificationCenter
         super.init()
 
-        let configuration = URLSessionConfiguration.background(
+        let configuration = sessionConfiguration ?? URLSessionConfiguration.background(
             withIdentifier: Self.backgroundSessionIdentifier)
         configuration.isDiscretionary = false
         configuration.sessionSendsLaunchEvents = true
@@ -129,19 +132,22 @@ final class DiscourseDownloadManager: NSObject {
     func cancel(audioID: String) {
         var task: URLSessionDownloadTask?
         var changed = false
+        var discourseID = store.discourseID(for: audioID) ?? ""
         queue.sync {
             if let job = taskInfo.values.first(where: { $0.audioID == audioID }) {
                 task = job.task
+                discourseID = job.discourseID
                 changed = true
             }
-            if pending.contains(where: { $0.audioID == audioID }) {
+            if let job = pending.first(where: { $0.audioID == audioID }) {
+                discourseID = job.discourseID
                 pending.removeAll { $0.audioID == audioID }
                 changed = true
             }
         }
         task?.cancel()
         if changed {
-            postChange()
+            postChange(audioID: audioID, discourseID: discourseID)
         }
     }
 
@@ -163,17 +169,18 @@ final class DiscourseDownloadManager: NSObject {
         for task in tasks {
             task.cancel()
         }
-        postChange()
+        postChange(discourseID: discourseID)
     }
 
     /// Cancels an in-flight download and deletes any finished file.
     func remove(audioID: String) {
+        let discourseID = store.discourseID(for: audioID) ?? ""
         cancel(audioID: audioID)
         store.remove(audioID: audioID)
         queue.sync {
             failures.removeValue(forKey: audioID)
         }
-        postChange()
+        postChange(audioID: audioID, discourseID: discourseID)
     }
 
     /// Cancels and deletes every download of one discourse.
@@ -183,7 +190,7 @@ final class DiscourseDownloadManager: NSObject {
         queue.sync {
             failures = failures.filter { $0.value != discourseID }
         }
-        postChange()
+        postChange(discourseID: discourseID)
     }
 
     // MARK: - Background lifetime
@@ -208,7 +215,7 @@ final class DiscourseDownloadManager: NSObject {
     // MARK: - Internals
 
     private func enqueue(_ job: Job) {
-        var started = false
+        var added = false
         queue.sync {
             guard taskInfo.values.allSatisfy({ $0.audioID != job.audioID }),
                   !pending.contains(where: { $0.audioID == job.audioID }) else {
@@ -217,16 +224,16 @@ final class DiscourseDownloadManager: NSObject {
             if store.isDownloaded(audioID: job.audioID) {
                 return
             }
+            added = true
             failures.removeValue(forKey: job.audioID)
             if taskInfo.count < Self.maxConcurrentDownloads {
                 startTaskLocked(job)
-                started = true
             } else {
                 pending.append(job)
             }
         }
-        if started {
-            postChange()
+        if added {
+            postChange(audioID: job.audioID, discourseID: job.discourseID)
         }
     }
 
@@ -265,7 +272,7 @@ final class DiscourseDownloadManager: NSObject {
                 backgroundCompletionHandler = nil
             }
         }
-        postChange()
+        postChange(audioID: job.audioID, discourseID: job.discourseID)
         if let completion {
             DispatchQueue.main.async(execute: completion)
         }
@@ -285,7 +292,7 @@ final class DiscourseDownloadManager: NSObject {
             guard let self else {
                 return
             }
-            var changed = false
+            var change = DiscourseDownloadChange()
             self.queue.sync {
                 for task in tasks {
                     guard let job = Self.job(from: task.taskDescription),
@@ -296,24 +303,48 @@ final class DiscourseDownloadManager: NSObject {
                     self.taskInfo[task.taskIdentifier] = job
                     let fraction = task.progress.fractionCompleted
                     self.progress[job.audioID] = fraction.isFinite ? fraction : 0
-                    changed = true
+                    change.audioIDs.insert(job.audioID)
+                    change.discourseIDs.insert(job.discourseID)
                 }
             }
-            if changed {
-                self.postChange()
+            if !change.audioIDs.isEmpty {
+                self.postChange(change)
             }
         }
     }
 
-    private func postChange() {
-        let center = notificationCenter
-        if Thread.isMainThread {
-            center.post(name: .discourseDownloadsDidChange, object: self)
-        } else {
-            DispatchQueue.main.async {
-                center.post(name: .discourseDownloadsDidChange, object: self)
-            }
+    private func postChange(audioID: String? = nil, discourseID: String, progressOnly: Bool = false) {
+        postChange(DiscourseDownloadChange(audioIDs: Set(audioID.map { [$0] } ?? []),
+                                          discourseIDs: [discourseID], isProgressOnly: progressOnly))
+    }
+
+    private func postChange(_ change: DiscourseDownloadChange) {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { self.postChange(change) }
+            return
         }
+        if !change.isProgressOnly {
+            progressNotification?.cancel()
+            deliverChange()
+            pendingChange = change
+            deliverChange()
+            return
+        }
+        if pendingChange == nil { pendingChange = change }
+        else { pendingChange?.merge(change) }
+        if progressNotification == nil {
+            let work = DispatchWorkItem { [weak self] in self?.deliverChange() }
+            progressNotification = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: work)
+        }
+    }
+
+    private func deliverChange() {
+        progressNotification = nil
+        guard let change = pendingChange else { return }
+        pendingChange = nil
+        notificationCenter.post(name: .discourseDownloadsDidChange, object: self,
+                                userInfo: [DiscourseDownloadChange.userInfoKey: change])
     }
 
     private static func taskDescription(audioID: String, discourseID: String) -> String {
@@ -381,7 +412,7 @@ extension DiscourseDownloadManager: URLSessionDownloadDelegate {
             }
         }
         if changed {
-            postChange()
+            postChange(audioID: job.audioID, discourseID: job.discourseID, progressOnly: true)
         }
     }
 

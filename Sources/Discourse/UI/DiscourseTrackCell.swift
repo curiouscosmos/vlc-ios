@@ -133,6 +133,10 @@ final class DiscourseTrackCell: UITableViewCell {
 
     // MARK: - Content
 
+    func updateDownload(_ state: DiscourseDownloadState) {
+        downloadControl.configure(with: state, title: titleLabel.text ?? "")
+    }
+
     func configure(with track: DiscourseAudio,
                    position: Int,
                    fraction: Double,
