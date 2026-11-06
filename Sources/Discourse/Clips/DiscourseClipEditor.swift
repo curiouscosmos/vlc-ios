@@ -57,6 +57,7 @@ struct DiscourseClipPreview {
 
 private final class DiscourseClipHandle: UIControl {
     var adjust: ((Double) -> Void)?
+    override func accessibilityActivate() -> Bool { sendActions(for: .primaryActionTriggered); return true }
     override func accessibilityIncrement() { adjust?(1) }
     override func accessibilityDecrement() { adjust?(-1) }
 }
@@ -74,7 +75,24 @@ final class DiscourseClipEditor: UIView {
             + (traits.preferredContentSizeCategory.isAccessibilityCategory ? 64 : 0)
     }
 
-    var range: DiscourseClipRange { didSet { update() } }
+    enum Endpoint { case start, end }
+    private(set) var activeEndpoint: Endpoint = .start
+    var rangeDidChange: (() -> Void)?
+    var range: DiscourseClipRange { didSet { update(); rangeDidChange?() } }
+
+    func selectEndpoint(_ endpoint: Endpoint) {
+        activeEndpoint = endpoint
+        update()
+    }
+
+    func selectPhrase(_ phrase: DiscourseCaption) {
+        if activeEndpoint == .start {
+            range.moveStart(to: phrase.start)
+            startDidChange?(range.start)
+        } else {
+            range.moveEnd(to: phrase.end)
+        }
+    }
     var cut: (() -> Void)?
     var seek: ((Double) -> Void)?
     /// Called whenever the start bracket moves so the playhead can follow it.
@@ -182,14 +200,20 @@ final class DiscourseClipEditor: UIView {
             bar.isUserInteractionEnabled = false
             handle.addSubview(bar)
             handle.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(drag(_:))))
+            handle.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(selectHandle(_:))))
+            handle.accessibilityIdentifier = handle === startHandle ? "clipStartBracket" : "clipEndBracket"
+            handle.addTarget(self, action: #selector(activateHandle(_:)), for: .primaryActionTriggered)
         }
         startHandle.adjust = { [weak self] delta in
             guard let self else { return }
+            self.selectEndpoint(.start)
             self.range.moveStart(to: self.range.start + delta)
             self.startDidChange?(self.range.start)
         }
         endHandle.adjust = { [weak self] delta in
-            guard let self else { return }; self.range.moveEnd(to: self.range.end + delta)
+            guard let self else { return }
+            self.selectEndpoint(.end)
+            self.range.moveEnd(to: self.range.end + delta)
         }
         var config = UIButton.Configuration.filled()
         config.title = NSLocalizedString("CLIP_CUT", comment: "")
@@ -272,7 +296,8 @@ final class DiscourseClipEditor: UIView {
 
     func setPosition(_ seconds: Double) {
         if !timeline.isTracking { timeline.value = Float(seconds) }
-        positionLabel.text = DiscourseClipRange.time(Double(timeline.value))
+        // UISlider's normalized Float round trip can turn an exact second into the preceding second.
+        positionLabel.text = DiscourseClipRange.time(timeline.isTracking ? Double(timeline.value) : seconds)
         setNeedsLayout()
     }
 
@@ -285,12 +310,30 @@ final class DiscourseClipEditor: UIView {
         summary.text = String(format: NSLocalizedString("CLIP_SELECTED", comment: ""), DiscourseClipRange.time(range.end - range.start))
         startHandle.accessibilityValue = DiscourseClipRange.time(range.start)
         endHandle.accessibilityValue = DiscourseClipRange.time(range.end)
+        for (handle, endpoint) in [(startHandle, Endpoint.start), (endHandle, Endpoint.end)] {
+            let active = activeEndpoint == endpoint
+            handle.subviews.first?.backgroundColor = active ? DiscourseColors.current.accent : DiscourseColors.current.primaryText
+            handle.backgroundColor = active ? DiscourseColors.current.accent.withAlphaComponent(0.2) : .clear
+            handle.layer.cornerRadius = 10
+            handle.accessibilityTraits = active ? [.adjustable, .button, .selected] : [.adjustable, .button]
+            handle.accessibilityHint = NSLocalizedString("CC_BRACKET_HINT", comment: "Activate clip bracket")
+        }
         setNeedsLayout()
+    }
+
+    @objc private func selectHandle(_ gesture: UITapGestureRecognizer) {
+        selectEndpoint(gesture.view === startHandle ? .start : .end)
+    }
+
+    @objc private func activateHandle(_ handle: UIControl) {
+        selectEndpoint(handle === startHandle ? .start : .end)
     }
 
     @objc private func drag(_ gesture: UIPanGestureRecognizer) {
         switch gesture.state {
-        case .began, .changed: draggingHandle = true
+        case .began, .changed:
+            draggingHandle = true
+            selectEndpoint(gesture.view === startHandle ? .start : .end)
         case .ended, .cancelled, .failed: draggingHandle = false
         default: break
         }

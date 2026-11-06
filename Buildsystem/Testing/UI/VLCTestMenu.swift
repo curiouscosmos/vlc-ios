@@ -169,6 +169,62 @@ class VLCTestMenu: XCTestCase {
         XCTAssertTrue(app.buttons["Filter"].waitForExistence(timeout: 5))
     }
 
+    func testCaptionsToggleAndClipPhraseSelection() throws {
+        helper.tapTabBarItem(VLCAccessibilityIdentifier.search)
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("Shiv Sutra\n")
+        let track = app.cells["discourseSearchTrack"].firstMatch
+        guard track.waitForExistence(timeout: 20) else { throw XCTSkip("Caption sample track is unavailable") }
+        track.tap()
+        let cc = app.buttons["discourseCC"]
+        XCTAssertTrue(cc.waitForExistence(timeout: 20))
+        let available = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: cc)
+        guard XCTWaiter().wait(for: [available], timeout: 10) == .completed else {
+            throw XCTSkip("Backend has not enabled captions for the sample track")
+        }
+        cc.tap()
+        let transcript = app.tables["discourseTranscript"]
+        XCTAssertTrue(transcript.waitForExistence(timeout: 5))
+        XCTAssertTrue(transcript.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "captionPhrase_")).firstMatch.waitForExistence(timeout: 30))
+        let captionImage = XCTAttachment(screenshot: app.screenshot())
+        captionImage.name = "Full caption transcript"
+        captionImage.lifetime = .keepAlways
+        add(captionImage)
+        cc.tap()
+        XCTAssertFalse(transcript.exists)
+        let download = app.buttons["discoursePlayerDownload"]
+        if !download.label.hasPrefix("Remove download") {
+            download.tap()
+            let completed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label BEGINSWITH %@", "Remove download"), object: download)
+            guard XCTWaiter().wait(for: [completed], timeout: 150) == .completed else {
+                if download.label.hasPrefix("Cancel download") { download.tap() }
+                throw XCTSkip("Caption clip source did not finish downloading")
+            }
+        }
+        app.buttons["discourseClip"].tap()
+        XCTAssertTrue(transcript.waitForExistence(timeout: 5))
+        let start = app.descendants(matching: .any)["clipStartBracket"].firstMatch
+        let end = app.descendants(matching: .any)["clipEndBracket"].firstMatch
+        XCTAssertTrue(start.waitForExistence(timeout: 5))
+        XCTAssertTrue(start.isSelected)
+        let phrase = transcript.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "captionPhrase_")).firstMatch
+        phrase.tap()
+        XCTAssertTrue(start.isSelected)
+        XCTAssertEqual(start.value as? String, "0:11")
+        end.tap()
+        XCTAssertTrue(end.isSelected)
+        phrase.tap()
+        XCTAssertTrue(end.isSelected)
+        XCTAssertFalse(start.isSelected)
+        XCTAssertEqual(end.value as? String, "0:15")
+        let clipImage = XCTAttachment(screenshot: app.screenshot())
+        clipImage.name = "Caption phrase clip selection"
+        clipImage.lifetime = .keepAlways
+        add(clipImage)
+    }
+
     func testClipEditorAndShareLink() throws {
         helper.tapTabBarItem(VLCAccessibilityIdentifier.discourses)
         let card = app.collectionViews.cells.firstMatch

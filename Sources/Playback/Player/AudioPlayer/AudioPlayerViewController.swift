@@ -129,7 +129,7 @@ class AudioPlayerViewController: PlayerViewController {
 #if os(iOS)
     // MARK: - Fork: discourse likes
 
-    deinit { clipTimer?.invalidate() }
+    deinit { clipTimer?.invalidate(); captionTask?.cancel() }
 
     private static let clipCleanup: Void = DiscourseClipExporter.cleanInterruptedExports()
     private var clipEditor: DiscourseClipEditor?
@@ -139,9 +139,70 @@ class AudioPlayerViewController: PlayerViewController {
     private var clipPausedAtEnd = false
     private lazy var clipButton = playerAction(symbol: "scissors", action: #selector(toggleClip))
 
+    private lazy var captionButton = playerAction(symbol: "captions.bubble", action: #selector(toggleCaptions))
+    private let captionView = DiscourseCaptionView()
+    private let captionLoader = DiscourseCaptionLoader()
+    private var captionTask: Task<Void, Never>?
+    private var captionURL: URL?
+    private var captionTrackID: String?
+    private var captionsVisible = false
+    private var captionsBeforeClip = false
+
+    @objc private func toggleCaptions() {
+        captionsVisible.toggle()
+        refreshCaptions()
+    }
+
+    private func refreshCaptions() {
+        let track = currentDiscourseTrack()
+        let url = track?.captionURL
+        if captionTrackID != track?.id || captionURL != url {
+            captionTask?.cancel()
+            captionTask = nil
+            captionTrackID = track?.id
+            captionURL = url
+            captionsVisible = clipEditor != nil && url != nil
+            captionsBeforeClip = false
+            captionView.showLoading()
+        }
+        captionButton.isEnabled = url != nil
+        let visible = captionsVisible && url != nil
+        captionView.isHidden = !visible
+        audioPlayerView.thumbnailImageView.alpha = visible ? 0 : 1
+        captionButton.configuration?.baseForegroundColor = visible ? DiscourseColors.current.accent : .white
+        captionButton.accessibilityValue = visible ? NSLocalizedString("CC_ON", comment: "Captions on") : NSLocalizedString("CC_OFF", comment: "Captions off")
+        captionView.applyTheme()
+        if visible && captionTask == nil && captionView.captions.isEmpty { loadCaptions() }
+        updateCaptions()
+    }
+
+    private func loadCaptions(forceRefresh: Bool = false) {
+        guard let url = captionURL else { return }
+        captionTask?.cancel()
+        captionView.showLoading()
+        let trackID = captionTrackID
+        captionTask = Task { @MainActor [weak self, captionLoader] in
+            do {
+                let captions = try await captionLoader.load(url: url, forceRefresh: forceRefresh)
+                guard !Task.isCancelled, let self, self.captionURL == url, self.captionTrackID == trackID else { return }
+                self.captionView.display(captions)
+                self.updateCaptions()
+            } catch {
+                guard !Task.isCancelled, let self, self.captionURL == url, self.captionTrackID == trackID else { return }
+                self.captionView.showFailure()
+            }
+        }
+    }
+
+    private func updateCaptions() {
+        guard !captionView.isHidden else { return }
+        captionView.update(time: Double(playbackService.playedTime().intValue) / 1000, range: clipEditor?.range)
+    }
+
     private func endClipEditing() {
         clipTimer?.invalidate()
         clipTimer = nil
+        if clipEditor != nil { captionsVisible = captionsBeforeClip }
         clipEditor?.removeFromSuperview()
         clipEditor = nil
         clipTrackID = nil
@@ -150,6 +211,7 @@ class AudioPlayerViewController: PlayerViewController {
         audioPlayerView.setClipEditing(false)
         clipButton.configuration?.baseForegroundColor = .white
         clipButton.configuration?.background.backgroundColor = .clear
+        refreshCaptions()
     }
 
     private func resetClipPreviewState() {
@@ -179,7 +241,11 @@ class AudioPlayerViewController: PlayerViewController {
         // adjusted and previewed from the start bracket.
         if playbackService.isPlaying { playbackService.pause() }
         resetClipPreviewState()
+        captionsBeforeClip = captionsVisible
         clipEditor = editor
+        if track.captionURL != nil { captionsVisible = true }
+        editor.rangeDidChange = { [weak self] in self?.updateCaptions() }
+        refreshCaptions()
         clipTrackID = track.id
         editor.translatesAutoresizingMaskIntoConstraints = false
         audioPlayerView.progressionView.addSubview(editor)
@@ -351,9 +417,22 @@ class AudioPlayerViewController: PlayerViewController {
         playerDownloadControl.addTarget(self, action: #selector(togglePlayerDownload), for: .touchUpInside)
         audioPlayerView.actionStackView.addArrangedSubview(playerDownloadControl)
         audioPlayerView.actionStackView.addArrangedSubview(noiseButton)
+        captionButton.accessibilityLabel = NSLocalizedString("CC_BUTTON", comment: "Closed captions")
+        captionButton.accessibilityIdentifier = "discourseCC"
+        audioPlayerView.actionStackView.addArrangedSubview(captionButton)
+        captionView.translatesAutoresizingMaskIntoConstraints = false
+        audioPlayerView.thumbnailView.addSubview(captionView)
+        NSLayoutConstraint.activate([
+            captionView.leadingAnchor.constraint(equalTo: audioPlayerView.thumbnailView.leadingAnchor, constant: 12),
+            captionView.trailingAnchor.constraint(equalTo: audioPlayerView.thumbnailView.trailingAnchor, constant: -12),
+            captionView.topAnchor.constraint(equalTo: audioPlayerView.thumbnailImageView.topAnchor),
+            captionView.bottomAnchor.constraint(equalTo: audioPlayerView.thumbnailImageView.bottomAnchor)
+        ])
+        captionView.phraseTapped = { [weak self] phrase in self?.clipEditor?.selectPhrase(phrase) }
+        captionView.retry = { [weak self] in self?.loadCaptions(forceRefresh: true) }
         NSLayoutConstraint.activate([
             discourseLikeButton.widthAnchor.constraint(equalTo: audioPlayerView.actionStackView.widthAnchor,
-                                                       multiplier: 0.25)
+                                                       multiplier: 0.20)
         ])
 
         let center = NotificationCenter.default
@@ -396,6 +475,7 @@ class AudioPlayerViewController: PlayerViewController {
     }
 
     @objc private func updateDiscourseLike() {
+        refreshCaptions()
         clipButton.setNeedsUpdateConfiguration()
         discourseButton.isEnabled = currentDiscourseIdentity().map { !$0.discourseID.isEmpty } ?? false
         clipButton.isEnabled = currentDiscourseTrack() != nil && playbackService.isSeekable && playbackService.mediaDuration >= 1000
@@ -459,6 +539,9 @@ class AudioPlayerViewController: PlayerViewController {
         super.viewDidAppear(animated)
 
         audioPlayerView.resetCornerRadius()
+#if os(iOS)
+        refreshCaptions()
+#endif
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -860,6 +943,7 @@ extension AudioPlayerViewController {
         refreshNoiseButton()
         clipButton.isEnabled = currentDiscourseTrack() != nil && playbackService.isSeekable && playbackService.mediaDuration >= 1000
         updateClipPreview()
+        updateCaptions()
 #endif
     }
 
@@ -1082,6 +1166,9 @@ extension AudioPlayerViewController: ZoomTransitionEndpoint {
 extension AudioPlayerViewController: UIGestureRecognizerDelegate {
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         guard gestureRecognizer == panRecognizer else { return true }
+#if os(iOS)
+        if !captionView.isHidden && captionView.bounds.contains(gestureRecognizer.location(in: captionView)) { return false }
+#endif
         return !artworkTransitionInProgress && !playerController.isInterfaceLocked &&
             !mediaScrubProgressBar.isScrubbing
     }

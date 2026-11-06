@@ -1097,3 +1097,17 @@
 "CLIP_START_INCREASE" = "Increase clip start by one second"; /* Increase clip start by one second */
 "CLIP_END_DECREASE" = "Decrease clip end by one second"; /* Decrease clip end by one second */
 "CLIP_END_INCREASE" = "Increase clip end by one second"; /* Increase clip end by one second */
+
+/* Discourse closed captions */
+"CC_BUTTON" = "Closed captions"; /* Closed captions */
+"CC_LOADING" = "Loading captions…"; /* Loading captions */
+"CC_FAILED" = "Captions could not be loaded."; /* Caption load failure */
+"CC_RETRY" = "Retry captions"; /* Retry captions */
+"CC_FOLLOW" = "Follow current phrase"; /* Follow current caption */
+"CC_CURRENT" = "Currently playing"; /* Current phrase */
+"CC_SELECT_HINT" = "Sets the active clip bracket to this phrase’s boundary."; /* Caption clipping hint */
+"CC_BRACKET_HINT" = "Activate to set this bracket by tapping a caption phrase."; /* Activate clip bracket */
+
+/* New strings */
+"CC_OFF" = "Off"; /* Captions off */
+"CC_ON" = "On"; /* Captions on */

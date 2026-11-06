@@ -170,12 +170,12 @@ final class DiscoursePlaybackTracker {
                   let track = tracks.first(where: { $0.id == identity.audioID }) else { return }
             self.registry.register(tracks: [track])
             guard let current = self.playbackService.currentlyPlayingMedia,
-                  DiscourseMediaFactory.identity(of: current, identityStore: self.identityStore)?.audioID == identity.audioID,
-                  let artworkURL = track.thumbnailURL else { return }
-            if current.metaData.artworkURL != artworkURL {
+                  DiscourseMediaFactory.identity(of: current, identityStore: self.identityStore)?.audioID == identity.audioID else { return }
+            if let artworkURL = track.thumbnailURL {
                 current.metaData.artworkURL = artworkURL
-                self.playbackService.refreshCurrentMediaMetadata()
             }
+            // The recovered payload also enables track actions such as CC on a paused restored queue.
+            self.playbackService.refreshCurrentMediaMetadata()
         }
     }
 

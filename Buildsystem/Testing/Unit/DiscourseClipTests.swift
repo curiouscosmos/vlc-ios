@@ -28,6 +28,16 @@ final class DiscourseClipTests: XCTestCase {
     }
 
     @MainActor
+    func testPlayheadLabelPreservesSecondsAcrossSliderRounding() throws {
+        let editor = DiscourseClipEditor(range: DiscourseClipRange(duration: 5869.44, position: 0))
+        let label = try XCTUnwrap(editor.subviews.compactMap { $0 as? UILabel }.first { $0.accessibilityIdentifier == "clipPreviewTime" })
+        for second in 1900...2000 {
+            editor.setPosition(Double(second))
+            XCTAssertEqual(label.text, DiscourseClipRange.time(Double(second)), "Exact second \(second) must survive slider display")
+        }
+    }
+
+    @MainActor
     func testEndpointButtonsAndPreviewCallbacks() throws {
         let editor = DiscourseClipEditor(range: DiscourseClipRange(duration: 200, position: 20))
         let buttons = editor.subviews.compactMap { $0 as? UIButton }

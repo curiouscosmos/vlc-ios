@@ -108,6 +108,8 @@ struct DiscourseAudio: Codable, Hashable, Identifiable {
     let fileSize: Int64?
     let mimeType: String?
     let trackNumber: Int?
+    let hasCC: Bool
+    let ccPath: String
     let totalLikes: Int
     let createdAt: String
     let updatedAt: String
@@ -126,6 +128,8 @@ struct DiscourseAudio: Codable, Hashable, Identifiable {
         case fileSize = "file_size"
         case mimeType = "mime_type"
         case trackNumber = "track_number"
+        case hasCC = "has_cc"
+        case ccPath = "cc_path"
         case totalLikes = "total_likes"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
@@ -145,6 +149,8 @@ struct DiscourseAudio: Codable, Hashable, Identifiable {
         fileSize = try container.decodeIfPresent(Int64.self, forKey: .fileSize)
         mimeType = try container.decodeIfPresent(String.self, forKey: .mimeType)
         trackNumber = try container.decodeIfPresent(Int.self, forKey: .trackNumber)
+        hasCC = (try? container.decode(Bool.self, forKey: .hasCC)) ?? false
+        ccPath = (try? container.decode(String.self, forKey: .ccPath)) ?? ""
         totalLikes = try container.decodeIfPresent(Int.self, forKey: .totalLikes) ?? 0
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt) ?? ""
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt) ?? ""
@@ -163,6 +169,8 @@ struct DiscourseAudio: Codable, Hashable, Identifiable {
          fileSize: Int64? = nil,
          mimeType: String? = nil,
          trackNumber: Int? = nil,
+         hasCC: Bool = false,
+         ccPath: String = "",
          totalLikes: Int = 0,
          createdAt: String = "",
          updatedAt: String = "",
@@ -178,11 +186,15 @@ struct DiscourseAudio: Codable, Hashable, Identifiable {
         self.fileSize = fileSize
         self.mimeType = mimeType
         self.trackNumber = trackNumber
+        self.hasCC = hasCC
+        self.ccPath = ccPath
         self.totalLikes = totalLikes
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.plays = plays
     }
+
+    var captionURL: URL? { hasCC ? DiscourseURLResolver.resolve(ccPath) : nil }
 
     var audioURL: URL? {
         DiscourseURLResolver.resolve(audioURLString)
