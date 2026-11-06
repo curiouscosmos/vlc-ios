@@ -25,6 +25,22 @@ enum DiscourseCaptions {
         }.sorted { $0.start < $1.start }
     }
 
+    static func srt(_ captions: [DiscourseCaption], start: Double, end: Double) -> String {
+        guard start.isFinite, end.isFinite, start >= 0, end > start else { return "" }
+        func time(_ seconds: Double) -> String {
+            let ms = Int64((max(0, seconds) * 1000).rounded())
+            return String(format: "%02lld:%02lld:%02lld,%03lld", ms / 3600000, ms / 60000 % 60, ms / 1000 % 60, ms % 1000)
+        }
+        var cues: [String] = []
+        for caption in captions where caption.start < end && caption.end > start {
+            let from = max(start, caption.start) - start
+            let to = min(end, caption.end) - start
+            guard (to * 1000).rounded() > (from * 1000).rounded() else { continue }
+            cues.append("\(cues.count + 1)\n\(time(from)) --> \(time(to))\n\(caption.text)\n")
+        }
+        return cues.joined(separator: "\n")
+    }
+
     private static func timestamp(_ raw: String) -> Double? {
         let parts = raw.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".").components(separatedBy: ":")
         guard parts.count == 3, let hours = Double(parts[0]), let minutes = Double(parts[1]), let seconds = Double(parts[2]),

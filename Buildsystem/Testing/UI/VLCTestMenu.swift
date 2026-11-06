@@ -226,6 +226,10 @@ class VLCTestMenu: XCTestCase {
     }
 
     func testClipEditorAndShareLink() throws {
+        helper.tapTabBarItem(VLCAccessibilityIdentifier.audioMixer)
+        let mixerToggle = app.buttons["discourseMixerToggle"]
+        XCTAssertTrue(mixerToggle.waitForExistence(timeout: 5))
+        if mixerToggle.value as? String == "On" { mixerToggle.tap() }
         helper.tapTabBarItem(VLCAccessibilityIdentifier.discourses)
         let card = app.collectionViews.cells.firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 20))
@@ -306,6 +310,19 @@ class VLCTestMenu: XCTestCase {
         XCTAssertTrue(app.navigationBars["Save Clip"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.tables.cells.containing(.staticText, identifier: "Download Clip").firstMatch.exists)
         let drawerImage = XCTAttachment(screenshot: app.screenshot())
+        XCTAssertTrue(app.tables.cells.containing(.staticText, identifier: "Export Video").firstMatch.exists)
+        app.tables.cells.containing(.staticText, identifier: "Export Video").firstMatch.tap()
+        let pickerCancel = app.navigationBars["Photos"].buttons["Cancel"]
+        XCTAssertTrue(pickerCancel.waitForExistence(timeout: 5))
+        pickerCancel.tap()
+        XCTAssertTrue(app.navigationBars["Save Clip"].waitForExistence(timeout: 5))
+        app.tables.cells.containing(.staticText, identifier: "Download Clip").firstMatch.tap()
+        let filesSave = app.buttons["Save"].firstMatch
+        XCTAssertTrue(filesSave.waitForExistence(timeout: 60), "Processed clip should open Files")
+        filesSave.tap()
+        let keepBoth = app.alerts.buttons["Keep Both"]
+        if keepBoth.waitForExistence(timeout: 2) { keepBoth.tap() }
+        XCTAssertTrue(app.navigationBars["Save Clip"].waitForExistence(timeout: 5))
         drawerImage.name = "Save Clip drawer"
         drawerImage.lifetime = .keepAlways
         add(drawerImage)

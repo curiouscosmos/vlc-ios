@@ -1111,3 +1111,16 @@
 /* New strings */
 "CC_OFF" = "Off"; /* Captions off */
 "CC_ON" = "On"; /* Captions on */
+
+/* Local clip export */
+"CLIP_EXPORT_VIDEO" = "Export Video";
+"CLIP_VIDEO_DESCRIPTION" = "Choose one photo or video. Includes enabled noise cancellation and background music.";
+"CLIP_EXPORT_CC" = "Export CC";
+"CLIP_EXPORT_PROGRESS" = "Exporting clip… %d%%";
+
+/* New strings */
+"CLIP_CC_FAILED" = "Captions could not be exported for this range. Retry or turn Export CC off.";
+"CLIP_MUSIC_MISSING" = "Background music is unavailable. Choose a local mixer file or turn the mixer off, then retry.";
+"CLIP_NOISE_MISSING" = "Noise cancellation is unavailable for export. Install the RNNoise engine or turn noise cancellation off, then retry.";
+"CLIP_SOURCE_SHORT" = "The downloaded audio does not cover this selection. Download it again and retry.";
+"CLIP_VISUAL_FAILED" = "Could not read this photo or video. Choose another item and retry.";

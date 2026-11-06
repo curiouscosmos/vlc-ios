@@ -2,9 +2,212 @@
 import XCTest
 import AVFoundation
 import UIKit
+import Darwin
+import ImageIO
 @testable import VLC
 
 final class DiscourseClipTests: XCTestCase {
+    @MainActor
+    func testDrawerCaptionsAreOptionalAndResetEachSession() throws {
+        for hasCC in [false, true] {
+            let track = DiscourseAudio(id: "a", discourseID: "d", discourseName: "", title: "Track", audioURLString: "",
+                                       hasCC: hasCC, ccPath: "https://example.com/a.srt")
+            func drawer() -> DiscourseClipSaveController {
+                let controller = DiscourseClipSaveController(track: track, range: DiscourseClipRange(duration: 3, position: 0))
+                controller.loadViewIfNeeded()
+                return controller
+            }
+            let controller = drawer()
+            XCTAssertEqual(controller.tableView(controller.tableView, numberOfRowsInSection: 0), hasCC ? 4 : 3)
+            if hasCC {
+                func toggle(_ controller: DiscourseClipSaveController) throws -> UISwitch {
+                    let cell = controller.tableView(controller.tableView, cellForRowAt: IndexPath(row: 3, section: 0))
+                    return try XCTUnwrap(cell.accessoryView as? UISwitch)
+                }
+                let first = try toggle(controller)
+                XCTAssertFalse(first.isOn)
+                first.isOn = true; first.sendActions(for: .valueChanged)
+                XCTAssertTrue(try toggle(controller).isOn)
+                XCTAssertFalse(try toggle(drawer()).isOn)
+            }
+        }
+    }
+
+    func testCaptionSidecarClipsBoundariesAndPreservesHindi() {
+        let captions = [DiscourseCaption(start: 0, end: 1, text: "outside"),
+                        DiscourseCaption(start: 1, end: 2.125, text: "ध्यान\nऔर प्रेम"),
+                        DiscourseCaption(start: 3, end: 5, text: "end"),
+                        DiscourseCaption(start: 4.5, end: 6, text: "outside")]
+        XCTAssertEqual(DiscourseCaptions.srt(captions, start: 1.5, end: 4.5),
+                       "1\n00:00:00,000 --> 00:00:00,625\nध्यान\nऔर प्रेम\n\n2\n00:00:01,500 --> 00:00:03,000\nend\n")
+        XCTAssertEqual(DiscourseCaptions.srt(captions, start: 7, end: 8), "")
+        XCTAssertEqual(DiscourseCaptions.srt(captions, start: .nan, end: 8), "")
+    }
+
+    func testProcessedExportMusicLoopPeakProtectionAndSidecar() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
+        func tone(_ name: String, seconds: Double, amplitude: Float) throws -> URL {
+            let url = folder.appendingPathComponent(name + ".wav")
+            let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(seconds * 48000)))
+            buffer.frameLength = buffer.frameCapacity
+            let channels = try XCTUnwrap(buffer.floatChannelData)
+            for index in 0..<Int(buffer.frameLength) {
+                for channel in 0..<2 { channels[channel][index] = sin(Float(index) * 0.1) * amplitude }
+            }
+            let file = try AVAudioFile(forWriting: url, settings: format.settings)
+            try file.write(from: buffer)
+            return url
+        }
+        let source = try tone("speech", seconds: 3, amplitude: 0.8)
+        let music = try tone("music", seconds: 0.5, amplitude: 0.8)
+        let noiseOptions = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "rnnoise_reset") == nil ? [false] : [false, true]
+        for (loops, noise) in noiseOptions.flatMap({ noise in [false, true].map { ($0, noise) } }) {
+            let exporter = DiscourseClipExporter()
+            defer { exporter.clean() }
+            let captions = [DiscourseCaption(start: 0, end: 3, text: "ध्यान")]
+            var request = DiscourseClipExportRequest(source: source, sourceExtension: "wav", title: "Mixed",
+                range: DiscourseClipRange(duration: 2, position: 0), noise: noise, music: music, musicEnabled: true,
+                musicVolume: 0.5, musicLoops: loops, captions: captions)
+            let done = expectation(description: "Mixed export")
+            exporter.export(request) { result in
+                do {
+                    let urls = try result.get()
+                    XCTAssertEqual(urls.count, 2)
+                    XCTAssertEqual(urls[0].deletingPathExtension(), urls[1].deletingPathExtension())
+                    XCTAssertEqual(CMTimeGetSeconds(AVURLAsset(url: urls[0]).duration), 2, accuracy: 0.03)
+                    XCTAssertTrue(try String(contentsOf: urls[1], encoding: .utf8).contains("ध्यान"))
+                    let audio = try AVAudioFile(forReading: urls[0])
+                    XCTAssertEqual(audio.processingFormat.sampleRate, 48000)
+                    XCTAssertEqual(audio.processingFormat.channelCount, 2)
+                    let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: audio.processingFormat, frameCapacity: AVAudioFrameCount(audio.length)))
+                    try audio.read(into: buffer)
+                    let channel = try XCTUnwrap(buffer.floatChannelData)[0]
+                    let peak = (0..<Int(buffer.frameLength)).map { abs(channel[$0]) }.max() ?? 0
+                    XCTAssertLessThan(peak, 1.08, "Allow AAC reconstruction overshoot")
+                    XCTAssertGreaterThan(peak, noise ? 0.1 : 0.7)
+                    if !noise {
+                        let tailStart = Int(buffer.frameLength) / 2
+                        let energy = (tailStart..<Int(buffer.frameLength)).reduce(Float(0)) { $0 + channel[$1] * channel[$1] }
+                        let rms = sqrt(energy / Float(Int(buffer.frameLength) - tailStart))
+                        XCTAssertEqual(rms, loops ? 0.707 : 0.471, accuracy: 0.06,
+                                       "Music volume and loop setting must preserve the shared gain")
+                    }
+                } catch { XCTFail("Export failed: \(error)") }
+                done.fulfill()
+            }
+            // The export owns a copy of this file before returning.
+            request.musicVolume = 0
+            wait(for: [done], timeout: 30)
+        }
+    }
+
+    func testNoiseWithoutMusicRetainsFractionalRange() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 48000 * 3))
+        buffer.frameLength = buffer.frameCapacity
+        let channels = try XCTUnwrap(buffer.floatChannelData)
+        for channel in 0..<2 {
+            for index in 0..<Int(buffer.frameLength) { channels[channel][index] = sin(Float(index) * 0.1) * 0.2 }
+        }
+        do { let file = try AVAudioFile(forWriting: url, settings: format.settings); try file.write(from: buffer) }
+        var range = DiscourseClipRange(duration: 3, position: 0.375)
+        range.moveEnd(to: 2.125)
+        let exporter = DiscourseClipExporter()
+        defer { exporter.clean() }
+        let available = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "rnnoise_reset") != nil
+        let done = expectation(description: "Noise only")
+        exporter.export(DiscourseClipExportRequest(source: url, sourceExtension: "wav", title: "Noise", range: range, noise: true)) { result in
+            switch result {
+            case .success(let urls):
+                XCTAssertTrue(available)
+                XCTAssertEqual(CMTimeGetSeconds(AVURLAsset(url: urls[0]).duration), 1.75, accuracy: 0.025)
+            case .failure(let error): if available { XCTFail("Noise rendering failed: \(error)") }
+            }
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 30)
+    }
+
+    func testPhotoVideoLoopTrimAndDiscardedSoundtrack() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let imageURL = folder.appendingPathComponent("portrait.png")
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 24, height: 40), format: {
+            let format = UIGraphicsImageRendererFormat(); format.scale = 1; return format
+        }())
+        let image = renderer.image { context in
+            UIColor.red.setFill(); context.fill(CGRect(x: 0, y: 0, width: 24, height: 40))
+        }
+        try XCTUnwrap(image.pngData()).write(to: imageURL)
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 48000 * 3))
+        buffer.frameLength = buffer.frameCapacity
+        let channels = try XCTUnwrap(buffer.floatChannelData)
+        for channel in 0..<2 { for index in 0..<Int(buffer.frameLength) { channels[channel][index] = sin(Float(index) * 0.1) * 0.3 } }
+        let source = folder.appendingPathComponent("silence.wav")
+        do { let file = try AVAudioFile(forWriting: source, settings: format.settings); try file.write(from: buffer) }
+        func export(_ visual: URL, duration: Double, name: String, size: CGSize = CGSize(width: 24, height: 40)) throws -> URL {
+            let exporter = DiscourseClipExporter()
+            defer { exporter.clean() }
+            let copy = folder.appendingPathComponent(name + ".mp4")
+            let done = expectation(description: name)
+            var failure: Error?
+            let request = DiscourseClipExportRequest(source: source, sourceExtension: "wav", title: name,
+                range: DiscourseClipRange(duration: duration, position: 0), visual: visual)
+            exporter.export(request) { result in
+                do { try FileManager.default.copyItem(at: result.get()[0], to: copy) }
+                catch { failure = error }
+                done.fulfill()
+            }
+            wait(for: [done], timeout: 30)
+            if let failure { throw failure }
+            let asset = AVURLAsset(url: copy)
+            XCTAssertEqual(CMTimeGetSeconds(asset.duration), duration, accuracy: 0.025)
+            let video = try XCTUnwrap(asset.tracks(withMediaType: .video).first)
+            XCTAssertEqual(video.naturalSize, size)
+            XCTAssertEqual(video.nominalFrameRate, 30, accuracy: 0.1)
+            XCTAssertEqual(asset.tracks(withMediaType: .audio).count, 1)
+            if name != "photo" {
+                let audio = try AVAudioFile(forReading: copy)
+                let decoded = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: audio.processingFormat, frameCapacity: AVAudioFrameCount(audio.length)))
+                try audio.read(into: decoded)
+                let channel = try XCTUnwrap(decoded.floatChannelData)[0]
+                XCTAssertLessThan((0..<Int(decoded.frameLength)).map { abs(channel[$0]) }.max() ?? 0, 0.001,
+                                  "The chosen video's original soundtrack must be discarded")
+            }
+            return copy
+        }
+        let short = try export(imageURL, duration: 1, name: "photo")
+        for channel in 0..<2 { for index in 0..<Int(buffer.frameLength) { channels[channel][index] = 0 } }
+        do { let file = try AVAudioFile(forWriting: source, settings: format.settings); try file.write(from: buffer) }
+        let long = try export(short, duration: 2, name: "looped")
+        _ = try export(long, duration: 1, name: "trimmed")
+        let rotated = folder.appendingPathComponent("rotated.jpg")
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(rotated as CFURL, "public.jpeg" as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, try XCTUnwrap(image.cgImage), [kCGImagePropertyOrientation: 6] as CFDictionary)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+        _ = try export(rotated, duration: 1, name: "rotated", size: CGSize(width: 40, height: 24))
+    }
+
+    func testMissingEnabledMusicFailsExplicitly() {
+        let exporter = DiscourseClipExporter()
+        let done = expectation(description: "Missing effect rejected")
+        let request = DiscourseClipExportRequest(source: URL(fileURLWithPath: "/missing"), sourceExtension: nil,
+            title: "Missing", range: DiscourseClipRange(duration: 2, position: 0), musicEnabled: true)
+        exporter.export(request) { result in
+            if case .success = result { XCTFail("Enabled music cannot be silently omitted") }
+            XCTAssertNil(exporter.outputURL)
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 2)
+    }
+
     func testInitialRangeAndTrackEnd() {
         XCTAssertEqual(DiscourseClipRange(duration: 2000, position: 20).end, 620)
         XCTAssertEqual(DiscourseClipRange(duration: 200, position: 20).end, 200)
@@ -212,13 +415,26 @@ final class DiscourseClipTests: XCTestCase {
         XCTAssertNil(preview.seekTarget(position: 2, isPlaying: true, isInteracting: false))
     }
 
-    func testCancellationInvalidatesPendingWork() {
+    func testCancellationInvalidatesPendingWork() throws {
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+        defer { try? FileManager.default.removeItem(at: source) }
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 48000 * 4))
+        buffer.frameLength = buffer.frameCapacity
+        let channels = try XCTUnwrap(buffer.floatChannelData)
+        for channel in 0..<2 { for index in 0..<Int(buffer.frameLength) { channels[channel][index] = 0 } }
+        do { let file = try AVAudioFile(forWriting: source, settings: format.settings); try file.write(from: buffer) }
         let exporter = DiscourseClipExporter()
-        let done = expectation(description: "Cancelled load does not deliver")
+        let done = expectation(description: "Cancelled render does not deliver")
         done.isInverted = true
-        exporter.export(source: URL(fileURLWithPath: "/missing/clip-source.wav"), title: "Missing",
-                        range: DiscourseClipRange(duration: 4, position: 0)) { _ in done.fulfill() }
-        exporter.cancel()
+        let started = expectation(description: "Rendering began")
+        var cancelled = false
+        let request = DiscourseClipExportRequest(source: source, sourceExtension: "wav", title: "Cancel",
+            range: DiscourseClipRange(duration: 4, position: 0))
+        exporter.export(request, progress: { _ in
+            if !cancelled { cancelled = true; exporter.cancel(); started.fulfill() }
+        }) { _ in done.fulfill() }
+        wait(for: [started], timeout: 10)
         wait(for: [done], timeout: 0.2)
         XCTAssertNil(exporter.outputURL)
     }
@@ -272,5 +488,15 @@ final class DiscourseClipTests: XCTestCase {
         exporter.clean()
         XCTAssertFalse(FileManager.default.fileExists(atPath: output.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+        range.moveEnd(to: 4)
+        let tail = expectation(description: "Resampled EOF exported")
+        exporter.export(source: source, sourceExtension: "wav", title: "EOF", range: range) { result in
+            do {
+                let url = try result.get()
+                XCTAssertEqual(CMTimeGetSeconds(AVURLAsset(url: url).duration), 3, accuracy: 0.025)
+            } catch { XCTFail("EOF export failed: \(error)") }
+            tail.fulfill()
+        }
+        wait(for: [tail], timeout: 20)
     }
 }

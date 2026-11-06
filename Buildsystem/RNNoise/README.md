@@ -132,3 +132,24 @@ equalizer, playback speeds, Bluetooth, interruptions, background and lock-screen
 controls, and simultaneous Mixer playback. Require no toggle dropout or queue or
 position loss; measure sustained CPU/thermal/battery cost. No physical-device
 acceptance results are recorded yet.
+
+## Offline clip export
+
+The clip exporter's narrow Swift adapter resolves VLCKit's exported RNNoise C
+functions (`rnnoise_create`, `rnnoise_process_frame`, `rnnoise_destroy`,
+`rnnoise_reset`, `rnnoise_get_frame_size`) dynamically. Upstream binaries remain
+linkable; requested noise processing fails explicitly if these symbols are absent
+or the frame size is not 480. It uses the same pinned default model, per-channel
+states, float scaling, startup crossfade and framing as `native/rnnoise_frame.h`.
+Keep both implementations aligned when changing the playback filter.
+
+Export warms with up to one second of discourse pre-roll, discards pre-roll plus
+960 delayed frames, drains 960 zero frames, then mixes music and measures peaks.
+At source EOF, up to 128 additional zero frames cover the sample-rate converter’s
+withheld tail; selected output is still trimmed to the exact sample count.
+Rendering uses bounded buffers and a temporary CAF, never the live players or
+audio session. The installed custom artifact already exports these functions;
+no new native build is required. Check enabled/disabled noise and mixer
+combinations, start/end impulses, short sources, cancellation and speech/music
+balance on a device before release. Generated-fixture noise-only and noise/mixer export tests passed on iPhone 14 Pro;
+physical-device listening, HDR/iCloud inputs and synchronization acceptance remain pending.
