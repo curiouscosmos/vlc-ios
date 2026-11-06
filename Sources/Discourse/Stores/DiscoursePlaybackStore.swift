@@ -38,6 +38,7 @@ final class DiscoursePlaybackStore {
 
     static let shared = DiscoursePlaybackStore()
 
+    private var index: [String: TrackInfo]
     private let settings: DiscourseSettings
     private let notificationCenter: NotificationCenter
     private let queue = DispatchQueue(label: "online.sandalbar.rajneesh-discourse.playback")
@@ -45,6 +46,7 @@ final class DiscoursePlaybackStore {
     init(settings: DiscourseSettings = .shared,
          notificationCenter: NotificationCenter = .default) {
         self.settings = settings
+        self.index = settings.decode([String: TrackInfo].self, forKey: Keys.trackInfo) ?? [:]
         self.notificationCenter = notificationCenter
     }
 
@@ -200,10 +202,10 @@ final class DiscoursePlaybackStore {
 
     func removeAll() {
         queue.sync {
-            let index = trackIndex()
             for id in index.keys {
                 settings.remove(Keys.positionPrefix + id)
             }
+            index.removeAll()
             settings.remove(Keys.trackInfo)
             settings.remove(Keys.played)
             settings.remove(Keys.completed)
@@ -232,10 +234,11 @@ final class DiscoursePlaybackStore {
     }
 
     private func trackIndex() -> [String: TrackInfo] {
-        settings.decode([String: TrackInfo].self, forKey: Keys.trackInfo) ?? [:]
+        index
     }
 
     private func saveTrackIndex(_ index: [String: TrackInfo]) {
+        self.index = index
         if index.isEmpty {
             settings.remove(Keys.trackInfo)
         } else {

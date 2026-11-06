@@ -99,6 +99,22 @@ final class DiscoursePlaybackTests: XCTestCase {
         XCTAssertNil(RDPlaybackSnapshot.validated(invalid))
     }
 
+    func testPeriodicSnapshotWritesCannotOverwriteLaterLifecycleSave() throws {
+        let original = try? Data(contentsOf: RDPlaybackSnapshot.url)
+        defer {
+            if let original { try? original.write(to: RDPlaybackSnapshot.url, options: .atomic) }
+            else { try? FileManager.default.removeItem(at: RDPlaybackSnapshot.url) }
+        }
+        var value = snapshot()
+        for position in [10_000.0, 20_000.0, 30_000.0] {
+            value["position"] = position
+            RDPlaybackSnapshot.saveAsync(value)
+        }
+        value["position"] = 45_000.0
+        RDPlaybackSnapshot.save(value)
+        XCTAssertEqual(RDPlaybackSnapshot.readSnapshot()?["position"] as? Double, 45_000)
+    }
+
     func testSnapshotClampsPositionWithoutRestartingFinishedTrack() throws {
         for (saved, expected) in [(-1.0, 0.0), (120_000, 120_000), (130_000, 120_000)] {
             var value = snapshot()
@@ -360,6 +376,27 @@ final class DiscoursePlaybackTests: XCTestCase {
     }
 
     // MARK: - Identity store
+
+    func testBatchedIdentitiesPersistEvictAndReset() {
+        var time = 0.0
+        let store = DiscourseMediaIdentityStore(settings: settings, now: {
+            time += 1
+            return Date(timeIntervalSince1970: time)
+        }, limit: 2)
+        let records = (0..<3).compactMap { index -> (URL, DiscourseMediaIdentity)? in
+            guard let url = URL(string: "https://example.com/track\(index).mp3") else { return nil }
+            return (url, DiscourseMediaIdentity(discourseID: "d1", audioID: "a\(index)"))
+        }
+        XCTAssertEqual(records.count, 3)
+        store.record(records)
+        let restored = DiscourseMediaIdentityStore(settings: settings)
+        XCTAssertNil(store.identity(for: records[0].0))
+        XCTAssertNil(restored.identity(for: records[0].0))
+        XCTAssertEqual(restored.identity(for: records[2].0), records[2].1)
+        store.reset()
+        XCTAssertNil(store.identity(for: records[2].0))
+        XCTAssertNil(DiscourseMediaIdentityStore(settings: settings).identity(for: records[2].0))
+    }
 
     func testIdentityStoreRoundTrip() {
         let store = DiscourseMediaIdentityStore(settings: settings)

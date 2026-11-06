@@ -188,19 +188,25 @@ final class DiscoursePlayback {
             .compactMap { DiscourseMediaFactory.identity(of: $0, identityStore: identityStore)?.audioID })
 
         var appended: [DiscourseAudio] = []
+        var identities: [(URL, DiscourseMediaIdentity)] = []
         for (offset, track) in tracks.enumerated() where !known.contains(track.id) {
             guard let media = DiscourseMediaFactory.media(for: track,
                                                           discourse: discourse,
                                                           fallbackTrackNumber: offset + 1,
-                                                          identityStore: identityStore) else {
+                                                          identityStore: identityStore,
+                                                          recordIdentity: false) else {
                 continue
             }
             media.addOptions(playbackService.mediaOptionsDictionary)
             _ = mediaList.add(media)
             _ = playbackService.shuffledList.add(media)
             appended.append(track)
+            if let url = media.url, let identity = DiscourseMediaFactory.identity(of: media) {
+                identities.append((url, identity))
+            }
         }
 
+        identityStore.record(identities)
         playbackService.saveReadyPlayback()
         if !appended.isEmpty {
             context?.tracks.append(contentsOf: appended)
@@ -253,7 +259,7 @@ final class DiscoursePlayback {
     }
 }
 
-/// Disk format for the single VLC queue. Synchronous serial writes also finish before suspension.
+/// Disk format for the single VLC queue. Lifecycle saves drain periodic writes before suspension.
 @objc final class RDPlaybackSnapshot: NSObject {
     private static let writes = DispatchQueue(label: "online.sandalbar.playback-snapshot")
     static var url: URL {
@@ -297,14 +303,20 @@ final class DiscoursePlayback {
     }
 
     @objc static func save(_ snapshot: [String: Any]) {
+        writes.sync { write(snapshot) }
+    }
+
+    @objc static func saveAsync(_ snapshot: [String: Any]) {
+        writes.async { write(snapshot) }
+    }
+
+    private static func write(_ snapshot: [String: Any]) {
         guard let valid = validated(snapshot) else { return }
-        writes.sync {
-            do {
-                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try JSONSerialization.data(withJSONObject: valid).write(to: url, options: .atomic)
-            } catch {
-                NSLog("Playback snapshot save failed: %@", error.localizedDescription)
-            }
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try JSONSerialization.data(withJSONObject: valid).write(to: url, options: .atomic)
+        } catch {
+            NSLog("Playback snapshot save failed: %@", error.localizedDescription)
         }
     }
 

@@ -60,7 +60,9 @@ scene delegate.
   older snapshot has no URL, the playback tracker fetches the current audio object and applies its
   `discourse_thumbnail_url`, then refreshes the service metadata so both player views display it; explicit track
   artwork takes precedence over a local-library thumbnail.
-  The mixer never auto-starts.
+  The mixer never auto-starts. Periodic five-second checkpoints reuse the last queue metadata and
+  serialize/write on the snapshot queue; pause/seek/stop/background and queue changes rebuild metadata and
+  synchronously drain that queue. Full queue construction uses membership/index maps instead of nested scans.
 
 ### 4.3 Library, networking and storage
 
@@ -105,7 +107,9 @@ payloads/collections), `DiscourseHistoryStore` (max 24, newest first), `Discours
 `DiscourseStatsCache` (weekly lists, 3 h TTL, stale-on-failure, forced network read on expiry),
 `DiscoursePlaybackStore` (resume, completion, fractions, played, durations), `DiscoursePlaybackSettings`
 (`playback_history`), `DiscourseCatalogueFilterStore`, `DiscourseMediaIdentityStore` (bounded URL → identity),
-`DiscourseTrackRegistry` (in-memory payload cache, 256).
+`DiscourseTrackRegistry` (in-memory payload cache, 256). Identity and playback track-info indexes decode once
+per store instance and remain owned by their serial queues; writes preserve the existing keys/formats. Queue creation
+and continuation persist identity records in one batch, retaining the 512-entry limit.
 
 ### 4.6 Discourse UI layer (`Sources/Discourse/UI/`)
 
@@ -357,7 +361,7 @@ collections or the removal of Google Drive/OneDrive/optional permissions.
 Fork touch points (upstream files we intentionally edit):
 
 - `Sources/Playback/Control/VLCPlaybackService.{h,m}` and `VLCPlaybackService+MediaLibrary.m` — RNNoise switching,
-  audio session, snapshot hooks, paused retention and absolute-time clip seeking.
+  audio session, snapshot hooks, asynchronous periodic checkpoints with cached queue metadata, paused retention and absolute-time clip seeking.
 - `Sources/Playback/Player/` — `PlayerViewController`, `AudioPlayerViewController`, `VideoPlayerViewController`,
   `AudioPlayerView`, `MediaMoreOptionsActionSheet` + subviews, `ActionSheetCell`: white spinner, noise switch, discourse heart, Share row, Clip editor integration, 168 pt Dynamic Type-scaled height and the scrub bar's captured seek intent with absolute audio seeks.
 - `Sources/App/iOS/TabBarCoordinator.swift` — five tabs, index, accent, bar modes, local library, album/deep links,

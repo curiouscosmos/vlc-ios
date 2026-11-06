@@ -42,6 +42,7 @@ final class DiscourseMediaIdentityStore {
 
     private let settings: DiscourseSettings
     private let now: () -> Date
+    private var entries: [String: Entry]
     private let limit: Int
     private let queue = DispatchQueue(label: "online.sandalbar.discourse.media-identity")
 
@@ -53,25 +54,33 @@ final class DiscourseMediaIdentityStore {
          now: @escaping () -> Date = Date.init,
          limit: Int = 512) {
         self.settings = settings
+        self.entries = settings.decode([String: Entry].self, forKey: Self.settingsKey) ?? [:]
         self.now = now
         self.limit = max(1, limit)
     }
 
     /// Remembers which track lives behind `url`, replacing any older record.
     func record(url: URL, identity: DiscourseMediaIdentity) {
+        record([(url, identity)])
+    }
+
+    /// Queue construction persists the whole batch once.
+    func record(_ identities: [(URL, DiscourseMediaIdentity)]) {
+        guard !identities.isEmpty else { return }
         queue.sync {
-            var entries = loadEntries()
-            entries[url.absoluteString] = Entry(discourseID: identity.discourseID,
-                                                audioID: identity.audioID,
-                                                recordedAt: now().timeIntervalSince1970)
-            storeEntries(entries)
+            for (url, identity) in identities {
+                entries[url.absoluteString] = Entry(discourseID: identity.discourseID,
+                                                    audioID: identity.audioID,
+                                                    recordedAt: now().timeIntervalSince1970)
+            }
+            storeEntries()
         }
     }
 
     /// Looks the identity up again after the queue was rebuilt from a playlist.
     func identity(for url: URL) -> DiscourseMediaIdentity? {
         queue.sync {
-            guard let entry = loadEntries()[url.absoluteString] else {
+            guard let entry = entries[url.absoluteString] else {
                 return nil
             }
             return DiscourseMediaIdentity(discourseID: entry.discourseID,
@@ -81,18 +90,14 @@ final class DiscourseMediaIdentityStore {
 
     func reset() {
         queue.sync {
+            entries.removeAll()
             settings.remove(Self.settingsKey)
         }
     }
 
     // MARK: - Storage
 
-    private func loadEntries() -> [String: Entry] {
-        settings.decode([String: Entry].self, forKey: Self.settingsKey) ?? [:]
-    }
-
-    private func storeEntries(_ entries: [String: Entry]) {
-        var entries = entries
+    private func storeEntries() {
         if entries.count > limit {
             let overflow = entries.count - limit
             let oldest = entries.sorted { $0.value.recordedAt < $1.value.recordedAt }.prefix(overflow)

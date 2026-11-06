@@ -507,6 +507,21 @@ final class DiscourseStoresTests: XCTestCase {
 
     // MARK: - Playback
 
+    func testPlaybackIndexUpdatesPersistAndReset() {
+        let store = DiscoursePlaybackStore(settings: settings, notificationCenter: NotificationCenter())
+        store.register(id: "a1", discourseID: "d1", durationMilliseconds: 100_000)
+        store.savePosition(25_000, audioID: "a1")
+        store.register(id: "a1", discourseID: "d1", durationMilliseconds: 50_000)
+        XCTAssertEqual(store.fraction(audioID: "a1"), 0.5)
+        let restored = DiscoursePlaybackStore(settings: settings, notificationCenter: NotificationCenter())
+        XCTAssertEqual(restored.trackInfo(for: "a1")?.durationMilliseconds, 50_000)
+        XCTAssertEqual(restored.fraction(audioID: "a1"), 0.5)
+        store.removeAll()
+        XCTAssertNil(store.trackInfo(for: "a1"))
+        XCTAssertEqual(store.fraction(audioID: "a1"), 0)
+        XCTAssertNil(DiscoursePlaybackStore(settings: settings, notificationCenter: NotificationCenter()).trackInfo(for: "a1"))
+    }
+
     func testPlaybackPositionsFractionsAndCompletion() {
         let store = DiscoursePlaybackStore(settings: settings, notificationCenter: NotificationCenter())
         store.register(id: "a1", discourseID: "d1", durationMilliseconds: 100_000)

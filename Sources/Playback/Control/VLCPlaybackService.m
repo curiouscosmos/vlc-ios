@@ -768,8 +768,20 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         [self _restorePendingPlaybackPositionIfNeeded];
 #if TARGET_OS_IOS
         if (self->_restoredPaused) return;
-        if (self.isPlaying && NSDate.timeIntervalSinceReferenceDate - self->_lastSnapshotTime >= 5)
-            [self saveReadyPlayback];
+        if (self.isPlaying && NSDate.timeIntervalSinceReferenceDate - self->_lastSnapshotTime >= 5) {
+            NSDictionary *snapshot = self->_lastReadySnapshot;
+            VLCMediaList *active = self->_shuffleMode && self->_shuffledList.count ? self->_shuffledList : self->_mediaList;
+            if (!snapshot || [(NSArray *)snapshot[@"items"] count] != self->_mediaList.count
+                || [snapshot[@"index"] integerValue] != [active indexOfMedia:self->_mediaPlayer.media])
+                snapshot = [self playbackSnapshot];
+            else
+                snapshot = [self playbackSnapshotUpdatingPosition:snapshot];
+            if (snapshot) {
+                self->_lastReadySnapshot = snapshot;
+                self->_lastSnapshotTime = NSDate.timeIntervalSinceReferenceDate;
+                [RDPlaybackSnapshot saveAsync:snapshot];
+            }
+        }
 #endif
 
         if ([self.delegate respondsToSelector:@selector(playbackPositionUpdated:)]) {
@@ -2638,17 +2650,28 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     VLCMediaList *active = _shuffleMode && _shuffledList.count ? _shuffledList : _mediaList;
     NSInteger index = [active indexOfMedia:_mediaPlayer.media];
     if (index == NSNotFound) return nil;
+    NSMutableSet<VLCMedia *> *activeMedia = [NSMutableSet set];
+    for (NSInteger i = 0; i < active.count; i++) [activeMedia addObject:[active mediaAtIndex:i]];
     NSMutableArray<VLCMedia *> *canonical = [NSMutableArray array];
+    NSMutableSet<VLCMedia *> *canonicalMedia = [NSMutableSet set];
     for (NSInteger i = 0; i < _mediaList.count; i++) {
         VLCMedia *media = [_mediaList mediaAtIndex:i];
-        if ([active indexOfMedia:media] != NSNotFound) [canonical addObject:media];
+        if ([activeMedia containsObject:media]) {
+            [canonical addObject:media];
+            [canonicalMedia addObject:media];
+        }
     }
     for (NSInteger i = 0; i < active.count; i++) {
         VLCMedia *media = [active mediaAtIndex:i];
-        if (![canonical containsObject:media]) [canonical addObject:media];
+        if (![canonicalMedia containsObject:media]) {
+            [canonical addObject:media];
+            [canonicalMedia addObject:media];
+        }
     }
     NSMutableArray *items = [NSMutableArray array];
+    NSMapTable<VLCMedia *, NSNumber *> *canonicalIndices = [NSMapTable strongToStrongObjectsMapTable];
     for (VLCMedia *media in canonical) {
+        if (![canonicalIndices objectForKey:media]) [canonicalIndices setObject:@(items.count) forKey:media];
         NSMutableDictionary *item = [[RDPlaybackSnapshot itemFor:media] mutableCopy];
         if (!item) return nil;
         VLCMLMedia *library = [VLCMLMedia mediaForPlayingMedia:media];
@@ -2664,11 +2687,18 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     NSMutableArray *order = [NSMutableArray array];
     if (_shuffleMode) {
         for (NSInteger i = 0; i < active.count; i++) {
-            NSUInteger original = [canonical indexOfObject:[active mediaAtIndex:i]];
-            if (original == NSNotFound) return nil;
-            [order addObject:@(original)];
+            NSNumber *original = [canonicalIndices objectForKey:[active mediaAtIndex:i]];
+            if (!original) return nil;
+            [order addObject:original];
         }
     }
+    return [self playbackSnapshotUpdatingPosition:@{ @"version": @1, @"items": items, @"index": @(index),
+              @"shuffle": @(_shuffleMode), @"order": order, @"repeat": @(self.repeatMode) }];
+}
+
+- (NSDictionary *)playbackSnapshotUpdatingPosition:(NSDictionary *)snapshot
+{
+    NSInteger index = [snapshot[@"index"] integerValue];
     double duration = MAX(_mediaPlayer.media.length.intValue, _metadata.playbackDuration.doubleValue * 1000);
     double position = _restoredPaused ? MAX(0, _readyPosition) * duration : MAX(0, _mediaPlayer.time.intValue);
     if (_startPosition >= 0) position = _startPosition * duration;
@@ -2679,9 +2709,10 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     }
     if (_unknownDurationPosition > 0) position = _unknownDurationPosition;
     if (_naturalCompletion && duration > 0) position = duration;
-    return @{ @"version": @1, @"items": items, @"index": @(index),
-              @"position": @(position), @"duration": @(duration),
-              @"shuffle": @(_shuffleMode), @"order": order, @"repeat": @(self.repeatMode) };
+    NSMutableDictionary *updated = [snapshot mutableCopy];
+    updated[@"duration"] = @(duration);
+    updated[@"position"] = @(position);
+    return updated;
 }
 
 - (void)saveReadyPlayback

@@ -44,7 +44,8 @@ enum DiscourseMediaFactory {
                                     discourse: discourse,
                                     fallbackTrackNumber: offset + 1,
                                     identityStore: identityStore,
-                                    downloads: downloads) else {
+                                    downloads: downloads,
+                                    recordIdentity: false) else {
                 continue
             }
             queued.append((media, track))
@@ -53,6 +54,12 @@ enum DiscourseMediaFactory {
         guard !queued.isEmpty else {
             return nil
         }
+
+        identityStore.record(queued.compactMap { item in
+            guard let url = item.media.url,
+                  let identity = identity(of: item.media), !identity.audioID.isEmpty else { return nil }
+            return (url, identity)
+        })
 
         let mediaList = VLCMediaList()
         for item in queued {
@@ -75,7 +82,8 @@ enum DiscourseMediaFactory {
                       discourse: Discourse?,
                       fallbackTrackNumber: Int,
                       identityStore: DiscourseMediaIdentityStore = .shared,
-                      downloads: DiscourseDownloadStore = .shared) -> VLCMedia? {
+                      downloads: DiscourseDownloadStore = .shared,
+                      recordIdentity: Bool = true) -> VLCMedia? {
         // A verified download wins over streaming (AGENTS.md section 6.6):
         // `localURL(for:)` only answers when the file exists and is not empty,
         // so a deleted or truncated file falls back to the CDN.
@@ -103,7 +111,7 @@ enum DiscourseMediaFactory {
         if !identity.audioID.isEmpty {
             metadata.setExtraValue(identity.discourseID, forKey: DiscourseMediaIdentity.discourseExtraKey)
             metadata.setExtraValue(identity.audioID, forKey: DiscourseMediaIdentity.audioExtraKey)
-            identityStore.record(url: url, identity: identity)
+            if recordIdentity { identityStore.record(url: url, identity: identity) }
         }
 
         return media
