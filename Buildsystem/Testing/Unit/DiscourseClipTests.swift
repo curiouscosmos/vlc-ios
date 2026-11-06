@@ -48,7 +48,7 @@ final class DiscourseClipTests: XCTestCase {
             try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == key })
         }
         var starts: [Double] = []
-        editor.startDidChange = { starts.append($0) }
+        editor.previewPositionDidChange = { starts.append($0) }
         let startMinus = try button("CLIP_START_DECREASE")
         let startPlus = try button("CLIP_START_INCREASE")
         let endMinus = try button("CLIP_END_DECREASE")
@@ -62,7 +62,7 @@ final class DiscourseClipTests: XCTestCase {
         XCTAssertEqual(editor.range.end, 79)
         endPlus.sendActions(for: .touchUpInside)
         XCTAssertEqual(editor.range.end, 80)
-        XCTAssertEqual(starts, [19, 20])
+        XCTAssertEqual(starts, [19, 20, 69, 70])
         XCTAssertTrue(editor.subviews.compactMap { $0 as? UILabel }.contains { $0.text == "Selected: 1:00" })
 
         editor.range.moveStart(to: 0)
@@ -78,6 +78,16 @@ final class DiscourseClipTests: XCTestCase {
         startPlus.sendActions(for: .touchUpInside)
         XCTAssertEqual(editor.range.start, 38)
         XCTAssertEqual(starts.last, 38)
+        let playhead = try XCTUnwrap(editor.subviews.compactMap { $0 as? UILabel }.first { $0.accessibilityIdentifier == "clipPreviewTime" })
+        XCTAssertEqual(playhead.text, "0:38")
+        editor.range.moveEnd(to: 43)
+        endMinus.sendActions(for: .touchUpInside)
+        XCTAssertEqual(starts.last, 38, "Short selections clamp end preview to the start bracket")
+        XCTAssertEqual(playhead.text, "0:38")
+        editor.range.moveEnd(to: 100)
+        endMinus.sendActions(for: .touchUpInside)
+        XCTAssertEqual(starts.last, 89)
+        XCTAssertEqual(playhead.text, "1:29")
     }
 
     @MainActor

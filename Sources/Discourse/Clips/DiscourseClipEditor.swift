@@ -88,15 +88,22 @@ final class DiscourseClipEditor: UIView {
     func selectPhrase(_ phrase: DiscourseCaption) {
         if activeEndpoint == .start {
             range.moveStart(to: phrase.start)
-            startDidChange?(range.start)
         } else {
             range.moveEnd(to: phrase.end)
         }
+        bracketDidChange()
     }
+
+    private func bracketDidChange() {
+        let position = activeEndpoint == .start ? range.start : max(range.start, range.end - 10)
+        setPosition(position)
+        previewPositionDidChange?(position)
+    }
+
     var cut: (() -> Void)?
     var seek: ((Double) -> Void)?
-    /// Called whenever the start bracket moves so the playhead can follow it.
-    var startDidChange: ((Double) -> Void)?
+    /// Supplies the preview position after either endpoint changes.
+    var previewPositionDidChange: ((Double) -> Void)?
     /// True while the user is dragging a bracket or the timeline thumb, so the
     /// player does not fight the gesture with automatic range corrections.
     var isUserInteracting: Bool { timeline.isTracking || draggingHandle }
@@ -208,12 +215,13 @@ final class DiscourseClipEditor: UIView {
             guard let self else { return }
             self.selectEndpoint(.start)
             self.range.moveStart(to: self.range.start + delta)
-            self.startDidChange?(self.range.start)
+            self.bracketDidChange()
         }
         endHandle.adjust = { [weak self] delta in
             guard let self else { return }
             self.selectEndpoint(.end)
             self.range.moveEnd(to: self.range.end + delta)
+            self.bracketDidChange()
         }
         var config = UIButton.Configuration.filled()
         config.title = NSLocalizedString("CLIP_CUT", comment: "")
@@ -342,10 +350,10 @@ final class DiscourseClipEditor: UIView {
         let value = ((gesture.location(in: self).x - track.minX) / max(1, track.width) * range.duration).rounded()
         if gesture.view === startHandle {
             range.moveStart(to: value)
-            if gesture.state == .ended { startDidChange?(range.start) }
         } else {
             range.moveEnd(to: value)
         }
+        bracketDidChange()
     }
 
     @objc private func adjustEndpoint(_ button: UIButton) {

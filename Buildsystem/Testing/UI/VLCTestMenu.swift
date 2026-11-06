@@ -271,9 +271,11 @@ class VLCTestMenu: XCTestCase {
         let start = app.descendants(matching: .any)["Clip start"].firstMatch
         let startHandle = start.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         startHandle.press(forDuration: 0.1, thenDragTo: end.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+        XCTAssertEqual(app.staticTexts["clipPreviewTime"].label, start.value as? String)
         // Keep the twelve-second preview away from EOF so this checks the
         // selected clip boundary rather than natural track completion.
         for _ in 0..<14 { app.buttons["CLIP_START_DECREASE"].tap() }
+        XCTAssertEqual(app.staticTexts["clipPreviewTime"].label, start.value as? String)
         for _ in 0..<3 { app.buttons["CLIP_END_DECREASE"].tap() }
         let startTime = try XCTUnwrap(start.value as? String)
         let endTime = try XCTUnwrap(end.value as? String)
@@ -281,10 +283,14 @@ class VLCTestMenu: XCTestCase {
         selection.lifetime = .keepAlways
         add(selection)
         let previewTime = app.staticTexts["clipPreviewTime"]
-        XCTAssertEqual(previewTime.label, startTime)
+        func seconds(_ time: String) -> Int { time.split(separator: ":").reduce(0) { $0 * 60 + (Int($1) ?? 0) } }
+        let target = max(seconds(startTime), seconds(endTime) - 10)
+        let previewStart = target >= 3600 ? String(format: "%d:%02d:%02d", target / 3600, target / 60 % 60, target % 60)
+            : String(format: "%d:%02d", target / 60, target % 60)
+        XCTAssertEqual(previewTime.label, previewStart)
         app.buttons["Play or pause"].tap()
         let progresses = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            previewTime.label != startTime && previewTime.label != endTime
+            previewTime.label != previewStart && previewTime.label != endTime
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [progresses], timeout: 8), .completed)
         let reachesEnd = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", endTime), object: previewTime)

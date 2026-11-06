@@ -94,7 +94,7 @@ final class DiscourseCaptionTests: XCTestCase {
     func testActiveBracketPersistsAndUsesPhraseBoundaries() throws {
         let editor = DiscourseClipEditor(range: DiscourseClipRange(duration: 200, position: 20))
         var starts: [Double] = []
-        editor.startDidChange = { starts.append($0) }
+        editor.previewPositionDidChange = { starts.append($0) }
         editor.selectPhrase(DiscourseCaption(start: 30, end: 35, text: "any word"))
         XCTAssertEqual(editor.range.start, 30)
         editor.selectPhrase(DiscourseCaption(start: 40, end: 45, text: "another word"))
@@ -107,7 +107,7 @@ final class DiscourseCaptionTests: XCTestCase {
         editor.selectPhrase(DiscourseCaption(start: 60, end: 65, text: "new end"))
         XCTAssertEqual(editor.range.start, 40)
         XCTAssertEqual(editor.range.end, 65)
-        XCTAssertEqual(starts, [30, 40])
+        XCTAssertEqual(starts, [30, 40, 45, 55])
         editor.selectPhrase(DiscourseCaption(start: 0, end: 5, text: "before start"))
         XCTAssertEqual(editor.range.end, 41)
         editor.selectEndpoint(.start)

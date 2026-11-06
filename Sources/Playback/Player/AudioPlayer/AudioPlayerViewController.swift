@@ -271,11 +271,11 @@ class AudioPlayerViewController: PlayerViewController {
                 editor.setPosition(seconds)
             }
         }
-        editor.startDidChange = { [weak self, weak editor] seconds in
+        editor.previewPositionDidChange = { [weak self, weak editor] seconds in
             guard let self, let editor else { return }
             self.clipPausedAtEnd = false
             self.clipPreview.requestStart(at: seconds)
-            if !self.playbackService.isPlaying { editor.setPosition(seconds) }
+            editor.setPosition(seconds)
         }
         editor.cut = { [weak self, weak editor] in
             guard let self, let editor else { return }
