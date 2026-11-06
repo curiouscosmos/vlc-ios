@@ -6,7 +6,8 @@ import UIKit
 
 final class DiscourseClipTests: XCTestCase {
     func testInitialRangeAndTrackEnd() {
-        XCTAssertEqual(DiscourseClipRange(duration: 200, position: 20).end, 80)
+        XCTAssertEqual(DiscourseClipRange(duration: 2000, position: 20).end, 620)
+        XCTAssertEqual(DiscourseClipRange(duration: 200, position: 20).end, 200)
         let nearEnd = DiscourseClipRange(duration: 200, position: 200)
         XCTAssertEqual(nearEnd.start, 199)
         XCTAssertEqual(nearEnd.end, 200)
@@ -15,6 +16,7 @@ final class DiscourseClipTests: XCTestCase {
 
     func testHandlesCannotCrossOrEscapeTrack() {
         var range = DiscourseClipRange(duration: 200, position: 20)
+        range.moveEnd(to: 80)
         range.moveStart(to: 150)
         XCTAssertEqual(range.start, 79)
         range.moveEnd(to: 0)
@@ -40,6 +42,7 @@ final class DiscourseClipTests: XCTestCase {
     @MainActor
     func testEndpointButtonsAndPreviewCallbacks() throws {
         let editor = DiscourseClipEditor(range: DiscourseClipRange(duration: 200, position: 20))
+        editor.range.moveEnd(to: 80)
         let buttons = editor.subviews.compactMap { $0 as? UIButton }
         func button(_ key: String) throws -> UIButton {
             try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == key })

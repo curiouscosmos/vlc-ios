@@ -168,7 +168,7 @@ class AudioPlayerViewController: PlayerViewController {
         captionButton.isEnabled = url != nil
         let visible = captionsVisible && url != nil
         captionView.isHidden = !visible
-        audioPlayerView.thumbnailImageView.alpha = visible ? 0 : 1
+        audioPlayerView.setCaptionsVisible(visible)
         captionButton.configuration?.baseForegroundColor = visible ? DiscourseColors.current.accent : .white
         captionButton.accessibilityValue = visible ? NSLocalizedString("CC_ON", comment: "Captions on") : NSLocalizedString("CC_OFF", comment: "Captions off")
         captionView.applyTheme()
@@ -426,7 +426,7 @@ class AudioPlayerViewController: PlayerViewController {
             captionView.leadingAnchor.constraint(equalTo: audioPlayerView.thumbnailView.leadingAnchor, constant: 12),
             captionView.trailingAnchor.constraint(equalTo: audioPlayerView.thumbnailView.trailingAnchor, constant: -12),
             captionView.topAnchor.constraint(equalTo: audioPlayerView.thumbnailImageView.topAnchor),
-            captionView.bottomAnchor.constraint(equalTo: audioPlayerView.thumbnailImageView.bottomAnchor)
+            captionView.bottomAnchor.constraint(equalTo: audioPlayerView.thumbnailView.bottomAnchor)
         ])
         captionView.phraseTapped = { [weak self] phrase in self?.clipEditor?.selectPhrase(phrase) }
         captionView.retry = { [weak self] in self?.loadCaptions(forceRefresh: true) }

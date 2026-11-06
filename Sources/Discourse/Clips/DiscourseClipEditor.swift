@@ -13,7 +13,7 @@ struct DiscourseClipRange: Equatable {
     init(duration: Double, position: Double) {
         self.duration = duration.isFinite ? max(1, duration) : 1
         start = min(max(0, position.isFinite ? position : 0), self.duration - 1)
-        end = min(self.duration, start + 60)
+        end = min(self.duration, start + 600)
     }
 
     mutating func moveStart(to value: Double) {

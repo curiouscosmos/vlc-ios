@@ -351,6 +351,18 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
         albumLabel.textColor = .white
     }
 
+    private var captionsVisible = false
+
+    func setCaptionsVisible(_ visible: Bool) {
+        captionsVisible = visible
+        thumbnailImageView.alpha = visible ? 0 : 1
+        // Portrait captions use the metadata area; landscape keeps its separate metadata column.
+        for label in [titleLabel, artistLabel, albumLabel] {
+            label.alpha = visible && !isLandscapeLayout ? 0 : 1
+            label.accessibilityElementsHidden = visible && !isLandscapeLayout
+        }
+    }
+
     private var clipEditing = false
 
     func setClipEditing(_ editing: Bool) {
@@ -606,6 +618,7 @@ class AudioPlayerView: UIView, UIGestureRecognizerDelegate {
 
     func updateLayout(isLandscape: Bool) {
         isLandscapeLayout = isLandscape
+        setCaptionsVisible(captionsVisible)
         actionStackView.isHidden = isLandscape
 
         if isLandscape {
