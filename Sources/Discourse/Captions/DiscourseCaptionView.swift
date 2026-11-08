@@ -1,19 +1,52 @@
 /* Copyright (c) 2026 Sandalbar Enterprises, Inc. GPLv2 or later; see COPYING. */
 import UIKit
 
-private final class DiscourseCaptionTable: UITableView {
+private final class DiscourseCaptionText: UITextView {
     var userScrolled: (() -> Void)?
+    private var phrases: [Any] = []
+    override var accessibilityElements: [Any]? {
+        get { phrases }
+        set { phrases = newValue ?? [] }
+    }
+    override func accessibilityElementCount() -> Int { phrases.count }
+    override func accessibilityElement(at index: Int) -> Any? {
+        phrases.indices.contains(index) ? phrases[index] : nil
+    }
+    override func index(ofAccessibilityElement element: Any) -> Int {
+        guard let element = element as? UIAccessibilityElement else { return NSNotFound }
+        return phrases.firstIndex { ($0 as? UIAccessibilityElement) === element } ?? NSNotFound
+    }
     override func accessibilityScroll(_ direction: UIAccessibilityScrollDirection) -> Bool {
         userScrolled?()
         return super.accessibilityScroll(direction)
     }
 }
 
-final class DiscourseCaptionView: UIView, UITableViewDataSource, UITableViewDelegate {
+private final class DiscourseCaptionElement: UIAccessibilityElement {
+    weak var transcript: UITextView?
+    var range = NSRange(location: 0, length: 0)
+    var activate: (() -> Void)?
+    override var accessibilityFrame: CGRect {
+        get {
+            guard let transcript else { return .zero }
+            let glyphs = transcript.layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            var rect = transcript.layoutManager.boundingRect(forGlyphRange: glyphs, in: transcript.textContainer)
+            rect.origin.x += transcript.textContainerInset.left
+            rect.origin.y += transcript.textContainerInset.top
+            return UIAccessibility.convertToScreenCoordinates(rect, in: transcript)
+        }
+        set { }
+    }
+    override func accessibilityActivate() -> Bool { activate?(); return activate != nil }
+}
+
+final class DiscourseCaptionView: UIView, UITextViewDelegate {
     var phraseTapped: ((DiscourseCaption) -> Void)?
     var retry: (() -> Void)?
     private(set) var captions: [DiscourseCaption] = []
-    private let table = DiscourseCaptionTable(frame: .zero, style: .plain)
+    private let transcript = DiscourseCaptionText(frame: .zero, textContainer: nil)
+    private var phraseRanges: [NSRange] = []
+    private var phraseElements: [DiscourseCaptionElement] = []
     private let message = UILabel()
     private let retryButton = UIButton(type: .system)
     private let followButton = UIButton(type: .system)
@@ -26,14 +59,15 @@ final class DiscourseCaptionView: UIView, UITableViewDataSource, UITableViewDele
         backgroundColor = DiscourseColors.current.surfaceStart
         layer.cornerRadius = 14
         clipsToBounds = true
-        table.userScrolled = { [weak self] in self?.stopFollowing() }
-        table.dataSource = self
-        table.delegate = self
-        table.backgroundColor = .clear
-        table.separatorStyle = .none
-        table.estimatedRowHeight = 80
-        table.rowHeight = UITableView.automaticDimension
-        table.accessibilityIdentifier = "discourseTranscript"
+        transcript.userScrolled = { [weak self] in self?.stopFollowing() }
+        transcript.delegate = self
+        transcript.backgroundColor = .clear
+        transcript.isEditable = false
+        transcript.isSelectable = false
+        transcript.isAccessibilityElement = false
+        transcript.textContainerInset = UIEdgeInsets(top: 16, left: 12, bottom: 16, right: 12)
+        transcript.accessibilityIdentifier = "discourseTranscript"
+        transcript.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(transcriptTapped(_:))))
         message.font = .preferredFont(forTextStyle: .body)
         message.adjustsFontForContentSizeCategory = true
         message.numberOfLines = 0
@@ -43,13 +77,13 @@ final class DiscourseCaptionView: UIView, UITableViewDataSource, UITableViewDele
         retryButton.addTarget(self, action: #selector(retryTapped), for: .touchUpInside)
         followButton.setTitle(NSLocalizedString("CC_FOLLOW", comment: "Follow current caption"), for: .normal)
         followButton.addTarget(self, action: #selector(followTapped), for: .touchUpInside)
-        for child in [table, message, retryButton, followButton] {
+        for child in [transcript, message, retryButton, followButton] {
             child.translatesAutoresizingMaskIntoConstraints = false
             addSubview(child)
         }
         NSLayoutConstraint.activate([
-            table.leadingAnchor.constraint(equalTo: leadingAnchor), table.trailingAnchor.constraint(equalTo: trailingAnchor),
-            table.topAnchor.constraint(equalTo: topAnchor), table.bottomAnchor.constraint(equalTo: followButton.topAnchor),
+            transcript.leadingAnchor.constraint(equalTo: leadingAnchor), transcript.trailingAnchor.constraint(equalTo: trailingAnchor),
+            transcript.topAnchor.constraint(equalTo: topAnchor), transcript.bottomAnchor.constraint(equalTo: followButton.topAnchor),
             followButton.bottomAnchor.constraint(equalTo: bottomAnchor), followButton.centerXAnchor.constraint(equalTo: centerXAnchor),
             followButton.heightAnchor.constraint(equalToConstant: 44),
             message.centerYAnchor.constraint(equalTo: centerYAnchor), message.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
@@ -71,7 +105,7 @@ final class DiscourseCaptionView: UIView, UITableViewDataSource, UITableViewDele
         captions = []
         activeIndex = nil
         following = true
-        table.reloadData()
+        rebuildTranscript()
         message.text = NSLocalizedString("CC_LOADING", comment: "Loading captions")
         message.isHidden = false
         retryButton.isHidden = true
@@ -87,9 +121,10 @@ final class DiscourseCaptionView: UIView, UITableViewDataSource, UITableViewDele
 
     func display(_ captions: [DiscourseCaption]) {
         self.captions = captions
+        activeIndex = captions.isEmpty ? nil : 0
         message.isHidden = true
         retryButton.isHidden = true
-        table.reloadData()
+        rebuildTranscript()
     }
 
     func update(time: Double, range: DiscourseClipRange?) {
@@ -98,11 +133,16 @@ final class DiscourseCaptionView: UIView, UITableViewDataSource, UITableViewDele
         let rangeChanged = clipRange?.start != range?.start || clipRange?.end != range?.end
         clipRange = range
         guard positionChanged || rangeChanged else { return }
+        let previous = activeIndex
         activeIndex = next
-        // Only visible phrases need repainting; never rebuild the entire transcript on a tick.
-        for cell in table.visibleCells {
-            if let index = table.indexPath(for: cell)?.row { configure(cell, at: index) }
+        transcript.textStorage.beginEditing()
+        if rangeChanged {
+            for index in captions.indices { stylePhrase(at: index) }
+        } else {
+            if let previous { stylePhrase(at: previous) }
+            if let activeIndex { stylePhrase(at: activeIndex) }
         }
+        transcript.textStorage.endEditing()
         if following && positionChanged { scrollToActive() }
     }
 
@@ -111,36 +151,73 @@ final class DiscourseCaptionView: UIView, UITableViewDataSource, UITableViewDele
         message.textColor = DiscourseColors.current.primaryText
         retryButton.tintColor = DiscourseColors.current.accent
         followButton.tintColor = DiscourseColors.current.accent
-        table.reloadData()
+        rebuildTranscript()
     }
 
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { captions.count }
-
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "phrase") ?? UITableViewCell(style: .default, reuseIdentifier: "phrase")
-        configure(cell, at: indexPath.row)
-        return cell
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.preferredContentSizeCategory != traitCollection.preferredContentSizeCategory {
+            rebuildTranscript()
+        }
     }
 
-    private func configure(_ cell: UITableViewCell, at index: Int) {
+    private func rebuildTranscript() {
+        let text = NSMutableAttributedString(string: "")
+        phraseRanges = []
+        phraseElements = []
+        for (index, phrase) in captions.enumerated() {
+            if index > 0 { text.append(NSAttributedString(string: " ")) }
+            let value = phrase.text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
+            let range = NSRange(location: text.length, length: (value as NSString).length)
+            phraseRanges.append(range)
+            text.append(NSAttributedString(string: value))
+            let element = DiscourseCaptionElement(accessibilityContainer: transcript)
+            element.isAccessibilityElement = true
+            element.transcript = transcript
+            element.range = range
+            element.accessibilityIdentifier = "captionPhrase_\(index)"
+            element.accessibilityLabel = value
+            element.activate = { [weak self] in self?.selectPhrase(at: index) }
+            phraseElements.append(element)
+        }
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineSpacing = 6
+        text.addAttributes([.font: UIFont.preferredFont(forTextStyle: .title2, compatibleWith: traitCollection),
+                            .foregroundColor: DiscourseColors.current.primaryText.withAlphaComponent(0.65),
+                            .paragraphStyle: paragraph], range: NSRange(location: 0, length: text.length))
+        transcript.attributedText = text
+        transcript.accessibilityElements = phraseElements
+        for index in captions.indices { stylePhrase(at: index) }
+    }
+
+    private func stylePhrase(at index: Int) {
         let phrase = captions[index]
-        cell.textLabel?.text = phrase.text
-        cell.textLabel?.numberOfLines = 0
-        cell.textLabel?.font = .preferredFont(forTextStyle: .title2)
-        cell.textLabel?.adjustsFontForContentSizeCategory = true
-        cell.textLabel?.textColor = index == activeIndex ? DiscourseColors.current.accent : DiscourseColors.current.primaryText.withAlphaComponent(0.65)
         let selected = clipRange.map { phrase.start < $0.end && phrase.end > $0.start } ?? false
-        cell.backgroundColor = selected ? DiscourseColors.current.accent.withAlphaComponent(0.15) : .clear
-        cell.selectionStyle = .none
-        cell.accessibilityIdentifier = "captionPhrase_\(index)"
-        cell.accessibilityTraits = clipRange == nil ? .staticText : .button
-        cell.accessibilityValue = index == activeIndex ? NSLocalizedString("CC_CURRENT", comment: "Current phrase") : nil
-        cell.accessibilityHint = clipRange == nil ? nil : NSLocalizedString("CC_SELECT_HINT", comment: "Caption clipping hint")
+        transcript.textStorage.addAttributes([
+            .foregroundColor: index == activeIndex ? DiscourseColors.current.accent : DiscourseColors.current.primaryText.withAlphaComponent(0.65),
+            .backgroundColor: selected ? DiscourseColors.current.accent.withAlphaComponent(0.15) : UIColor.clear
+        ], range: phraseRanges[index])
+        let element = phraseElements[index]
+        element.accessibilityTraits = clipRange == nil ? .staticText : .button
+        element.accessibilityValue = index == activeIndex ? NSLocalizedString("CC_CURRENT", comment: "Current phrase") : nil
+        element.accessibilityHint = clipRange == nil ? nil : NSLocalizedString("CC_SELECT_HINT", comment: "Caption clipping hint")
     }
 
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+    private func selectPhrase(at index: Int) {
         if clipRange != nil { stopFollowing() }
-        phraseTapped?(captions[indexPath.row])
+        phraseTapped?(captions[index])
+    }
+
+    @objc private func transcriptTapped(_ gesture: UITapGestureRecognizer) {
+        var point = gesture.location(in: transcript)
+        point.x -= transcript.textContainerInset.left
+        point.y -= transcript.textContainerInset.top
+        let layout = transcript.layoutManager
+        let glyph = layout.glyphIndex(for: point, in: transcript.textContainer)
+        guard glyph < layout.numberOfGlyphs,
+              layout.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: transcript.textContainer).contains(point) else { return }
+        let character = layout.characterIndexForGlyph(at: glyph)
+        if let index = phraseRanges.firstIndex(where: { NSLocationInRange(character, $0) }) { selectPhrase(at: index) }
     }
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) { stopFollowing() }
     private func stopFollowing() {
@@ -148,8 +225,8 @@ final class DiscourseCaptionView: UIView, UITableViewDataSource, UITableViewDele
         followButton.isHidden = captions.isEmpty
     }
     private func scrollToActive() {
-        guard window != nil, let activeIndex, !table.isDragging, !table.isDecelerating else { return }
-        table.scrollToRow(at: IndexPath(row: activeIndex, section: 0), at: .middle, animated: false)
+        guard window != nil, let activeIndex, !transcript.isDragging, !transcript.isDecelerating else { return }
+        transcript.scrollRangeToVisible(phraseRanges[activeIndex])
     }
     @objc private func retryTapped() { retry?() }
     @objc private func followTapped() { following = true; followButton.isHidden = true; scrollToActive() }

@@ -51,6 +51,7 @@ enum DiscourseCaptions {
     }
 
     static func activeIndex(in captions: [DiscourseCaption], at time: Double) -> Int? {
+        guard !captions.isEmpty, time.isFinite else { return nil }
         // Binary search keeps long discourse transcripts cheap on every player tick.
         var lower = 0
         var upper = captions.count
@@ -58,8 +59,7 @@ enum DiscourseCaptions {
             let middle = (lower + upper) / 2
             if captions[middle].start <= time { lower = middle + 1 } else { upper = middle }
         }
-        guard lower > 0, time < captions[lower - 1].end else { return nil }
-        return lower - 1
+        return max(0, lower - 1)
     }
 }
 

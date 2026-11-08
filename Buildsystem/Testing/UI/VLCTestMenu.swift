@@ -185,7 +185,7 @@ class VLCTestMenu: XCTestCase {
             throw XCTSkip("Backend has not enabled captions for the sample track")
         }
         cc.tap()
-        let transcript = app.tables["discourseTranscript"]
+        let transcript = app.textViews["discourseTranscript"]
         XCTAssertTrue(transcript.waitForExistence(timeout: 5))
         XCTAssertTrue(transcript.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "captionPhrase_")).firstMatch.waitForExistence(timeout: 30))
         let captionImage = XCTAttachment(screenshot: app.screenshot())
