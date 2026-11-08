@@ -39,6 +39,7 @@ final class DiscourseLikeControl: UIControl {
     /// in the audio player's action row.
     enum Style {
         case surface
+        case card
         case player
     }
 
@@ -166,15 +167,20 @@ final class DiscourseLikeControl: UIControl {
             : nil
     }
 
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if style == .card { updateTheme() }
+    }
+
     // MARK: - Theme
 
     func updateTheme() {
         let standalonePlayerHeart = style == .player && likeCount == 0
-        let size: CGFloat = standalonePlayerHeart ? 24 : 18
+        let size: CGFloat = standalonePlayerHeart || style == .card ? 24 : 18
         heartWidth.constant = size
         heartHeight.constant = size
         heartView.image = UIImage(systemName: isLiked ? "heart.fill" : "heart",
-                                  withConfiguration: standalonePlayerHeart
+                                  withConfiguration: standalonePlayerHeart || style == .card
                                     ? UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
                                     : Self.symbolConfiguration)
         invalidateIntrinsicContentSize()
@@ -183,6 +189,10 @@ final class DiscourseLikeControl: UIControl {
         case .surface:
             heartView.tintColor = isLiked ? colors.likedHeart : colors.unlikedHeart
             countLabel.textColor = colors.secondaryText
+        case .card:
+            countLabel.font = .preferredFont(forTextStyle: .subheadline, compatibleWith: traitCollection)
+            heartView.tintColor = isLiked ? colors.likedHeart : colors.primaryText
+            countLabel.textColor = colors.primaryText
         case .player:
             heartView.tintColor = isLiked ? colors.likedHeart : .white
             countLabel.textColor = UIColor.white.withAlphaComponent(0.85)

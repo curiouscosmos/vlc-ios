@@ -8,9 +8,8 @@
  * Rajneesh Discourse is free software under the GPLv2 (or later) and MPLv2,
  * like the upstream project it is derived from. See COPYING.
  *
- * The shared row for a discourse or a track: artwork, title, a metadata line
- * (discourse summary, or track discourse name + duration), the download control
- * (tracks only) and the like control.
+ * The shared track row: artwork, title, discourse name + duration,
+ * the download control and the like control.
  * Search results and the Home track lists host the same view in different cell
  * types, so both screens line up without a second row implementation.
  *****************************************************************************/
@@ -181,20 +180,6 @@ final class DiscourseRowView: UIView {
     }
 
     // MARK: - Content
-
-    func configure(with discourse: Discourse, like: DiscourseLikeState) {
-        downloadControl.isHidden = true
-        let title = discourse.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        titleLabel.text = title
-        subtitleLabel.text = DiscourseMetadataText.summary(language: discourse.language,
-                                                           tracks: discourse.totalTracks,
-                                                           likes: like.count)
-        isPlaying = false
-        likeControl.configure(with: like, title: title)
-        loadArtwork(discourse.thumbnailURL)
-        buildAccessibility(title: title, subtitle: subtitleLabel.text)
-        updateTheme()
-    }
 
     /// A device-library track from Home's merged history: no like or download
     /// control, and the text may run to the card's trailing edge.

@@ -19,10 +19,7 @@
 
 import UIKit
 
-/// Downloaded/active counts for one discourse, shown on catalogue and Home
-/// cards. The Home carousel has a fixed height, so its tiles show the counts in
-/// a badge over the artwork; the catalogue's full-width list row puts the same
-/// badge in its footer instead of resizing.
+/// Downloaded/active counts in the shared discourse card's footer.
 struct DiscourseDownloadSummary: Equatable {
     let downloaded: Int
     let active: Int

@@ -555,7 +555,6 @@ extension DiscourseCatalogueViewController: UICollectionViewDataSource {
             return cell
         }
         let discourse = discourse(at: indexPath)
-        card.layoutStyle = .list
         card.configure(with: discourse,
                        like: likeState(for: discourse),
                        downloads: downloadSummary(for: discourse))

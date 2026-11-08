@@ -91,7 +91,7 @@ Foundation-only so models, resolver and cache test without the app. `DiscourseAP
 like/unlike, `stats`, `discourseStats`, `audioStats`, plus SWR readers `cached*`. Fresh GETs (24 h) come from
 `DiscourseAPICache`; force refresh sends `Cache-Control: no-cache`; `/likes` is never cached; cancellation is
 `.cancelled` and never serves cache; transport/5xx failures serve stale payloads. Catalogue, detail, search and Home
-render any cached payload first and revalidate (SWR). `DiscourseModels` mirrors `api/types/discourse.type.ts`;
+render any cached payload first and revalidate (SWR). `DiscourseModels` mirrors `api/types/discourse.type.ts` and additionally decodes optional discourse `date`/`location` strings returned by the catalogue; missing/null values remain nil through older caches and favourite payloads;
 `DiscourseURLResolver` accepts absolute HTTPS and resolves relative paths against `https://osho.b-cdn.net/OSHO/`.
 `DiscourseIdentity` keeps one UUID in the keychain (mirrored to `osho_api_user_id`); `DiscourseAPIError`/
 `DiscourseErrorCopy` own the copy; `DiscourseDiagnostics` logs without the key, UUID or payloads. Cache files live in
@@ -113,10 +113,8 @@ and continuation persist identity records in one batch, retaining the 512-entry 
 
 ### 4.6 Discourse UI layer (`Sources/Discourse/UI/`)
 
-- **Catalogue**: one-column list of `DiscourseCardCell` (`.list`, 112 × 88 pt aspect-fill artwork, two-line title, language, track
-  count, download badge, heart); cache-first paging (`page < meta.total_pages`, dedupe, guarded `insertItems`),
-  400 pt prefetch, force pull-to-refresh, language/sort `UIMenu` persisted in the filter store, request token drops
-  stale answers, failures keep rendered rows. Home reuses the cell in `.tile` layout (160 pt).
+- **Discourse cards**: `DiscourseCardView` in `DiscourseCardCell` and the discourse branch of `DiscourseSearchCell` is the sole renderer for Catalogue, Home, Search and favourite discourses. A warm gradient surface with a 20 pt corner/border contains square aspect-fill artwork (20% of card width, bounded to 72–160 pt), a two-line title/chevron, language and optional city pills, and track/calendar metadata followed by download status, a divider and the heart. Cards are at least 132 pt tall and self-size; narrow cards stack footer metadata and accessibility sizes put artwork above the full-width text. Home keeps horizontal carousels with cards at 92% of the available section width. Missing/blank `location`/`date` hide their icon/pill/separator; location keeps only the trimmed first comma-separated part. ISO date-only/timestamp values preserve their calendar day and use localized abbreviated-month dates (“Jun 10, 1974” in US English); invalid dates are hidden. Download status is an indicator, retaining completed/active counts and existing targeted notifications; card taps open detail and hearts remain independent accessible actions.
+- **Catalogue**: one-column list of the shared cards; cache-first paging (`page < meta.total_pages`, dedupe, guarded `insertItems`), 400 pt prefetch, force pull-to-refresh, language/sort `UIMenu` persisted in the filter store, request token drops stale answers, failures keep rendered rows.
 - **Detail**: sorted tracks, header (artwork, summary, **Play all**, heart), progress ring/speaker/checkmark, row and
   nav-bar download actions, long-press Play/Play next/Add to queue/download. Track rows keep the duration, download
   and like controls at their intrinsic width, so a long title wraps to its second line instead of compressing the
@@ -129,12 +127,12 @@ and continuation persist identity records in one batch, retaining the 512-entry 
   Local history is fetched/mapped off-main on first appearance, library history changes, or explicit refresh;
   returning to Home reuses it. Unchanged sections skip reloads; stable section order reloads only changed sections.
 - **Playlist cards**: ordinary playlist rows and automatic favourite collections use 12 pt corners, track surfaces
-  and track borders; list cards are at least 112 pt tall with 112 × 88 pt aspect-fill artwork and track counts; favourite cards have 8 pt spacing. Favourites live in a non-pinned collection header and scroll with ordinary playlists.
+  and track borders; list cards are at least 112 pt tall with 112 × 88 pt aspect-fill artwork and track counts; favourite cards have 8 pt spacing; favourite discourses use the shared, self-sizing discourse card. Favourites live in a non-pinned collection header and scroll with ordinary playlists.
 - **Track rows**: vertically centred title and subtitle; duration comes first, and a discourse name matching the
   title (ignoring case and surrounding whitespace) is omitted. Shared by Home, search and favourite tracks.
 - **Likes/downloads**: `DiscourseLikeControl` + `DiscourseLikeActions` and `DiscourseDownloadControl` +
   `DiscourseDownloadActions` are the only render/action paths; cards/rows are accessibility containers holding a
-  transparent `DiscourseAccessibilityButton` and the heart; catalogue cards show a `3/11` download badge.
+  transparent `DiscourseAccessibilityButton` and the heart; discourse cards show a download-status icon with counts such as `3/11` when active or downloaded.
   The expanded player uses a 24 pt heart with no likes and the compact 18 pt heart beside positive counts.
   Download notifications carry changed audio/discourse IDs and distinguish byte progress from state changes.
   Progress retains the 2% threshold and coalesces across tracks for 100 ms; completion/cancellation/removal publish
@@ -330,7 +328,7 @@ crash); writes are synchronous/serialised; never store the key, the UUID in logs
 17. **Local library entry point.** No Discourse/Local switch; the library is pushed above the catalogue and the mixer imports through the file picker.
 18. **Tab bar.** System bar, default mode on iPhone, `.tabSidebar` on iPad, accent tint, floating-bar inset; playlist cells remain upstream XIBs.
 19. **Podcasts/On Air.** The surface is removed, so podcast URLs report an error; the background refresher and its background modes are gone (finite background tasks are unaffected).
-20. **Card downloads are a badge.** A `3/11` pill over Home tiles and in the catalogue footer (fixed-height carousel).
+20. **Card downloads are status indicators.** The shared footer always shows the download icon, adding completed/active counts when present; download actions remain in detail. Home, Catalogue, Search and favourite-discourse cards share the same self-sizing presentation.
 21. **Catalogue bar-button tint.** Settings/filter buttons inherit the upstream orange `tintColor`.
 22. **Duration hint.** `duration_seconds` goes to `VLCMedia.length`; libvlc replaces it with the stream length.
 23. **Track identity.** Meta extras plus a bounded URL → identity index for restored queues; use `identity(of:)`.
@@ -388,7 +386,7 @@ Fork touch points (upstream files we intentionally edit):
 - `Sources/Discourse/DeepLink/` + `Buildsystem/DeepLinks/` — parser, share URL, tests, AASA.
 - `Sources/Media Library/` — playlist accent/artwork/rounded thumbnails/favourite rows (`PlaylistViewController`,
   `CollectionArtworkHeader`, `PlaylistModel`, `MediaCollectionViewCell`, `MediaGridCollectionCell`,
-  `CollectionInfoFooter`, `MediaCategory`); scrolling favourite header; targeted favourite-row download updates; **Add to Audio Mixer** and local-library empty state (`MediaCategoryViewController`);
+  `CollectionInfoFooter`, `MediaCategory`); self-sizing favourite discourse cards, scrolling favourite header; targeted favourite-row download updates; **Add to Audio Mixer** and local-library empty state (`MediaCategoryViewController`);
   branded empty state (`VLCEmptyLibraryView`, `MediaViewController`).
 - `Sources/Settings/Model/SettingsSection.swift` and `Resources/iOS/Settings.bundle/*` — playback history, removed
   video/subtitle rows.

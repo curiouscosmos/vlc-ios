@@ -19,6 +19,8 @@ final class DiscourseSearchCell: UITableViewCell {
     static let reuseIdentifier = "DiscourseSearchCell"
 
     private let rowView = DiscourseRowView()
+    private let discourseCard = DiscourseCardView()
+    private let stack = UIStackView()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -36,14 +38,19 @@ final class DiscourseSearchCell: UITableViewCell {
         contentView.backgroundColor = .clear
         selectionStyle = .none
 
-        rowView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(rowView)
-
+        discourseCard.isHidden = true
+        stack.addArrangedSubview(rowView)
+        stack.addArrangedSubview(discourseCard)
+        stack.isLayoutMarginsRelativeArrangement = true
+        stack.directionalLayoutMargins = .zero
+        stack.axis = .vertical
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(stack)
         NSLayoutConstraint.activate([
-            rowView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            rowView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            rowView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            rowView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
+            stack.topAnchor.constraint(equalTo: contentView.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
         ])
     }
 
@@ -51,12 +58,12 @@ final class DiscourseSearchCell: UITableViewCell {
 
     var onOpen: (() -> Void)? {
         get { rowView.onOpen }
-        set { rowView.onOpen = newValue }
+        set { rowView.onOpen = newValue; discourseCard.onOpen = newValue }
     }
 
     var onToggleLike: (() -> Void)? {
         get { rowView.onToggleLike }
-        set { rowView.onToggleLike = newValue }
+        set { rowView.onToggleLike = newValue; discourseCard.onToggleLike = newValue }
     }
 
     var onToggleDownload: (() -> Void)? {
@@ -65,9 +72,15 @@ final class DiscourseSearchCell: UITableViewCell {
     }
 
     func configure(with discourse: Discourse, like: DiscourseLikeState) {
-        rowView.configure(with: discourse, like: like)
+        rowView.isHidden = true
+        discourseCard.isHidden = false
+        stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 3, leading: 0, bottom: 3, trailing: 0)
+        discourseCard.configure(with: discourse, like: like,
+                               downloads: .resolve(discourseID: discourse.id, totalTracks: discourse.totalTracks))
         accessibilityIdentifier = "discourseSearchDiscourse"
     }
+
+    func configureDownloadBadge(_ summary: DiscourseDownloadSummary) { discourseCard.configureDownloadBadge(summary) }
 
     func updateDownload(_ state: DiscourseDownloadState) {
         rowView.updateDownload(state)
@@ -77,6 +90,9 @@ final class DiscourseSearchCell: UITableViewCell {
                    isPlaying: Bool,
                    like: DiscourseLikeState,
                    download: DiscourseDownloadState) {
+        rowView.isHidden = false
+        discourseCard.isHidden = true
+        stack.directionalLayoutMargins = .zero
         rowView.configure(with: track,
                           isPlaying: isPlaying,
                           like: like,
@@ -87,11 +103,13 @@ final class DiscourseSearchCell: UITableViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         rowView.prepareForReuse()
+        discourseCard.prepareForReuse()
         accessibilityIdentifier = nil
     }
 
     func updateTheme() {
         rowView.updateTheme()
+        discourseCard.updateTheme()
     }
 
 }

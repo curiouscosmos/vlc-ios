@@ -1140,3 +1140,5 @@
 "CLIP_RATIO_ORIGINAL" = "Default (Original ratio)"; /* Video export ratio */
 "CLIP_RATIO_MOBILE" = "9:16 — Mobile"; /* Video export ratio */
 "CLIP_RATIO_DESKTOP" = "16:9 — Desktop"; /* Video export ratio */
+
+"DISCOURSE_CARD_NO_DOWNLOADS" = "No downloaded tracks"; /* Discourse download status */

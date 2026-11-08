@@ -155,11 +155,19 @@ class VLCTestMenu: XCTestCase {
         XCTAssertTrue(list.cells.firstMatch.exists)
     }
 
+    private func attachDiscourseCards(_ name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     func testCatalogueOpensDiscourseDetail() {
         helper.tapTabBarItem(VLCAccessibilityIdentifier.discourses)
 
         let card = app.collectionViews.cells.firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 15))
+        attachDiscourseCards("Catalogue discourse cards")
         card.tap()
 
         XCTAssertTrue(app.buttons["discoursePlayAll"].waitForExistence(timeout: 15))
@@ -384,6 +392,10 @@ class VLCTestMenu: XCTestCase {
         XCTAssertTrue(favouriteDiscourses.waitForExistence(timeout: 10))
         favouriteDiscourses.tap()
         XCTAssertTrue(app.navigationBars.staticTexts["Favourite Discourses"].waitForExistence(timeout: 5))
+        let favouriteCard = app.collectionViews.cells.firstMatch
+        XCTAssertTrue(favouriteCard.waitForExistence(timeout: 5))
+        XCTAssertEqual(favouriteCard.frame.width, app.collectionViews.firstMatch.frame.width - 32, accuracy: 1)
+        attachDiscourseCards("Favourite discourse cards")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         helper.tapTabBarItem(VLCAccessibilityIdentifier.discourses)
 
@@ -476,6 +488,7 @@ class VLCTestMenu: XCTestCase {
         // Tapping a discourse result opens its detail screen.
         let discourse = app.cells["discourseSearchDiscourse"].firstMatch
         XCTAssertTrue(discourse.waitForExistence(timeout: 20))
+        attachDiscourseCards("Search discourse cards")
         discourse.tap()
         XCTAssertTrue(app.buttons["discoursePlayAll"].waitForExistence(timeout: 20))
     }
@@ -527,6 +540,7 @@ class VLCTestMenu: XCTestCase {
         // recently played card. Match it by the label the catalogue card shows.
         let homeCard = home.cells.matching(NSPredicate(format: "label == %@", cardLabel)).firstMatch
         XCTAssertTrue(homeCard.waitForExistence(timeout: 10))
+        attachDiscourseCards("Home discourse cards")
         homeCard.tap()
         XCTAssertTrue(app.buttons["discoursePlayAll"].waitForExistence(timeout: 15))
     }

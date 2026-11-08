@@ -25,6 +25,8 @@ struct Discourse: Codable, Hashable, Identifiable {
     let isAudioCleaned: Bool
     let language: String
     let slug: String?
+    let date: String?
+    let location: String?
     let totalTracks: Int
     let totalLikes: Int
     let createdAt: String
@@ -39,6 +41,8 @@ struct Discourse: Codable, Hashable, Identifiable {
         case isAudioCleaned = "is_audio_cleaned"
         case language
         case slug
+        case date
+        case location
         case totalTracks = "total_tracks"
         case totalLikes = "total_likes"
         case createdAt = "created_at"
@@ -54,6 +58,8 @@ struct Discourse: Codable, Hashable, Identifiable {
         isAudioCleaned = try container.decodeIfPresent(Bool.self, forKey: .isAudioCleaned) ?? false
         language = try container.decodeIfPresent(String.self, forKey: .language) ?? ""
         slug = try container.decodeIfPresent(String.self, forKey: .slug)
+        date = try container.decodeIfPresent(String.self, forKey: .date)
+        location = try container.decodeIfPresent(String.self, forKey: .location)
         totalTracks = try container.decodeIfPresent(Int.self, forKey: .totalTracks) ?? 0
         totalLikes = try container.decodeIfPresent(Int.self, forKey: .totalLikes) ?? 0
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt) ?? ""
@@ -68,6 +74,8 @@ struct Discourse: Codable, Hashable, Identifiable {
          isAudioCleaned: Bool = false,
          language: String = "",
          slug: String? = nil,
+         date: String? = nil,
+         location: String? = nil,
          totalTracks: Int = 0,
          totalLikes: Int = 0,
          createdAt: String = "",
@@ -79,6 +87,8 @@ struct Discourse: Codable, Hashable, Identifiable {
         self.isAudioCleaned = isAudioCleaned
         self.language = language
         self.slug = slug
+        self.date = date
+        self.location = location
         self.totalTracks = totalTracks
         self.totalLikes = totalLikes
         self.createdAt = createdAt

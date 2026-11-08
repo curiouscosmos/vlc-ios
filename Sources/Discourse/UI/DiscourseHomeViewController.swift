@@ -173,10 +173,12 @@ final class DiscourseHomeViewController: UIViewController {
             alignment: .top)
 
         if kind.isCarousel {
-            let itemSize = NSCollectionLayoutSize(widthDimension: .absolute(160),
-                                                  heightDimension: .estimated(230))
+            let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
+                                                  heightDimension: .estimated(160))
             let item = NSCollectionLayoutItem(layoutSize: itemSize)
-            let group = NSCollectionLayoutGroup.horizontal(layoutSize: itemSize, subitems: [item])
+            let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(0.92),
+                                                   heightDimension: .estimated(160))
+            let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
 
             let section = NSCollectionLayoutSection(group: group)
             section.orthogonalScrollingBehavior = .continuous

@@ -37,6 +37,34 @@ enum DiscourseDurationFormatter {
 }
 
 enum DiscourseMetadataText {
+    static func location(_ raw: String?) -> String? {
+        guard let first = raw?.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !first.isEmpty else { return nil }
+        return first
+    }
+
+    private static let dateParser: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.isLenient = false
+        return formatter
+    }()
+
+    /// Historical discourse dates keep their calendar day, including ISO timestamps.
+    static func date(_ raw: String?, locale: Locale = .autoupdatingCurrent) -> String? {
+        guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines), raw.count >= 10,
+              let date = dateParser.date(from: String(raw.prefix(10))) else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.setLocalizedDateFormatFromTemplate("MMM d yyyy")
+        return formatter.string(from: date)
+    }
+
     static func trackSubtitle(title: String, discourseName: String, durationSeconds: Double?) -> String {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let name = discourseName.trimmingCharacters(in: .whitespacesAndNewlines)

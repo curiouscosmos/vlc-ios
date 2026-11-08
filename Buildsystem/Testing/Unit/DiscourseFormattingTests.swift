@@ -18,6 +18,128 @@ import UIKit
 @testable import VLC
 
 final class DiscourseFormattingTests: XCTestCase {
+    func testDiscourseOptionalMetadataDecodesAndSurvivesCacheRoundTrip() throws {
+        let decoder = JSONDecoder()
+        for payload in [#"{"id":"d","date":null,"location":null}"#,
+                        #"{"id":"d"}"#,
+                        #"{"id":"d","date":"1974-06-10","location":"Pune, Maharashtra, India"}"#] {
+            let discourse = try decoder.decode(Discourse.self, from: Data(payload.utf8))
+            let restored = try decoder.decode(Discourse.self, from: JSONEncoder().encode(discourse))
+            XCTAssertEqual(restored, discourse)
+            if discourse.date != nil {
+                XCTAssertEqual(discourse.date, "1974-06-10")
+                XCTAssertEqual(discourse.location, "Pune, Maharashtra, India")
+            } else { XCTAssertNil(discourse.location) }
+        }
+    }
+
+    func testDiscourseDateAndLocationFormatting() {
+        let locale = Locale(identifier: "en_US")
+        XCTAssertEqual(DiscourseMetadataText.date("1974-06-10", locale: locale), "Jun 10, 1974")
+        XCTAssertEqual(DiscourseMetadataText.date("1974-06-10T23:00:00-07:00", locale: locale), "Jun 10, 1974")
+        XCTAssertEqual(DiscourseMetadataText.date("1974-06-10 00:00:00", locale: locale), "Jun 10, 1974")
+        for value in [nil, "", " ", "not a date", "1974-02-31"] as [String?] {
+            XCTAssertNil(DiscourseMetadataText.date(value, locale: locale))
+        }
+        XCTAssertEqual(DiscourseMetadataText.location(" Pune, Maharashtra, India "), "Pune")
+        XCTAssertEqual(DiscourseMetadataText.location("Mumbai"), "Mumbai")
+        for value in [nil, "", "  ", ", India"] as [String?] { XCTAssertNil(DiscourseMetadataText.location(value)) }
+    }
+
+    @MainActor
+    func testDiscourseCardsMatchAcrossHostsAndHideMissingMetadata() throws {
+        let discourse = Discourse(id: "d", title: "A Bird on the Wing", language: "english",
+                                  date: "1974-06-10", location: "Pune, Maharashtra, India", totalTracks: 11)
+        let like = DiscourseLikeState(isLiked: false, count: 2, isPending: false)
+        let summary = DiscourseDownloadSummary(downloaded: 0, active: 0, total: 11)
+        let card = DiscourseCardCell()
+        card.configure(with: discourse, like: like, downloads: summary)
+        for width in [CGFloat(288), 358, 800] {
+            let attributes = UICollectionViewLayoutAttributes(forCellWith: IndexPath(item: 0, section: 0))
+            attributes.size = CGSize(width: width, height: 160)
+            let fitted = card.preferredLayoutAttributesFitting(attributes)
+            XCTAssertEqual(fitted.size.width, width, "Self-sizing must retain the host's full card width")
+            XCTAssertGreaterThanOrEqual(fitted.size.height, 132)
+        }
+        let search = DiscourseSearchCell(style: .default, reuseIdentifier: nil)
+        search.configure(with: discourse, like: like)
+        let cardView = try XCTUnwrap(firstSubview(ofType: DiscourseCardView.self, in: card))
+        let searchView = try XCTUnwrap(firstSubview(ofType: DiscourseCardView.self, in: search))
+        XCTAssertEqual(cardView.accessibilityLabel, searchView.accessibilityLabel)
+        XCTAssertTrue(cardView.accessibilityLabel?.contains("Pune") == true)
+        XCTAssertFalse(cardView.accessibilityLabel?.contains("Maharashtra") == true)
+        var opens = 0, likes = 0
+        card.onOpen = { opens += 1 }; card.onToggleLike = { likes += 1 }
+        let button = try XCTUnwrap(firstSubview(ofType: DiscourseAccessibilityButton.self, in: card))
+        XCTAssertTrue(button.accessibilityActivate())
+        let heart = try XCTUnwrap(firstSubview(ofType: DiscourseLikeControl.self, in: card))
+        heart.sendActions(for: .touchUpInside)
+        XCTAssertEqual(opens, 1); XCTAssertEqual(likes, 1)
+        card.prepareForReuse()
+        card.configure(with: Discourse(id: "empty", title: "No metadata"), like: like, downloads: summary)
+        let visibleLabels = allLabels(in: card).filter { label in
+            var current: UIView? = label
+            while let view = current { if view.isHidden { return false }; current = view.superview }
+            return true
+        }.compactMap { $0.text }
+        XCTAssertFalse(visibleLabels.contains("Pune"))
+        XCTAssertFalse(visibleLabels.contains("Jun 10, 1974"))
+        XCTAssertFalse(visibleLabels.contains("English"))
+    }
+
+    @MainActor
+    func testDiscourseCardLayoutsInBothThemesAndAccessibilitySizes() throws {
+        let original = PresentationTheme.current
+        defer { PresentationTheme.current = original }
+        for (name, theme) in [("dark", PresentationTheme.darkTheme), ("light", .brightTheme)] {
+            PresentationTheme.current = theme
+            for width in [CGFloat(288), 358, 800] {
+                for accessible in [false, true] {
+                    let card = DiscourseCardView()
+                    let controller = UIViewController()
+                    let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+                    let window = UIWindow(windowScene: scene)
+                    window.rootViewController = controller
+                    window.makeKeyAndVisible()
+                    defer { window.isHidden = true }
+                    controller.view.addSubview(card)
+                    if #available(iOS 17.0, *) {
+                        controller.traitOverrides.preferredContentSizeCategory = accessible ? .accessibilityExtraExtraExtraLarge : .large
+                    }
+                    RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+                    card.configure(with: Discourse(id: "d", title: "A Bird on the Wing", language: "english",
+                        date: "1974-06-10", location: "Pune, Maharashtra, India", totalTracks: 11),
+                        like: DiscourseLikeState(isLiked: false, count: 2, isPending: false),
+                        downloads: DiscourseDownloadSummary(downloaded: 0, active: 0, total: 11))
+                    card.frame = CGRect(x: 0, y: 0, width: width, height: 200)
+                    card.layoutIfNeeded()
+                    let size = card.systemLayoutSizeFitting(CGSize(width: width, height: 0),
+                        withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel)
+                    card.frame.size = size
+                    card.layoutIfNeeded()
+                    XCTAssertGreaterThanOrEqual(size.height, 132)
+                    for label in allLabels(in: card) where label.text?.isEmpty == false {
+                        var current: UIView? = label
+                        var hidden = false
+                        while let view = current { hidden = hidden || view.isHidden; current = view.superview }
+                        if hidden { continue }
+                        let rect = label.convert(label.bounds, to: card)
+                        XCTAssertGreaterThan(rect.width, 0)
+                        XCTAssertGreaterThanOrEqual(rect.height + 0.5, label.font.lineHeight)
+                        XCTAssertGreaterThanOrEqual(rect.minX, -0.5)
+                        XCTAssertLessThanOrEqual(rect.maxX, width + 0.5)
+                        XCTAssertLessThanOrEqual(rect.maxY, size.height + 0.5)
+                    }
+                    let image = UIGraphicsImageRenderer(bounds: card.bounds).image { context in card.layer.render(in: context.cgContext) }
+                    let name = "discourse-card-\(name)-\(Int(width))-\(accessible ? "accessible" : "regular")"
+                    try image.pngData()?.write(to: FileManager.default.temporaryDirectory.appendingPathComponent(name + ".png"))
+                    let attachment = XCTAttachment(image: image)
+                    attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+                }
+            }
+        }
+    }
+
     func testTrackSubtitleOmitsDuplicateTitleAndKeepsDurationFirst() {
         XCTAssertEqual(DiscourseMetadataText.trackSubtitle(title: "Talk 001", discourseName: " talk 001 ",
                                                           durationSeconds: 5940), "1:39:00")

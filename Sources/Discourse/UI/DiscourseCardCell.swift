@@ -8,357 +8,376 @@
  * Rajneesh Discourse is free software under the GPLv2 (or later) and MPLv2,
  * like the upstream project it is derived from. See COPYING.
  *
- * One discourse card, on a warm surface with a thin border. `Layout.tile` (the
- * Home carousel) stacks square artwork above the title, language, track count
- * and the like control, with the download badge over the artwork. `Layout.list`
- * (the catalogue) is a full-width row: artwork on the left, the same content on
- * the right and the download badge folded into the footer. Both layouts share
- * the like control, the badge state and the VoiceOver "open" overlay.
+ * Shared discourse presentation for catalogue, Home, search and favourites.
  *****************************************************************************/
 
 import UIKit
 
-private final class TopAlignedLabel: UILabel {
-    override func drawText(in rect: CGRect) {
-        var textRect = rect
-        textRect.size.height = sizeThatFits(CGSize(width: rect.width, height: .greatestFiniteMagnitude)).height
-        super.drawText(in: textRect)
+final class DiscourseCardCell: UICollectionViewCell {
+    static let reuseIdentifier = "DiscourseCardCell"
+    private let card = DiscourseCardView()
+
+    var isPlaybackAvailable: Bool {
+        get { card.isPlaybackAvailable }
+        set { card.isPlaybackAvailable = newValue }
+    }
+    var onOpen: (() -> Void)? {
+        get { card.onOpen }
+        set { card.onOpen = newValue }
+    }
+    var onToggleLike: (() -> Void)? {
+        get { card.onToggleLike }
+        set { card.onToggleLike = newValue }
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isAccessibilityElement = false
+        card.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(card)
+        NSLayoutConstraint.activate([
+            card.topAnchor.constraint(equalTo: contentView.topAnchor),
+            card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            card.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
+        let width = layoutAttributes.size.width
+        card.updateLayout(width: width)
+        let size = contentView.systemLayoutSizeFitting(CGSize(width: width, height: 0),
+            withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel)
+        guard let attributes = layoutAttributes.copy() as? UICollectionViewLayoutAttributes else { return layoutAttributes }
+        attributes.size = CGSize(width: width, height: ceil(size.height))
+        return attributes
+    }
+
+    func configure(with discourse: Discourse, like: DiscourseLikeState, downloads: DiscourseDownloadSummary) {
+        card.configure(with: discourse, like: like, downloads: downloads)
+        accessibilityLabel = card.accessibilityLabel
+    }
+    func configureDownloadBadge(_ summary: DiscourseDownloadSummary) { card.configureDownloadBadge(summary) }
+    func updateTheme() { card.updateTheme() }
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        card.prepareForReuse()
+        accessibilityLabel = nil
     }
 }
 
-final class DiscourseCardCell: UICollectionViewCell {
-    static let reuseIdentifier = "DiscourseCardCell"
-
-    /// How the card arranges its content. A cell keeps one layout for the
-    /// collection view that dequeued it (Home = tile, catalogue = list), so
-    /// switching layouts never reloads the other screen.
-    enum Layout {
-        case tile
-        case list
-    }
-
-    var layoutStyle: Layout = .tile {
-        didSet {
-            guard layoutStyle != oldValue else { return }
-            apply(layoutStyle)
-        }
-    }
-
-    private let cardView = UIView()
+/// One view keeps table and collection cards identical, including their accessible actions.
+final class DiscourseCardView: UIView {
+    private let gradient = CAGradientLayer()
     private let artworkView = VLCNetworkImageView()
-    private let titleLabel = TopAlignedLabel()
-    private let languageLabel = UILabel()
-    private let metadataLabel = UILabel()
-    private let contentStack = UIStackView()
-    private let footer = UIStackView()
+    private let titleLabel = UILabel()
+    private let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
+    private let language = DiscourseCardMetadata(symbol: "globe", pill: true)
+    private let location = DiscourseCardMetadata(symbol: "mappin.and.ellipse", pill: true)
+    private let tracks = DiscourseCardMetadata(symbol: "square.3.layers.3d")
+    private let date = DiscourseCardMetadata(symbol: "calendar")
+    private let dateDivider = UIView()
+    private let actionDivider = UIView()
+    private let downloadIcon = UIImageView()
+    private let downloadLabel = UILabel()
+    private let downloadStatus = UIStackView()
     private let likeControl = DiscourseLikeControl()
     private let accessibilityButton = DiscourseAccessibilityButton()
-
-    private let downloadBadge = UIView()
-    private let downloadIconView = UIImageView()
-    private let downloadLabel = UILabel()
-
+    private let mainStack = UIStackView()
+    private let pills = UIStackView()
+    private let pillSpacer = UIView()
+    private let footerSpacer = UIView()
+    private let metadata = UIStackView()
+    private let footer = UIStackView()
+    private var artworkWidth: NSLayoutConstraint!
+    private var accessibleTextWidth: NSLayoutConstraint!
+    private var fullMetadataWidth: NSLayoutConstraint!
     private var artworkURL: URL?
-    private var isDownloading = false
-    private var tileConstraints: [NSLayoutConstraint] = []
-    private var listConstraints: [NSLayoutConstraint] = []
-    private var titleHeightConstraint: NSLayoutConstraint!
+    private var downloadSummary = DiscourseDownloadSummary(downloaded: 0, active: 0, total: 0)
 
-    /// Opens the discourse (VoiceOver activation; touches still select the cell).
+    var onOpen: (() -> Void)?
+    var onToggleLike: (() -> Void)?
     var isPlaybackAvailable = true {
         didSet {
             if isPlaybackAvailable { accessibilityButton.accessibilityTraits.remove(.notEnabled) }
             else { accessibilityButton.accessibilityTraits.insert(.notEnabled) }
-            if !isPlaybackAvailable {
-                accessibilityButton.accessibilityValue = NSLocalizedString("Unavailable", comment: "Favourite media unavailable")
-            } else {
-                accessibilityButton.accessibilityValue = nil
-            }
+            accessibilityButton.accessibilityValue = isPlaybackAvailable ? nil
+                : NSLocalizedString("Unavailable", comment: "Favourite media unavailable")
         }
     }
-
-    var onOpen: (() -> Void)?
-    /// Toggles the discourse like from the heart.
-    var onToggleLike: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         setup()
     }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    // MARK: - Setup
+    convenience init() { self.init(frame: .zero) }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setup() {
         isAccessibilityElement = false
+        layer.cornerRadius = 20
+        layer.cornerCurve = .continuous
+        layer.borderWidth = 1
+        clipsToBounds = true
+        gradient.startPoint = CGPoint(x: 0, y: 0)
+        gradient.endPoint = CGPoint(x: 1, y: 1)
+        layer.insertSublayer(gradient, at: 0)
 
-        cardView.translatesAutoresizingMaskIntoConstraints = false
-        cardView.layer.cornerRadius = 16
-        cardView.layer.cornerCurve = .continuous
-        cardView.layer.borderWidth = 1
-        cardView.clipsToBounds = true
-
-        artworkView.translatesAutoresizingMaskIntoConstraints = false
         artworkView.contentMode = .scaleAspectFill
         artworkView.clipsToBounds = true
-        artworkView.layer.cornerRadius = 8
+        artworkView.layer.cornerRadius = 10
         artworkView.layer.cornerCurve = .continuous
-
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = UIFont.preferredFont(forTextStyle: .headline)
+        artworkView.isAccessibilityElement = false
+        titleLabel.font = .preferredFont(forTextStyle: .headline)
         titleLabel.adjustsFontForContentSizeCategory = true
         titleLabel.numberOfLines = 2
-        titleLabel.lineBreakMode = .byTruncatingTail
-        titleHeightConstraint = titleLabel.heightAnchor.constraint(equalToConstant: ceil(titleLabel.font.lineHeight * 2))
-        titleHeightConstraint.isActive = true
+        titleLabel.setContentCompressionResistancePriority(.required, for: .vertical)
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        chevron.contentMode = .scaleAspectFit
+        chevron.isAccessibilityElement = false
+        let heading = UIStackView(arrangedSubviews: [titleLabel, chevron])
+        heading.alignment = .top
+        heading.spacing = 12
+        chevron.widthAnchor.constraint(equalToConstant: 10).isActive = true
+        chevron.heightAnchor.constraint(equalToConstant: 20).isActive = true
 
-        languageLabel.translatesAutoresizingMaskIntoConstraints = false
-        languageLabel.font = UIFont.preferredFont(forTextStyle: .caption1)
-        languageLabel.adjustsFontForContentSizeCategory = true
-        languageLabel.numberOfLines = 1
+        pills.spacing = 6
+        pills.alignment = .leading
+        pills.addArrangedSubview(language)
+        pills.addArrangedSubview(location)
+        pills.addArrangedSubview(pillSpacer)
+        pillSpacer.setContentHuggingPriority(UILayoutPriority(1), for: .horizontal)
+        for item in [language, location] { item.setContentHuggingPriority(.required, for: .horizontal) }
+        language.setContentCompressionResistancePriority(.required, for: .horizontal)
+        location.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        metadata.spacing = 8
+        metadata.alignment = .leading
+        metadata.addArrangedSubview(tracks)
+        metadata.addArrangedSubview(dateDivider)
+        metadata.addArrangedSubview(date)
+        date.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        metadataLabel.translatesAutoresizingMaskIntoConstraints = false
-        metadataLabel.font = UIFont.preferredFont(forTextStyle: .caption1)
-        metadataLabel.adjustsFontForContentSizeCategory = true
-        metadataLabel.numberOfLines = 1
-        metadataLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        likeControl.translatesAutoresizingMaskIntoConstraints = false
+        downloadIcon.contentMode = .scaleAspectFit
+        downloadLabel.font = .preferredFont(forTextStyle: .caption2)
+        downloadLabel.adjustsFontForContentSizeCategory = true
+        downloadStatus.alignment = .center
+        downloadStatus.spacing = 3
+        downloadStatus.addArrangedSubview(downloadIcon)
+        downloadStatus.addArrangedSubview(downloadLabel)
+        downloadStatus.isAccessibilityElement = true
+        downloadStatus.accessibilityIdentifier = "discourseCardDownload"
+        likeControl.style = .card
         likeControl.accessibilityIdentifier = "discourseCardLike"
         likeControl.addTarget(self, action: #selector(handleLike), for: .touchUpInside)
+        let actions = UIStackView(arrangedSubviews: [downloadStatus, actionDivider, likeControl])
+        actions.spacing = 10
+        actions.alignment = .center
+        actions.setContentCompressionResistancePriority(.required, for: .horizontal)
+        actions.setContentHuggingPriority(.required, for: .horizontal)
+        footer.spacing = 10
+        footer.alignment = .center
+        metadata.setContentHuggingPriority(.required, for: .horizontal)
+        footerSpacer.setContentHuggingPriority(UILayoutPriority(1), for: .horizontal)
+        footer.addArrangedSubview(metadata)
+        footer.addArrangedSubview(footerSpacer)
+        footer.addArrangedSubview(actions)
+        fullMetadataWidth = metadata.widthAnchor.constraint(equalTo: footer.widthAnchor)
+        let text = UIStackView(arrangedSubviews: [heading, pills, footer])
+        text.axis = .vertical
+        text.distribution = .equalSpacing
+        text.spacing = 10
+        mainStack.alignment = .top
+        mainStack.spacing = 12
+        mainStack.addArrangedSubview(artworkView)
+        mainStack.addArrangedSubview(text)
+        accessibleTextWidth = text.widthAnchor.constraint(equalTo: mainStack.widthAnchor)
+        mainStack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(mainStack)
 
         accessibilityButton.translatesAutoresizingMaskIntoConstraints = false
         accessibilityButton.onActivate = { [weak self] in
             guard let self, self.isPlaybackAvailable else { return }
             self.onOpen?()
         }
-
-        downloadBadge.translatesAutoresizingMaskIntoConstraints = false
-        downloadBadge.layer.cornerRadius = 9
-        downloadBadge.layer.cornerCurve = .continuous
-        downloadBadge.layer.borderWidth = 1
-        downloadBadge.isAccessibilityElement = true
-        downloadBadge.accessibilityIdentifier = "discourseCardDownload"
-
-        downloadIconView.translatesAutoresizingMaskIntoConstraints = false
-        downloadIconView.contentMode = .scaleAspectFit
-        downloadIconView.isAccessibilityElement = false
-
-        downloadLabel.translatesAutoresizingMaskIntoConstraints = false
-        downloadLabel.font = UIFont.monospacedDigitSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .caption2).pointSize,
-                                                              weight: .semibold)
-        downloadLabel.adjustsFontForContentSizeCategory = true
-
-        let badgeContent = UIStackView(arrangedSubviews: [downloadIconView, downloadLabel])
-        badgeContent.translatesAutoresizingMaskIntoConstraints = false
-        badgeContent.axis = .horizontal
-        badgeContent.alignment = .center
-        badgeContent.spacing = 3
-        badgeContent.isUserInteractionEnabled = false
-        badgeContent.isAccessibilityElement = false
-        downloadBadge.addSubview(badgeContent)
-
-        footer.translatesAutoresizingMaskIntoConstraints = false
-        footer.axis = .horizontal
-        footer.alignment = .center
-        footer.spacing = 8
-        metadataLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        likeControl.setContentHuggingPriority(.required, for: .horizontal)
-        likeControl.setContentCompressionResistancePriority(.required, for: .horizontal)
-        footer.addArrangedSubview(metadataLabel)
-        footer.addArrangedSubview(likeControl)
-
-        contentStack.translatesAutoresizingMaskIntoConstraints = false
-        contentStack.axis = .vertical
-        contentStack.spacing = 2
-        contentStack.addArrangedSubview(titleLabel)
-        contentStack.addArrangedSubview(languageLabel)
-        contentStack.addArrangedSubview(footer)
-        contentStack.setCustomSpacing(4, after: languageLabel)
-
-        contentView.addSubview(cardView)
-        cardView.addSubview(artworkView)
-        cardView.addSubview(contentStack)
-        cardView.addSubview(downloadBadge)
-        cardView.addSubview(accessibilityButton)
-
+        addSubview(accessibilityButton)
+        accessibilityElements = [accessibilityButton, downloadStatus, likeControl]
+        artworkWidth = artworkView.widthAnchor.constraint(equalToConstant: 88)
         NSLayoutConstraint.activate([
-            cardView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            cardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-
-            downloadBadge.heightAnchor.constraint(equalToConstant: 18),
-
-            badgeContent.leadingAnchor.constraint(equalTo: downloadBadge.leadingAnchor, constant: 6),
-            badgeContent.trailingAnchor.constraint(equalTo: downloadBadge.trailingAnchor, constant: -6),
-            badgeContent.centerYAnchor.constraint(equalTo: downloadBadge.centerYAnchor),
-            downloadIconView.widthAnchor.constraint(equalToConstant: 11),
-            downloadIconView.heightAnchor.constraint(equalToConstant: 11),
-
-            accessibilityButton.topAnchor.constraint(equalTo: cardView.topAnchor),
-            accessibilityButton.leadingAnchor.constraint(equalTo: cardView.leadingAnchor),
-            accessibilityButton.trailingAnchor.constraint(equalTo: cardView.trailingAnchor),
-            accessibilityButton.bottomAnchor.constraint(equalTo: cardView.bottomAnchor)
+            mainStack.topAnchor.constraint(equalTo: topAnchor, constant: 14),
+            mainStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -14),
+            mainStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            mainStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            artworkWidth, artworkView.heightAnchor.constraint(equalTo: artworkView.widthAnchor),
+            text.heightAnchor.constraint(greaterThanOrEqualTo: artworkView.heightAnchor),
+            heightAnchor.constraint(greaterThanOrEqualToConstant: 132),
+            downloadIcon.widthAnchor.constraint(equalToConstant: 22),
+            downloadIcon.heightAnchor.constraint(equalToConstant: 22),
+            dateDivider.widthAnchor.constraint(equalToConstant: 1),
+            dateDivider.heightAnchor.constraint(equalToConstant: 16),
+            actionDivider.widthAnchor.constraint(equalToConstant: 1),
+            actionDivider.heightAnchor.constraint(equalToConstant: 20),
+            accessibilityButton.topAnchor.constraint(equalTo: topAnchor),
+            accessibilityButton.bottomAnchor.constraint(equalTo: bottomAnchor),
+            accessibilityButton.leadingAnchor.constraint(equalTo: leadingAnchor),
+            accessibilityButton.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
-
-        // Square artwork above the text, badge over the artwork's corner.
-        tileConstraints = [
-            artworkView.topAnchor.constraint(equalTo: cardView.topAnchor),
-            artworkView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor),
-            artworkView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor),
-            artworkView.heightAnchor.constraint(equalTo: artworkView.widthAnchor),
-
-            contentStack.topAnchor.constraint(equalTo: artworkView.bottomAnchor, constant: 10),
-            contentStack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 12),
-            contentStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -12),
-            contentStack.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -12),
-
-            downloadBadge.topAnchor.constraint(equalTo: artworkView.topAnchor, constant: 8),
-            downloadBadge.trailingAnchor.constraint(equalTo: artworkView.trailingAnchor, constant: -8)
-        ]
-
-        // Full-width row: artwork on the left, the text block on the right.
-        // The content block is centred and the card keeps a 112 pt minimum, so
-        // a one-line title still leaves a comfortably tall row around the 88 pt
-        // artwork.
-        listConstraints = [
-            artworkView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 12),
-            artworkView.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
-            artworkView.widthAnchor.constraint(equalToConstant: 88),
-            artworkView.heightAnchor.constraint(equalToConstant: 88),
-            artworkView.topAnchor.constraint(greaterThanOrEqualTo: cardView.topAnchor, constant: 12),
-            artworkView.bottomAnchor.constraint(lessThanOrEqualTo: cardView.bottomAnchor, constant: -12),
-
-            contentStack.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 12),
-            contentStack.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -12),
-            contentStack.leadingAnchor.constraint(equalTo: artworkView.trailingAnchor, constant: 12),
-            contentStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -14),
-
-            cardView.heightAnchor.constraint(greaterThanOrEqualToConstant: 112)
-        ]
-
-        NSLayoutConstraint.activate(tileConstraints)
-
+        updateLayout()
         updateTheme()
     }
 
+    override func layoutSubviews() {
+        updateLayout()
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        gradient.frame = bounds
+        CATransaction.commit()
+    }
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        titleHeightConstraint?.constant = ceil(UIFont.preferredFont(forTextStyle: .headline,
-                                                                   compatibleWith: traitCollection).lineHeight * 2)
+        updateLayout()
+    }
+    fileprivate func updateLayout(width: CGFloat? = nil) {
+        let width = width ?? bounds.width
+        let accessible = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        accessibleTextWidth?.isActive = accessible
+        mainStack.axis = accessible ? .vertical : .horizontal
+        mainStack.alignment = accessible ? .leading : .top
+        artworkWidth.constant = max(72, min(160, width * 0.2))
+        pills.axis = accessible ? .vertical : .horizontal
+        pillSpacer.isHidden = accessible
+        metadata.axis = width >= 650 && !accessible ? .horizontal : .vertical
+        metadata.alignment = metadata.axis == .horizontal ? .center : .leading
+        dateDivider.isHidden = date.isHidden || metadata.axis == .vertical
+        footer.axis = width < 330 || accessible ? .vertical : .horizontal
+        footer.alignment = footer.axis == .vertical ? .trailing : .center
+        footerSpacer.isHidden = footer.axis == .vertical
+        fullMetadataWidth?.isActive = footer.axis == .vertical
     }
 
-    /// Swaps the constraint set and moves the download badge from the artwork
-    /// corner (tile) into the footer (list), where it cannot cover the smaller
-    /// list thumbnail.
-    private func apply(_ layout: Layout) {
-        NSLayoutConstraint.deactivate(layout == .tile ? listConstraints : tileConstraints)
-
-        switch layout {
-        case .tile:
-            downloadBadge.removeFromSuperview()
-            cardView.addSubview(downloadBadge)
-            NSLayoutConstraint.activate(tileConstraints)
-        case .list:
-            downloadBadge.removeFromSuperview()
-            footer.insertArrangedSubview(downloadBadge, at: footer.arrangedSubviews.count - 1)
-            NSLayoutConstraint.activate(listConstraints)
-        }
-    }
-
-    // MARK: - Content
-
-    func configure(with discourse: Discourse,
-                   like: DiscourseLikeState,
-                   downloads: DiscourseDownloadSummary) {
+    func configure(with discourse: Discourse, like: DiscourseLikeState, downloads: DiscourseDownloadSummary) {
         let title = discourse.title.trimmingCharacters(in: .whitespacesAndNewlines)
         titleLabel.text = title
-        languageLabel.text = DiscourseMetadataText.language(discourse.language)
-
-        let tracks = DiscourseMetadataText.tracks(discourse.totalTracks)
-        let likes = DiscourseMetadataText.likes(like.count)
-        metadataLabel.text = tracks
+        let languageText = DiscourseMetadataText.language(discourse.language)
+        let locationText = DiscourseMetadataText.location(discourse.location)
+        let dateText = DiscourseMetadataText.date(discourse.date)
+        language.setText(languageText.isEmpty ? nil : languageText)
+        location.setText(locationText)
+        pills.isHidden = language.isHidden && location.isHidden
+        tracks.setText(DiscourseMetadataText.tracks(discourse.totalTracks))
+        date.setText(dateText)
         likeControl.configure(with: like, title: title)
-
-        let accessibilityText = [title, languageLabel.text, tracks, likes]
-            .compactMap { $0 }
-            .joined(separator: ", ")
-        accessibilityButton.accessibilityLabel = accessibilityText
-        // The cell is a container (the like control must stay focusable), but
-        // its label still describes the card for UI tests and for the Home
-        // screen's "open the card I just played" lookup.
-        accessibilityLabel = accessibilityText
-
+        let label = [title, languageText.isEmpty ? nil : languageText, locationText, tracks.text, dateText,
+                     DiscourseMetadataText.likes(like.count)].compactMap { $0 }.joined(separator: ", ")
+        accessibilityButton.accessibilityLabel = label
+        accessibilityLabel = label
         configureDownloadBadge(downloads)
-
-        let url = DiscourseURLResolver.resolve(discourse.thumbnailURLString)
+        let url = discourse.thumbnailURL
         if url != artworkURL {
             artworkURL = url
-            if let url {
-                artworkView.setImageWith(url, maxPixelSize: 400)
-            } else {
-                artworkView.cancelLoading()
-                artworkView.image = nil
-            }
+            if let url { artworkView.setImageWith(url, maxPixelSize: 400) }
+            else { artworkView.cancelLoading(); artworkView.image = nil }
         }
-
+        updateLayout()
         updateTheme()
-    }
-
-    override func prepareForReuse() {
-        super.prepareForReuse()
-        artworkView.cancelLoading()
-        artworkURL = nil
-        titleLabel.text = nil
-        languageLabel.text = nil
-        metadataLabel.text = nil
-        accessibilityButton.accessibilityLabel = nil
-        accessibilityLabel = nil
-        downloadBadge.isHidden = true
-        downloadBadge.accessibilityLabel = nil
-        isPlaybackAvailable = true
-        onOpen = nil
-        onToggleLike = nil
-    }
-
-    // MARK: - Actions
-
-    @objc private func handleLike() {
-        onToggleLike?()
     }
 
     func configureDownloadBadge(_ summary: DiscourseDownloadSummary) {
-        downloadBadge.isHidden = !summary.isVisible
-        guard summary.isVisible else {
-            return
-        }
-        isDownloading = summary.isDownloading
+        downloadSummary = summary
         downloadLabel.text = summary.text
-        downloadLabel.textColor = summary.isDownloading ? DiscourseColors.current.accent : DiscourseColors.current.downloaded
-        downloadIconView.image = UIImage(systemName: summary.isDownloading ? "arrow.down.circle" : "arrow.down.circle.fill",
-                                         withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .semibold))
-        downloadBadge.accessibilityLabel = summary.accessibilityLabel
+        downloadLabel.isHidden = !summary.isVisible
+        downloadIcon.image = UIImage(systemName: summary.isDownloading ? "arrow.down.circle"
+            : summary.total > 0 && summary.downloaded >= summary.total ? "arrow.down.circle.fill" : "square.and.arrow.down",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .regular))
+        downloadStatus.accessibilityLabel = summary.isVisible ? summary.accessibilityLabel
+            : NSLocalizedString("DISCOURSE_CARD_NO_DOWNLOADS", comment: "Discourse download status")
         updateTheme()
     }
-
-    // MARK: - Theme
+    func prepareForReuse() {
+        artworkView.cancelLoading()
+        artworkView.image = nil
+        artworkURL = nil
+        titleLabel.text = nil
+        language.setText(nil); location.setText(nil); date.setText(nil); tracks.setText(nil)
+        accessibilityButton.accessibilityLabel = nil
+        accessibilityLabel = nil
+        isPlaybackAvailable = true
+        onOpen = nil; onToggleLike = nil
+    }
+    @objc private func handleLike() { onToggleLike?() }
 
     func updateTheme() {
         let colors = DiscourseColors.current
-        cardView.backgroundColor = colors.surfaceStart
-        cardView.layer.borderColor = colors.border.cgColor
+        gradient.colors = [colors.surfaceStart.cgColor, colors.surfaceEnd.cgColor]
+        layer.borderColor = colors.border.cgColor
         artworkView.backgroundColor = colors.trackSurface
         titleLabel.textColor = colors.primaryText
-        languageLabel.textColor = colors.secondaryText
-        metadataLabel.textColor = colors.trackSecondaryText
-        downloadBadge.backgroundColor = colors.downloadedSurface
-        downloadBadge.layer.borderColor = colors.downloadedBorder.cgColor
-        downloadLabel.textColor = isDownloading ? colors.accent : colors.downloaded
-        downloadIconView.tintColor = downloadLabel.textColor
+        chevron.tintColor = colors.primaryText
+        for item in [language, location, tracks, date] { item.updateTheme() }
+        dateDivider.backgroundColor = colors.secondaryText.withAlphaComponent(0.5)
+        actionDivider.backgroundColor = colors.secondaryText.withAlphaComponent(0.5)
+        let tint = downloadSummary.isDownloading ? colors.accent
+            : downloadSummary.downloaded > 0 ? colors.downloaded : colors.primaryText
+        downloadIcon.tintColor = tint
+        downloadLabel.textColor = tint
         likeControl.updateTheme()
+    }
+}
+
+private final class DiscourseCardMetadata: UIView {
+    private let label = UILabel()
+    private let icon: UIImageView
+    private let pill: Bool
+    var text: String? { label.text }
+
+    init(symbol: String, pill: Bool = false) {
+        icon = UIImageView(image: UIImage(systemName: symbol))
+        self.pill = pill
+        super.init(frame: .zero)
+        label.font = .preferredFont(forTextStyle: .caption1)
+        label.adjustsFontForContentSizeCategory = true
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        icon.contentMode = .scaleAspectFit
+        let stack = UIStackView(arrangedSubviews: [icon, label])
+        stack.spacing = 5
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        let padding: CGFloat = pill ? 8 : 0
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: padding),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -padding),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: pill ? 5 : 0),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: pill ? -5 : 0),
+            icon.widthAnchor.constraint(equalToConstant: 16), icon.heightAnchor.constraint(equalToConstant: 16)
+        ])
+        setContentCompressionResistancePriority(.required, for: .vertical)
+        layer.borderWidth = pill ? 1 : 0
+        layer.cornerCurve = .continuous
+        isAccessibilityElement = false
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    override var intrinsicContentSize: CGSize {
+        let padding: CGFloat = pill ? 16 : 0
+        return CGSize(width: label.intrinsicContentSize.width + 21 + padding,
+                      height: max(16, label.intrinsicContentSize.height) + (pill ? 10 : 0))
+    }
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        invalidateIntrinsicContentSize()
+    }
+    override func layoutSubviews() { super.layoutSubviews(); layer.cornerRadius = pill ? bounds.height / 2 : 0 }
+    func setText(_ text: String?) {
+        label.text = text
+        isHidden = text == nil
+        invalidateIntrinsicContentSize()
+    }
+    func updateTheme() {
+        let colors = DiscourseColors.current
+        label.textColor = colors.secondaryText
+        icon.tintColor = colors.secondaryText
+        backgroundColor = pill ? colors.primaryText.withAlphaComponent(0.08) : .clear
+        layer.borderColor = colors.primaryText.withAlphaComponent(0.1).cgColor
     }
 }

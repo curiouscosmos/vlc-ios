@@ -347,11 +347,21 @@ final class DiscourseSearchViewController: UIViewController {
         guard contentState == .results else { return }
         let change = notification.discourseDownloadChange
         for indexPath in tableView.indexPathsForVisibleRows ?? [] {
-            guard section(at: indexPath.section) == .tracks, results.tracks.indices.contains(indexPath.row),
-                  let cell = tableView.cellForRow(at: indexPath) as? DiscourseSearchCell else { continue }
-            let track = results.tracks[indexPath.row]
-            guard change == nil || change?.affects(audioID: track.id, discourseID: track.discourseID) == true else { continue }
-            cell.updateDownload(DiscourseDownloadManager.shared.state(for: track.id))
+            guard let cell = tableView.cellForRow(at: indexPath) as? DiscourseSearchCell else { continue }
+            switch section(at: indexPath.section) {
+            case .discourses:
+                guard results.discourses.indices.contains(indexPath.row) else { continue }
+                let discourse = results.discourses[indexPath.row]
+                guard change == nil || change?.discourseIDs.contains(discourse.id) == true else { continue }
+                guard change?.isProgressOnly != true else { continue }
+                cell.configureDownloadBadge(.resolve(discourseID: discourse.id, totalTracks: discourse.totalTracks))
+            case .tracks:
+                guard results.tracks.indices.contains(indexPath.row) else { continue }
+                let track = results.tracks[indexPath.row]
+                guard change == nil || change?.affects(audioID: track.id, discourseID: track.discourseID) == true else { continue }
+                cell.updateDownload(DiscourseDownloadManager.shared.state(for: track.id))
+            default: break
+            }
         }
     }
 

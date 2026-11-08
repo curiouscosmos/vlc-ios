@@ -164,6 +164,7 @@ private final class FavouriteCollectionViewController: UICollectionViewControlle
         self.kind = kind
         let layout = UICollectionViewFlowLayout()
         layout.minimumLineSpacing = 8
+        if kind == .discourses { layout.sectionInset = UIEdgeInsets(top: 0, left: 16, bottom: 16, right: 16) }
         super.init(collectionViewLayout: layout)
         title = kind.title
     }
@@ -185,7 +186,6 @@ private final class FavouriteCollectionViewController: UICollectionViewControlle
                 let saved = metadata.discourses[id]
                 let discourse = saved ?? Discourse(id: id, title: NSLocalizedString("Unavailable discourse", comment: "Favourite without metadata"))
                 let cell = view.dequeueReusableCell(withReuseIdentifier: DiscourseCardCell.reuseIdentifier, for: index) as! DiscourseCardCell
-                cell.layoutStyle = .list
                 cell.configure(with: discourse, like: .resolve(target: target, payloadLikes: discourse.totalLikes),
                                downloads: .resolve(discourseID: id, totalTracks: discourse.totalTracks))
                 cell.isPlaybackAvailable = saved != nil && !unavailable
@@ -220,8 +220,11 @@ private final class FavouriteCollectionViewController: UICollectionViewControlle
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         let layout = collectionViewLayout as! UICollectionViewFlowLayout
-        let size = CGSize(width: collectionView.bounds.width, height: kind == .tracks ? 100 : 160)
-        if layout.itemSize != size { layout.itemSize = size }
+        let width = collectionView.bounds.width - layout.sectionInset.left - layout.sectionInset.right
+        let size = CGSize(width: max(1, width), height: kind == .tracks ? 100 : 160)
+        if kind == .discourses {
+            if layout.estimatedItemSize != size { layout.estimatedItemSize = size }
+        } else if layout.itemSize != size { layout.itemSize = size }
     }
 
     @objc private func downloadsDidChange(_ notification: Notification) {
