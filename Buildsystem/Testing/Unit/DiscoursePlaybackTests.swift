@@ -115,6 +115,20 @@ final class DiscoursePlaybackTests: XCTestCase {
         XCTAssertEqual(RDPlaybackSnapshot.readSnapshot()?["position"] as? Double, 45_000)
     }
 
+    @MainActor
+    func testClipRemainsAvailableForPausedRestorationAndPlayerReentry() throws {
+        let service = PlaybackService()
+        service.configureReadyPlayback(snapshot())
+        let track = try decodeTrack(thumbnail: "/images/default.png")
+        XCTAssertTrue(service.isRestoredPaused)
+        XCTAssertFalse(service.isSeekable, "Restoration must not open the decoder")
+        XCTAssertEqual(AudioPlayerViewController.clipDuration(for: track, playbackService: service), 120)
+        service.recoverPlaybackState()
+        XCTAssertEqual(AudioPlayerViewController.clipDuration(for: track, playbackService: service), 120)
+        XCTAssertNil(AudioPlayerViewController.clipDuration(for: nil, playbackService: service))
+        XCTAssertFalse(service.isPlaying)
+    }
+
     func testSnapshotClampsPositionWithoutRestartingFinishedTrack() throws {
         for (saved, expected) in [(-1.0, 0.0), (120_000, 120_000), (130_000, 120_000)] {
             var value = snapshot()

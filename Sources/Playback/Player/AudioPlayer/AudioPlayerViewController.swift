@@ -227,8 +227,8 @@ class AudioPlayerViewController: PlayerViewController {
 
     @objc private func toggleClip() {
         if clipEditor != nil { endClipEditing(); return }
-        let duration = Double(playbackService.mediaDuration) / 1000
-        guard let track = currentDiscourseTrack(), playbackService.isSeekable, duration.isFinite, duration >= 1 else { return }
+        guard let track = currentDiscourseTrack(),
+              let duration = Self.clipDuration(for: track, playbackService: playbackService) else { return }
         guard DiscourseDownloadStore.shared.localURL(for: track.id) != nil else {
             let prompt = DiscourseClipDownloadPrompt { DiscourseDownloadManager.shared.download(track) }
             prompt.modalPresentationStyle = .overFullScreen
@@ -478,7 +478,7 @@ class AudioPlayerViewController: PlayerViewController {
         refreshCaptions()
         clipButton.setNeedsUpdateConfiguration()
         discourseButton.isEnabled = currentDiscourseIdentity().map { !$0.discourseID.isEmpty } ?? false
-        clipButton.isEnabled = currentDiscourseTrack() != nil && playbackService.isSeekable && playbackService.mediaDuration >= 1000
+        clipButton.isEnabled = Self.clipDuration(for: currentDiscourseTrack(), playbackService: playbackService) != nil
         if let audioID = clipTrackID,
            currentDiscourseTrack()?.id != audioID || DiscourseDownloadStore.shared.localURL(for: audioID) == nil {
             endClipEditing()
@@ -500,6 +500,14 @@ class AudioPlayerViewController: PlayerViewController {
             return
         }
         DiscourseLikeActions.toggleAudio(track, from: self)
+    }
+
+    static func clipDuration(for track: DiscourseAudio?, playbackService: PlaybackService) -> Double? {
+        let duration = Double(playbackService.mediaDuration) / 1000
+        // Restored queues deliberately leave VLC unopened until the user presses Play.
+        guard track != nil, playbackService.isSeekable || playbackService.isRestoredPaused,
+              duration.isFinite, duration >= 1 else { return nil }
+        return duration
     }
 
     private func currentDiscourseTrack() -> DiscourseAudio? {
@@ -941,7 +949,7 @@ extension AudioPlayerViewController {
         super.playbackPositionUpdated(playbackService)
 #if os(iOS)
         refreshNoiseButton()
-        clipButton.isEnabled = currentDiscourseTrack() != nil && playbackService.isSeekable && playbackService.mediaDuration >= 1000
+        clipButton.isEnabled = Self.clipDuration(for: currentDiscourseTrack(), playbackService: playbackService) != nil
         updateClipPreview()
         updateCaptions()
 #endif
@@ -990,6 +998,9 @@ extension AudioPlayerViewController {
     }
 
     func displayMetadata(for playbackService: PlaybackService, metadata: VLCMetaData) {
+#if os(iOS)
+        updateDiscourseLike()
+#endif
         audioPlayerView.updateLabels(title: metadata.title, artist: metadata.artist, album: metadata.albumName, isQueueHidden: isQueueHidden)
         updateNavigationBar(with: isQueueHidden ? nil : metadata.title)
         mediaScrubProgressBar.updateLiveStreamState()
