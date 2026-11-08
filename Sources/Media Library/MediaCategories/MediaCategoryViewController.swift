@@ -2272,6 +2272,10 @@ extension MediaCategoryViewController {
 
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, referenceSizeForHeaderInSection section: Int) -> CGSize {
 
+        if let favourites = (self as? PlaylistCategoryViewController)?.favouritesHeader {
+            return CGSize(width: collectionView.bounds.width, height: CGFloat(favourites.arrangedSubviews.count * 120))
+        }
+
         if isSectioned {
             return .init(width: collectionView.safeAreaLayoutGuide.layoutFrame.width, height: 40)
         }
@@ -2453,6 +2457,20 @@ extension MediaCategoryViewController {
                 return footer
             }
             return UICollectionReusableView()
+        }
+
+        if let favourites = (self as? PlaylistCategoryViewController)?.favouritesHeader {
+            let header = collectionView.dequeueReusableSupplementaryView(ofKind: kind,
+                withReuseIdentifier: "PlaylistFavourites", for: indexPath)
+            if favourites.superview !== header {
+                header.addSubview(favourites)
+                NSLayoutConstraint.activate([
+                    favourites.topAnchor.constraint(equalTo: header.topAnchor),
+                    favourites.leadingAnchor.constraint(equalTo: header.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+                    favourites.trailingAnchor.constraint(equalTo: header.safeAreaLayoutGuide.trailingAnchor, constant: -16)
+                ])
+            }
+            return header
         }
 
         if let collectionModel = model as? CollectionModel, usesArtworkHeader,

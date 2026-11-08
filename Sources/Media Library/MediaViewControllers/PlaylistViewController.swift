@@ -26,12 +26,13 @@ class PlaylistViewController: MediaViewController {
             }, for: .touchUpInside)
             favourites.addArrangedSubview(button)
         }
-        viewControllers.forEach { $0.additionalSafeAreaInsets.top = CGFloat(visible.count * 120) }
+        viewControllers.compactMap { $0 as? PlaylistCategoryViewController }.forEach {
+            $0.collectionView.collectionViewLayout.invalidateLayout()
+        }
         favourites.isHidden = favourites.arrangedSubviews.isEmpty
         viewControllers.compactMap { $0 as? MediaCategoryViewController }.forEach {
             if $0.isViewLoaded { $0.updateEmptyState() }
         }
-        view.bringSubviewToFront(favourites)
         applyForkTheme()
     }
 
@@ -45,12 +46,12 @@ class PlaylistViewController: MediaViewController {
         favourites.axis = .vertical
         favourites.spacing = 8
         favourites.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(favourites)
-        NSLayoutConstraint.activate([
-            favourites.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            favourites.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            favourites.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16)
-        ])
+        if let category = viewControllers.first as? PlaylistCategoryViewController {
+            category.favouritesHeader = favourites
+            category.collectionView.register(UICollectionReusableView.self,
+                forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
+                withReuseIdentifier: "PlaylistFavourites")
+        }
         NotificationCenter.default.addObserver(self, selector: #selector(updateFavourites), name: .discourseLikesDidChange, object: nil)
         updateFavourites()
         Task { [weak self] in

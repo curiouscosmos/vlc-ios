@@ -129,7 +129,7 @@ and continuation persist identity records in one batch, retaining the 512-entry 
   Local history is fetched/mapped off-main on first appearance, library history changes, or explicit refresh;
   returning to Home reuses it. Unchanged sections skip reloads; stable section order reloads only changed sections.
 - **Playlist cards**: ordinary playlist rows and automatic favourite collections use 12 pt corners, track surfaces
-  and track borders; list cards are at least 112 pt tall with 112 × 88 pt aspect-fill artwork and track counts; favourite cards have 8 pt spacing.
+  and track borders; list cards are at least 112 pt tall with 112 × 88 pt aspect-fill artwork and track counts; favourite cards have 8 pt spacing. Favourites live in a non-pinned collection header and scroll with ordinary playlists.
 - **Track rows**: vertically centred title and subtitle; duration comes first, and a discourse name matching the
   title (ignoring case and surrounding whitespace) is omitted. Shared by Home, search and favourite tracks.
 - **Likes/downloads**: `DiscourseLikeControl` + `DiscourseLikeActions` and `DiscourseDownloadControl` +
@@ -388,7 +388,7 @@ Fork touch points (upstream files we intentionally edit):
 - `Sources/Discourse/DeepLink/` + `Buildsystem/DeepLinks/` — parser, share URL, tests, AASA.
 - `Sources/Media Library/` — playlist accent/artwork/rounded thumbnails/favourite rows (`PlaylistViewController`,
   `CollectionArtworkHeader`, `PlaylistModel`, `MediaCollectionViewCell`, `MediaGridCollectionCell`,
-  `CollectionInfoFooter`); targeted favourite-row download updates; **Add to Audio Mixer** and local-library empty state (`MediaCategoryViewController`);
+  `CollectionInfoFooter`, `MediaCategory`); scrolling favourite header; targeted favourite-row download updates; **Add to Audio Mixer** and local-library empty state (`MediaCategoryViewController`);
   branded empty state (`VLCEmptyLibraryView`, `MediaViewController`).
 - `Sources/Settings/Model/SettingsSection.swift` and `Resources/iOS/Settings.bundle/*` — playback history, removed
   video/subtitle rows.

@@ -34,6 +34,8 @@ class ShowEpisodeCategoryViewController: MediaCategoryViewController {
 // MARK: - PlaylistCategoryViewController
 
 class PlaylistCategoryViewController: MediaCategoryViewController {
+    var favouritesHeader: UIStackView?
+
     private lazy var createPlaylistButton: UIBarButtonItem = {
         let createPlaylistButton = UIBarButtonItem(image: UIImage(systemName: "plus"), style: .plain, target: self, action: #selector(handleCreatePlaylist))
         return createPlaylistButton
