@@ -8,6 +8,52 @@ import ImageIO
 
 final class DiscourseClipTests: XCTestCase {
     @MainActor
+    func testExportProgressShowsAudioOrVideoAndCanCancel() throws {
+        let originalTheme = PresentationTheme.current
+        defer { PresentationTheme.current = originalTheme }
+        for (isVideo, largeText) in [(false, false), (true, false), (false, true)] {
+            PresentationTheme.current = largeText ? .brightTheme : .darkTheme
+            let controller = DiscourseClipProgressController(isVideo: isVideo)
+            if #available(iOS 17.0, *) {
+                controller.traitOverrides.preferredContentSizeCategory = largeText ? .accessibilityExtraExtraExtraLarge : .large
+            }
+            var cancelled = false
+            controller.onCancel = { cancelled = true }
+            controller.loadViewIfNeeded()
+            controller.view.frame = CGRect(x: 0, y: 0, width: largeText ? 320 : 390, height: largeText ? 568 : 844)
+            controller.view.layoutIfNeeded()
+            func find(_ id: String, in view: UIView) -> UIView? {
+                if view.accessibilityIdentifier == id { return view }
+                return view.subviews.compactMap { find(id, in: $0) }.first
+            }
+            XCTAssertEqual(controller.modalPresentationStyle, .fullScreen)
+            let heading = try XCTUnwrap(find("clipExportTitle", in: controller.view) as? UILabel)
+            XCTAssertEqual(heading.text, isVideo ? "Creating Video Clip" : "Creating Audio Clip")
+            let percentage = try XCTUnwrap(find("clipExportPercentage", in: controller.view) as? UILabel)
+            controller.update(progress: 0.45)
+            XCTAssertEqual(percentage.text, "45%")
+            let image = UIGraphicsImageRenderer(bounds: controller.view.bounds).image { context in
+                controller.view.layer.render(in: context.cgContext)
+            }
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(largeText ? "clip-progress-large-text.png" : isVideo ? "clip-progress-video.png" : "clip-progress-audio.png")
+            try image.pngData()?.write(to: url)
+            print("Clip progress preview: \(url.path)")
+            controller.update(progress: 2)
+            XCTAssertEqual(percentage.text, "100%")
+            controller.update(progress: .nan)
+            XCTAssertEqual(percentage.text, "0%")
+            let cancel = try XCTUnwrap(find("clipExportCancel", in: controller.view) as? UIButton)
+            XCTAssertGreaterThanOrEqual(cancel.bounds.height, 44)
+            let scroll = try XCTUnwrap(controller.view.subviews.first as? UIScrollView)
+            scroll.scrollRectToVisible(cancel.convert(cancel.bounds, to: scroll), animated: false)
+            XCTAssertTrue(scroll.bounds.contains(cancel.convert(cancel.bounds, to: scroll)),
+                          "Cancel must remain reachable at accessibility text sizes")
+            cancel.sendActions(for: .touchUpInside)
+            XCTAssertTrue(cancelled)
+        }
+    }
+
+    @MainActor
     func testDrawerCaptionsAreOptionalAndResetEachSession() throws {
         for hasCC in [false, true] {
             let track = DiscourseAudio(id: "a", discourseID: "d", discourseName: "", title: "Track", audioURLString: "",

@@ -15,6 +15,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
     private var exporting = false
     private var operation = UUID()
     private var status: String?
+    private var progressController: DiscourseClipProgressController?
     private var exportCC = false
     private var visual: URL?
     private var visualDirectory: URL?
@@ -107,6 +108,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         }
     }
     private func download() {
+        status = nil
         busy = true
         exporting = false
         isModalInPresentation = true
@@ -115,6 +117,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         request = DiscourseClipExportRequest(source: URL(fileURLWithPath: "/"), sourceExtension: track.audioURL?.pathExtension,
             title: track.title, range: range, visual: visual, noise: PlaybackService.sharedInstance().noiseReductionEnabled,
             music: mixer.selectedURL, musicEnabled: mixer.isEnabled, musicVolume: Float(mixer.volume) / 100, musicLoops: mixer.isLooping)
+        showProgress(isVideo: visual != nil)
         tableView.reloadData()
         if DiscourseDownloadStore.shared.localURL(for: track.id) == nil {
             guard track.audioURL != nil else { fail(); return }
@@ -130,8 +133,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         if let source = DiscourseDownloadStore.shared.localURL(for: track.id) {
             timer?.invalidate(); timer = nil
             exporting = true
-            status = NSLocalizedString("CLIP_EXPORTING", comment: "")
-            tableView.reloadData()
+            progressController?.update(progress: 0)
             let token = operation
             guard let snapshot = request else { fail(); return }
             captionTask = Task { [weak self] in
@@ -154,8 +156,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
                         musicLoops: snapshot.musicLoops, captions: captions)
                     self.exporter.export(request, progress: { [weak self] fraction in
                         guard let self, self.operation == token else { return }
-                        self.status = String(format: NSLocalizedString("CLIP_EXPORT_PROGRESS", comment: ""), Int(fraction * 100))
-                        self.tableView.reloadData()
+                        self.progressController?.update(progress: fraction)
                     }) { [weak self] result in
                         guard let self, self.operation == token else { return }
                         // Keep options disabled until Files relinquishes the temporary output.
@@ -163,7 +164,10 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
                         case .success(let urls):
                             let picker = UIDocumentPickerViewController(forExporting: urls, asCopy: true)
                             picker.delegate = self
-                            self.present(picker, animated: true)
+                            self.closeProgress { [weak self] in
+                                guard let self, self.operation == token, self.busy else { return }
+                                self.present(picker, animated: true)
+                            }
                         case .failure(let error): self.fail(error)
                         }
                     }
@@ -176,8 +180,8 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
             switch DiscourseDownloadManager.shared.state(for: track.id) {
             case .failed, .missing: fail()
             case .downloading(let progress):
-                status = String(format: NSLocalizedString("CLIP_DOWNLOADING", comment: ""), Int(progress * 100))
-                tableView.reloadData()
+                progressController?.update(progress: progress,
+                    status: String(format: NSLocalizedString("CLIP_DOWNLOADING", comment: ""), Int(progress * 100)))
             case .downloaded: fail()
             }
         }
@@ -186,8 +190,28 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         timer?.invalidate(); timer = nil
         busy = false
         isModalInPresentation = false
+        closeProgress()
         status = error?.localizedDescription ?? NSLocalizedString("CLIP_FAILED", comment: "")
         tableView.reloadData()
+    }
+    private func showProgress(isVideo: Bool) {
+        guard progressController == nil else { return }
+        let progress = DiscourseClipProgressController(isVideo: isVideo)
+        progress.onCancel = { [weak self] in self?.cancelExport() }
+        progressController = progress
+        present(progress, animated: false)
+    }
+    private func closeProgress(completion: (() -> Void)? = nil) {
+        guard let progress = progressController else { completion?(); return }
+        progressController = nil
+        progress.dismiss(animated: true, completion: completion)
+    }
+    private func cancelExport() {
+        operation = UUID()
+        visualProgress?.cancel(); captionTask?.cancel(); timer?.invalidate(); timer = nil
+        exporter.cancel()
+        closeProgress()
+        finished()
     }
     @objc private func background() {
         guard busy, !(presentedViewController is UIDocumentPickerViewController) else { return }
@@ -209,8 +233,11 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         visualDirectory = nil; visual = nil
     }
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-        picker.dismiss(animated: true)
-        guard let provider = results.first?.itemProvider else { return }
+        guard let provider = results.first?.itemProvider else { picker.dismiss(animated: true); return }
+        picker.dismiss(animated: true) { [weak self] in self?.loadVisual(provider) }
+    }
+    private func loadVisual(_ provider: NSItemProvider) {
+        showProgress(isVideo: true)
         busy = true; isModalInPresentation = true; operation = UUID()
         let token = operation
         tableView.reloadData()
@@ -235,6 +262,174 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
                     try? FileManager.default.removeItem(at: folder); self.fail(error)
                 }
             }
+        }
+    }
+}
+
+/// One operation owns the progress surface; the Save Clip rows retain their descriptions.
+final class DiscourseClipProgressController: UIViewController {
+    var onCancel: (() -> Void)?
+    private let isVideo: Bool
+    private let percentage = UILabel()
+    private let message = UILabel()
+    private let progressBar = UIProgressView(progressViewStyle: .default)
+    private let ring = CAShapeLayer()
+    private let iconContainer = UIView()
+
+    init(isVideo: Bool) {
+        self.isVideo = isVideo
+        super.init(nibName: nil, bundle: nil)
+        modalPresentationStyle = .fullScreen
+        isModalInPresentation = true
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func loadView() { view = DiscourseClipProgressBackground() }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        let colors = DiscourseColors.current
+        let scroll = UIScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scroll)
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.alignment = .fill
+        stack.spacing = 24
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        scroll.addSubview(stack)
+        NSLayoutConstraint.activate([
+            scroll.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+            scroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: 32),
+            stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor, constant: -32),
+            stack.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor, constant: -64),
+            stack.topAnchor.constraint(greaterThanOrEqualTo: scroll.contentLayoutGuide.topAnchor, constant: 32),
+            stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -32)
+        ])
+        let center = stack.centerYAnchor.constraint(equalTo: scroll.frameLayoutGuide.centerYAnchor, constant: 30)
+        center.priority = .defaultHigh
+        center.isActive = true
+
+        iconContainer.heightAnchor.constraint(equalToConstant: 150).isActive = true
+        stack.addArrangedSubview(iconContainer)
+        let icon = UIImageView(image: UIImage(systemName: isVideo ? "movieclapper" : "waveform") ?? UIImage(systemName: "film"))
+        icon.tintColor = colors.accent
+        icon.contentMode = .scaleAspectFit
+        icon.isAccessibilityElement = false
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        iconContainer.addSubview(icon)
+        NSLayoutConstraint.activate([
+            icon.widthAnchor.constraint(equalToConstant: 68), icon.heightAnchor.constraint(equalToConstant: 68),
+            icon.centerXAnchor.constraint(equalTo: iconContainer.centerXAnchor),
+            icon.centerYAnchor.constraint(equalTo: iconContainer.centerYAnchor)
+        ])
+        let rail = CAShapeLayer()
+        rail.path = UIBezierPath(ovalIn: CGRect(x: 5, y: 5, width: 140, height: 140)).cgPath
+        rail.strokeColor = colors.primaryText.withAlphaComponent(0.18).cgColor
+        rail.fillColor = UIColor.clear.cgColor
+        rail.lineWidth = 6
+        iconContainer.layer.addSublayer(rail)
+        ring.path = UIBezierPath(arcCenter: CGPoint(x: 75, y: 75), radius: 70,
+            startAngle: -.pi / 2, endAngle: .pi * 1.5, clockwise: true).cgPath
+        ring.strokeColor = colors.accent.cgColor
+        ring.fillColor = UIColor.clear.cgColor
+        ring.lineWidth = 6
+        ring.lineCap = .round
+        ring.strokeEnd = 0
+        iconContainer.layer.addSublayer(ring)
+
+        let heading = UILabel()
+        heading.text = isVideo ? NSLocalizedString("CLIP_CREATING_VIDEO", comment: "Export progress title")
+            : NSLocalizedString("CLIP_CREATING_AUDIO", comment: "Export progress title")
+        heading.font = .preferredFont(forTextStyle: .title1)
+        heading.textColor = colors.primaryText
+        heading.accessibilityTraits = .header
+        heading.accessibilityIdentifier = "clipExportTitle"
+        message.font = .preferredFont(forTextStyle: .body)
+        message.textColor = colors.primaryText.withAlphaComponent(0.7)
+        percentage.font = .preferredFont(forTextStyle: .largeTitle)
+        percentage.textColor = colors.accent
+        percentage.accessibilityIdentifier = "clipExportPercentage"
+        percentage.accessibilityTraits = .updatesFrequently
+        for label in [heading, message, percentage] {
+            label.numberOfLines = 0
+            label.textAlignment = .center
+            label.adjustsFontForContentSizeCategory = true
+            stack.addArrangedSubview(label)
+        }
+        progressBar.progressTintColor = colors.accent
+        progressBar.trackTintColor = colors.primaryText.withAlphaComponent(0.25)
+        progressBar.isAccessibilityElement = false // The percentage label carries the value.
+        stack.addArrangedSubview(progressBar)
+        stack.setCustomSpacing(40, after: progressBar)
+        var config = UIButton.Configuration.filled()
+        config.title = NSLocalizedString("BUTTON_CANCEL", comment: "Cancel export")
+        config.baseBackgroundColor = colors.accent
+        config.baseForegroundColor = .white
+        config.cornerStyle = .medium
+        config.contentInsets = NSDirectionalEdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16)
+        let cancel = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in self?.onCancel?() })
+        cancel.accessibilityLabel = NSLocalizedString("BUTTON_CANCEL", comment: "Cancel export")
+        cancel.accessibilityIdentifier = "clipExportCancel"
+        stack.addArrangedSubview(cancel)
+        update(progress: 0)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        for layer in iconContainer.layer.sublayers ?? [] where layer is CAShapeLayer {
+            layer.frame = CGRect(x: (iconContainer.bounds.width - 150) / 2, y: 0, width: 150, height: 150)
+        }
+    }
+
+    func update(progress: Double, status: String? = nil) {
+        loadViewIfNeeded()
+        let value = progress.isFinite ? min(1, max(0, progress)) : 0
+        percentage.text = String(format: NSLocalizedString("CLIP_PROGRESS_PERCENT", comment: "Export percentage"), Int(value * 100))
+        message.text = status ?? NSLocalizedString("CLIP_CREATING_DESCRIPTION", comment: "Export progress explanation")
+        progressBar.progress = Float(value)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        ring.strokeEnd = value
+        CATransaction.commit()
+    }
+}
+
+private final class DiscourseClipProgressBackground: UIView {
+    override func draw(_ rect: CGRect) {
+        let colors = DiscourseColors.current
+        colors.appBackground.setFill()
+        UIRectFill(rect)
+        guard let context = UIGraphicsGetCurrentContext() else { return }
+        let gradientColors = [colors.accent.withAlphaComponent(0.08).cgColor, colors.appBackground.cgColor] as CFArray
+        if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: gradientColors, locations: [0, 1]) {
+            context.drawRadialGradient(gradient, startCenter: CGPoint(x: bounds.midX, y: bounds.midY), startRadius: 0,
+                endCenter: CGPoint(x: bounds.midX, y: bounds.midY), endRadius: bounds.height * 0.6, options: [])
+        }
+        for index in 0..<3 {
+            let wave = UIBezierPath()
+            let y = bounds.height * 0.12 + CGFloat(index) * 32
+            wave.move(to: CGPoint(x: -20, y: y + 32))
+            wave.addCurve(to: CGPoint(x: bounds.width + 20, y: y),
+                controlPoint1: CGPoint(x: bounds.width * 0.3, y: y - (index == 1 ? 70 : 130)),
+                controlPoint2: CGPoint(x: bounds.width * 0.6, y: y + (index == 2 ? -100 : 130)))
+            colors.accent.withAlphaComponent(0.35 - CGFloat(index) * 0.08).setStroke()
+            wave.lineWidth = 1.5
+            wave.stroke()
+            wave.addLine(to: CGPoint(x: bounds.width + 20, y: bounds.height))
+            wave.addLine(to: CGPoint(x: -20, y: bounds.height))
+            wave.close()
+            context.saveGState()
+            wave.addClip()
+            let waveColors = [colors.accent.withAlphaComponent(0.12).cgColor, UIColor.clear.cgColor] as CFArray
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: waveColors, locations: [0, 1]) {
+                context.drawLinearGradient(gradient, start: CGPoint(x: 0, y: y - 40),
+                    end: CGPoint(x: 0, y: y + 100), options: [.drawsBeforeStartLocation])
+            }
+            context.restoreGState()
         }
     }
 }
