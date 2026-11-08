@@ -152,7 +152,21 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
             button.accessibilityLabel = configuration.title
             button.accessibilityHint = configuration.subtitle
             button.translatesAutoresizingMaskIntoConstraints = false
-            button.addTarget(self, action: #selector(exportAction(_:)), for: .touchUpInside)
+            if row == 2 {
+                let titles = [NSLocalizedString("CLIP_RATIO_ORIGINAL", comment: "Video export ratio"),
+                              NSLocalizedString("CLIP_RATIO_MOBILE", comment: "Video export ratio"),
+                              NSLocalizedString("CLIP_RATIO_DESKTOP", comment: "Video export ratio")]
+                let icons = ["aspectratio", "iphone", "desktopcomputer"]
+                button.menu = UIMenu(children: DiscourseClipExportRequest.VideoRatio.allCases.enumerated().map { index, ratio in
+                    UIAction(title: titles[index],
+                             image: UIImage(systemName: icons[index]), state: ratio == .original ? .on : .off) { [weak self] _ in
+                        self?.selectVisual(ratio: ratio)
+                    }
+                })
+                button.showsMenuAsPrimaryAction = true
+            } else {
+                button.addTarget(self, action: #selector(exportAction(_:)), for: .touchUpInside)
+            }
             cell.backgroundColor = .clear
             cell.separatorInset = UIEdgeInsets(top: 0, left: tableView.bounds.width, bottom: 0, right: 0)
             cell.contentView.addSubview(button)
@@ -200,18 +214,23 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
             activity.popoverPresentationController?.sourceRect = tableView.rectForRow(at: indexPath)
             present(activity, animated: true)
         } else if indexPath.row == 2 {
-            snapshotSettings()
-            var configuration = PHPickerConfiguration()
-            configuration.selectionLimit = 1
-            configuration.filter = .any(of: [.images, .videos])
-            let picker = PHPickerViewController(configuration: configuration)
-            picker.delegate = self
-            present(picker, animated: true)
+            return // The video button presents its ratio menu.
         } else {
             clearVisual()
             snapshotSettings()
             download()
         }
+    }
+    private func selectVisual(ratio: DiscourseClipExportRequest.VideoRatio) {
+        guard !busy else { return }
+        snapshotSettings()
+        request?.videoRatio = ratio
+        var configuration = PHPickerConfiguration()
+        configuration.selectionLimit = 1
+        configuration.filter = .any(of: [.images, .videos])
+        let picker = PHPickerViewController(configuration: configuration)
+        picker.delegate = self
+        present(picker, animated: true)
     }
     private func snapshotSettings() {
         requestedCC = exportCC
@@ -262,7 +281,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
                     try Task.checkCancellation()
                     guard self.operation == token else { return }
                     let request = DiscourseClipExportRequest(source: source, sourceExtension: snapshot.sourceExtension,
-                        title: snapshot.title, range: snapshot.range, visual: snapshot.visual, noise: snapshot.noise,
+                        title: snapshot.title, range: snapshot.range, videoRatio: snapshot.videoRatio, visual: snapshot.visual, noise: snapshot.noise,
                         music: snapshot.music, musicEnabled: snapshot.musicEnabled, musicVolume: snapshot.musicVolume,
                         musicLoops: snapshot.musicLoops, captions: captions, fadeIn: snapshot.fadeIn, fadeOut: snapshot.fadeOut)
                     self.exporter.export(request, progress: { [weak self] fraction in

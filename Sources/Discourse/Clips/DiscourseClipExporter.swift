@@ -8,6 +8,8 @@ struct DiscourseClipExportRequest {
     let sourceExtension: String?
     let title: String
     let range: DiscourseClipRange
+    enum VideoRatio: CaseIterable { case original, mobile, desktop }
+    var videoRatio: VideoRatio = .original
     var visual: URL?
     var noise = false
     var music: URL?
@@ -167,7 +169,7 @@ final class DiscourseClipExporter {
         let safe = request.title.components(separatedBy: CharacterSet.alphanumerics.union(.whitespaces).inverted).joined(separator: " ")
         let basename = String(safe.prefix(100)) + " " + DiscourseClipRange.time(start).replacingOccurrences(of: ":", with: "-") + " to " + DiscourseClipRange.time(end).replacingOccurrences(of: ":", with: "-")
         let url = folder.appendingPathComponent(basename).appendingPathExtension(request.visual == nil ? "m4a" : "mp4")
-        try await encode(spool: spoolURL, output: url, visual: request.visual, frames: frames, gain: 1 / peak, fadeIn: request.fadeIn, fadeOut: request.fadeOut, progress: progress)
+        try await encode(spool: spoolURL, output: url, visual: request.visual, ratio: request.videoRatio, frames: frames, gain: 1 / peak, fadeIn: request.fadeIn, fadeOut: request.fadeOut, progress: progress)
         var urls = [url]
         if let captions = request.captions {
             let text = DiscourseCaptions.srt(captions, start: start, end: end)
@@ -188,7 +190,7 @@ final class DiscourseClipExporter {
         return Float(max(0, min(start, end)))
     }
 
-    private static func encode(spool: URL, output: URL, visual: URL?, frames: Int64, gain: Float, fadeIn: Bool, fadeOut: Bool,
+    private static func encode(spool: URL, output: URL, visual: URL?, ratio: DiscourseClipExportRequest.VideoRatio, frames: Int64, gain: Float, fadeIn: Bool, fadeOut: Bool,
                                progress: @escaping (Double) -> Void) async throws {
         try Task.checkCancellation()
         let writer = try AVAssetWriter(outputURL: output, fileType: visual == nil ? .m4a : .mp4)
@@ -196,7 +198,7 @@ final class DiscourseClipExporter {
         let audio = AVAssetWriterInput(mediaType: .audio, outputSettings: [AVFormatIDKey: kAudioFormatMPEG4AAC,
             AVSampleRateKey: 48000, AVNumberOfChannelsKey: 2, AVEncoderBitRateKey: 192000])
         writer.add(audio)
-        let picture = try visual.map { try Visual(url: $0) }
+        let picture = try visual.map { try Visual(url: $0, ratio: ratio) }
         var video: AVAssetWriterInput?
         var adaptor: AVAssetWriterInputPixelBufferAdaptor?
         if let picture {
@@ -406,7 +408,9 @@ final class DiscourseClipExporter {
         private let image: UIImage?
         private let generator: AVAssetImageGenerator?
         private let duration: Double
-        init(url: URL) throws {
+        private let ratio: DiscourseClipExportRequest.VideoRatio
+        init(url: URL, ratio: DiscourseClipExportRequest.VideoRatio) throws {
+            self.ratio = ratio
             image = UIImage(contentsOfFile: url.path)
             var size: CGSize
             if let image {
@@ -434,8 +438,15 @@ final class DiscourseClipExporter {
             guard size.width > 0, size.height > 0 else { throw error("CLIP_VISUAL_FAILED") }
             let landscape = size.width >= size.height
             let scale = min(1, min((landscape ? 1920 : 1080) / size.width, (landscape ? 1080 : 1920) / size.height))
-            width = max(2, Int(size.width * scale) / 2 * 2)
-            height = max(2, Int(size.height * scale) / 2 * 2)
+            if ratio == .original {
+                width = max(2, Int(size.width * scale) / 2 * 2)
+                height = max(2, Int(size.height * scale) / 2 * 2)
+            } else {
+                let unit = ratio == .mobile ? CGSize(width: 18, height: 32) : CGSize(width: 32, height: 18)
+                let multiple = max(1, min(60, Int(min(size.width / unit.width, size.height / unit.height))))
+                width = Int(unit.width) * multiple
+                height = Int(unit.height) * multiple
+            }
         }
         func pixel(at time: Double, pool: CVPixelBufferPool?) throws -> CVPixelBuffer {
             var pixel: CVPixelBuffer?
@@ -456,7 +467,9 @@ final class DiscourseClipExporter {
             context.translateBy(x: 0, y: CGFloat(height)); context.scaleBy(x: 1, y: -1)
             UIGraphicsPushContext(context)
             let natural = CGSize(width: frame.size.width * frame.scale, height: frame.size.height * frame.scale)
-            let fit = min(1, min(CGFloat(width) / natural.width, CGFloat(height) / natural.height))
+            let fit = ratio == .original
+                ? min(1, min(CGFloat(width) / natural.width, CGFloat(height) / natural.height))
+                : max(CGFloat(width) / natural.width, CGFloat(height) / natural.height)
             let size = CGSize(width: natural.width * fit, height: natural.height * fit)
             context.setFillColor(UIColor.black.cgColor)
             context.fill(CGRect(x: 0, y: 0, width: width, height: height))

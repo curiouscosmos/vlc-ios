@@ -100,7 +100,15 @@ final class DiscourseClipTests: XCTestCase {
             }
             for (row, title) in ["Share clip link", "Download clip audio", "Create video from clip"].enumerated() {
                 let cell = controller.tableView(controller.tableView, cellForRowAt: IndexPath(row: row, section: 3))
-                XCTAssertEqual(cell.contentView.subviews.compactMap { $0 as? UIButton }.first?.configuration?.title, title)
+                let button = try XCTUnwrap(cell.contentView.subviews.compactMap { $0 as? UIButton }.first)
+                XCTAssertEqual(button.configuration?.title, title)
+                if row == 2 {
+                    XCTAssertTrue(button.showsMenuAsPrimaryAction)
+                    let actions = try XCTUnwrap(button.menu?.children as? [UIAction])
+                    XCTAssertEqual(actions.map { $0.title }, ["Default (Original ratio)", "9:16 — Mobile", "16:9 — Desktop"])
+                    XCTAssertEqual(actions.map { $0.state }, [.on, .off, .off])
+                    XCTAssertTrue(actions.allSatisfy { $0.image != nil })
+                }
             }
         }
     }
@@ -333,14 +341,15 @@ final class DiscourseClipTests: XCTestCase {
         for channel in 0..<2 { for index in 0..<Int(buffer.frameLength) { channels[channel][index] = sin(Float(index) * 0.1) * 0.3 } }
         let source = folder.appendingPathComponent("silence.wav")
         do { let file = try AVAudioFile(forWriting: source, settings: format.settings); try file.write(from: buffer) }
-        func export(_ visual: URL, duration: Double, name: String, size: CGSize = CGSize(width: 24, height: 40)) throws -> URL {
+        func export(_ visual: URL, duration: Double, name: String, size: CGSize = CGSize(width: 24, height: 40),
+                    ratio: DiscourseClipExportRequest.VideoRatio = .original) throws -> URL {
             let exporter = DiscourseClipExporter()
             defer { exporter.clean() }
             let copy = folder.appendingPathComponent(name + ".mp4")
             let done = expectation(description: name)
             var failure: Error?
             let request = DiscourseClipExportRequest(source: source, sourceExtension: "wav", title: name,
-                range: DiscourseClipRange(duration: duration, position: 0), visual: visual)
+                range: DiscourseClipRange(duration: duration, position: 0), videoRatio: ratio, visual: visual)
             exporter.export(request) { result in
                 do { try FileManager.default.copyItem(at: result.get()[0], to: copy) }
                 catch { failure = error }
@@ -374,6 +383,129 @@ final class DiscourseClipTests: XCTestCase {
         CGImageDestinationAddImage(destination, try XCTUnwrap(image.cgImage), [kCGImagePropertyOrientation: 6] as CFDictionary)
         XCTAssertTrue(CGImageDestinationFinalize(destination))
         _ = try export(rotated, duration: 1, name: "rotated", size: CGSize(width: 40, height: 24))
+        for (ratio, size) in [(DiscourseClipExportRequest.VideoRatio.mobile, CGSize(width: 18, height: 32)),
+                              (.desktop, CGSize(width: 32, height: 18))] {
+            for (index, visual) in [imageURL, short, rotated].enumerated() {
+                _ = try export(visual, duration: 1, name: "ratio-\(ratio)-\(index)", size: size, ratio: ratio)
+            }
+        }
+    }
+
+    func testFixedRatioCenterCropPreservesOrientationAndProportions() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appendingPathComponent("audio.wav")
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 48000))
+        buffer.frameLength = buffer.frameCapacity
+        let channels = try XCTUnwrap(buffer.floatChannelData)
+        for channel in 0..<2 { for index in 0..<48000 { channels[channel][index] = 0.2 } }
+        do { let file = try AVAudioFile(forWriting: source, settings: format.settings); try file.write(from: buffer) }
+        func export(_ visual: URL, ratio: DiscourseClipExportRequest.VideoRatio, name: String) throws -> URL {
+            let exporter = DiscourseClipExporter()
+            defer { exporter.clean() }
+            let done = expectation(description: name)
+            let copy = folder.appendingPathComponent(name + ".mp4")
+            var failure: Error?
+            exporter.export(DiscourseClipExportRequest(source: source, sourceExtension: "wav", title: name,
+                range: DiscourseClipRange(duration: 1, position: 0), videoRatio: ratio, visual: visual,
+                fadeIn: true, fadeOut: true)) { result in
+                do { try FileManager.default.copyItem(at: result.get()[0], to: copy) }
+                catch { failure = error }
+                done.fulfill()
+            }
+            wait(for: [done], timeout: 30)
+            if let failure { throw failure }
+            return copy
+        }
+        for (index, size) in [CGSize(width: 360, height: 640), CGSize(width: 640, height: 360),
+                              CGSize(width: 360, height: 360), CGSize(width: 2160, height: 3840)].enumerated() {
+            let image = UIGraphicsImageRenderer(size: size, format: {
+                let format = UIGraphicsImageRendererFormat(); format.scale = 1; return format
+            }()).image { context in
+                UIColor.green.setFill(); context.fill(CGRect(origin: .zero, size: size))
+                UIColor.red.setFill(); context.fill(CGRect(x: size.width / 2 - 20, y: size.height / 2 - 20, width: 40, height: 40))
+                UIColor.blue.setFill(); context.fill(CGRect(x: size.width / 2 - 20, y: size.height / 2 - 20, width: 40, height: 10))
+            }
+            let photo = folder.appendingPathComponent("fixture-\(index).png")
+            try XCTUnwrap(image.pngData()).write(to: photo)
+            let rotatedPhoto = folder.appendingPathComponent("rotated-photo-\(index).jpg")
+            let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(rotatedPhoto as CFURL, "public.jpeg" as CFString, 1, nil))
+            CGImageDestinationAddImage(destination, try XCTUnwrap(image.cgImage), [kCGImagePropertyOrientation: 6] as CFDictionary)
+            XCTAssertTrue(CGImageDestinationFinalize(destination))
+            let original = try export(photo, ratio: .original, name: "original-\(index)")
+            // Rotate a real video track, rather than baking its orientation into pixels.
+            let composition = AVMutableComposition()
+            let asset = AVURLAsset(url: original)
+            let track = try XCTUnwrap(composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid))
+            try track.insertTimeRange(CMTimeRange(start: .zero, duration: asset.duration),
+                                      of: XCTUnwrap(asset.tracks(withMediaType: .video).first), at: .zero)
+            let sourceVideo = try XCTUnwrap(asset.tracks(withMediaType: .video).first)
+            track.preferredTransform = CGAffineTransform(a: 0, b: 1, c: -1, d: 0, tx: sourceVideo.naturalSize.height, ty: 0)
+            let rotated = folder.appendingPathComponent("rotated-\(index).mov")
+            let session = try XCTUnwrap(AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough))
+            session.outputURL = rotated; session.outputFileType = .mov
+            let rotatedDone = expectation(description: "Rotate fixture")
+            session.exportAsynchronously { rotatedDone.fulfill() }
+            wait(for: [rotatedDone], timeout: 30)
+            XCTAssertEqual(session.status, .completed)
+            for (visualIndex, visual) in [photo, original, rotated, rotatedPhoto].enumerated() {
+                for ratio in DiscourseClipExportRequest.VideoRatio.allCases {
+                    let output = try export(visual, ratio: ratio, name: "crop-\(index)-\(visualIndex)-\(ratio)")
+                    let asset = AVURLAsset(url: output)
+                    let video = try XCTUnwrap(asset.tracks(withMediaType: .video).first)
+                    let natural = visualIndex == 1 || visualIndex == 2 ? sourceVideo.naturalSize : size
+                    let displayed = visualIndex >= 2 ? CGSize(width: natural.height, height: natural.width) : natural
+                    if ratio == .original {
+                        let landscape = displayed.width >= displayed.height
+                        let scale = min(1, min((landscape ? 1920 : 1080) / displayed.width,
+                                               (landscape ? 1080 : 1920) / displayed.height))
+                        XCTAssertEqual(video.naturalSize, CGSize(width: floor(displayed.width * scale / 2) * 2,
+                                                                 height: floor(displayed.height * scale / 2) * 2))
+                    } else {
+                        let unit = ratio == .mobile ? CGSize(width: 18, height: 32) : CGSize(width: 32, height: 18)
+                        let multiple = min(60, floor(min(displayed.width / unit.width, displayed.height / unit.height)))
+                        XCTAssertEqual(video.naturalSize, CGSize(width: unit.width * multiple, height: unit.height * multiple))
+                    }
+                    XCTAssertEqual(CMTimeGetSeconds(asset.duration), 1, accuracy: 0.025)
+                    XCTAssertEqual(asset.tracks(withMediaType: .audio).count, 1)
+                    let audio = try AVAudioFile(forReading: output)
+                    let decoded = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: audio.processingFormat,
+                        frameCapacity: AVAudioFrameCount(audio.length)))
+                    try audio.read(into: decoded)
+                    let samples = try XCTUnwrap(decoded.floatChannelData)[0]
+                    XCTAssertEqual(samples[Int(decoded.frameLength) / 2], 0.2, accuracy: 0.04)
+                    XCTAssertLessThan(abs(samples[100]), 0.02)
+                    XCTAssertLessThan(abs(samples[Int(decoded.frameLength) - 100]), 0.02)
+                    let generator = AVAssetImageGenerator(asset: asset)
+                    let frame = try generator.copyCGImage(at: .zero, actualTime: nil)
+                    var pixels = [UInt8](repeating: 0, count: frame.width * frame.height * 4)
+                    let context = try XCTUnwrap(CGContext(data: &pixels, width: frame.width, height: frame.height,
+                        bitsPerComponent: 8, bytesPerRow: frame.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                    context.draw(frame, in: CGRect(x: 0, y: 0, width: frame.width, height: frame.height))
+                    let center = ((frame.height / 2) * frame.width + frame.width / 2) * 4
+                    XCTAssertGreaterThan(pixels[center], 150, "The red marker must remain centered")
+                    XCTAssertLessThan(pixels[center + 1], 100)
+                    for (x, y) in [(2, 2), (frame.width - 3, frame.height - 3)] {
+                        XCTAssertGreaterThan(pixels[(y * frame.width + x) * 4 + 1], 150, "No black borders")
+                    }
+                    // The asymmetric marker retains its proportions after rotation and cropping.
+                    var xs: [Int] = [], ys: [Int] = []
+                    for y in 0..<frame.height { for x in 0..<frame.width {
+                        let offset = (y * frame.width + x) * 4
+                        if pixels[offset] > 150 && pixels[offset + 1] < 100 {
+                            xs.append(x); ys.append(y)
+                        }
+                    } }
+                    let redWidth = try XCTUnwrap(xs.max()) - XCTUnwrap(xs.min()) + 1
+                    let redHeight = try XCTUnwrap(ys.max()) - XCTUnwrap(ys.min()) + 1
+                    let expected = visualIndex >= 2 ? 0.75 : 1 / 0.75
+                    XCTAssertEqual(Double(redWidth) / Double(redHeight), expected, accuracy: 0.2)
+                }
+            }
+        }
     }
 
     func testMissingEnabledMusicFailsExplicitly() {

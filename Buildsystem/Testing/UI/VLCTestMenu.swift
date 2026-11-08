@@ -323,10 +323,22 @@ class VLCTestMenu: XCTestCase {
         let drawerImage = XCTAttachment(screenshot: app.screenshot())
         XCTAssertTrue(app.buttons["Create video from clip"].exists)
         app.buttons["Create video from clip"].tap()
-        let pickerCancel = app.navigationBars["Photos"].buttons["Cancel"]
-        XCTAssertTrue(pickerCancel.waitForExistence(timeout: 5))
-        pickerCancel.tap()
-        XCTAssertTrue(app.navigationBars["Export Clip"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Default (Original ratio)"].waitForExistence(timeout: 5))
+        let menuImage = XCTAttachment(screenshot: app.screenshot())
+        menuImage.name = "Clip video ratio menu"
+        menuImage.lifetime = .keepAlways
+        add(menuImage)
+        app.navigationBars["Export Clip"].tap() // Dismiss without selecting a ratio.
+        XCTAssertFalse(app.navigationBars["Photos"].exists)
+        for ratio in ["Default (Original ratio)", "9:16 — Mobile", "16:9 — Desktop"] {
+            app.buttons["Create video from clip"].tap()
+            XCTAssertTrue(app.buttons[ratio].waitForExistence(timeout: 5))
+            app.buttons[ratio].tap()
+            let pickerCancel = app.navigationBars["Photos"].buttons["Cancel"]
+            XCTAssertTrue(pickerCancel.waitForExistence(timeout: 5))
+            pickerCancel.tap()
+            XCTAssertTrue(app.navigationBars["Export Clip"].waitForExistence(timeout: 5))
+        }
         app.buttons["Download clip audio"].tap()
         let filesSave = app.buttons["Save"].firstMatch
         XCTAssertTrue(filesSave.waitForExistence(timeout: 60), "Processed clip should open Files")

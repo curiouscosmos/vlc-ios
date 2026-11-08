@@ -1135,3 +1135,8 @@
 "CLIP_DOWNLOAD_AUDIO" = "Download clip audio";
 "CLIP_CREATE_VIDEO" = "Create video from clip";
 "CLIP_SELECT_VISUAL" = "Select video or photo";
+
+/* Clip video aspect ratios */
+"CLIP_RATIO_ORIGINAL" = "Default (Original ratio)"; /* Video export ratio */
+"CLIP_RATIO_MOBILE" = "9:16 — Mobile"; /* Video export ratio */
+"CLIP_RATIO_DESKTOP" = "16:9 — Desktop"; /* Video export ratio */
