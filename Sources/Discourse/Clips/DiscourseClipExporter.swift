@@ -15,6 +15,8 @@ struct DiscourseClipExportRequest {
     var musicVolume: Float = 0.5
     var musicLoops = true
     var captions: [DiscourseCaption]?
+    var fadeIn = false
+    var fadeOut = false
 }
 
 final class DiscourseClipExporter {
@@ -165,7 +167,7 @@ final class DiscourseClipExporter {
         let safe = request.title.components(separatedBy: CharacterSet.alphanumerics.union(.whitespaces).inverted).joined(separator: " ")
         let basename = String(safe.prefix(100)) + " " + DiscourseClipRange.time(start).replacingOccurrences(of: ":", with: "-") + " to " + DiscourseClipRange.time(end).replacingOccurrences(of: ":", with: "-")
         let url = folder.appendingPathComponent(basename).appendingPathExtension(request.visual == nil ? "m4a" : "mp4")
-        try await encode(spool: spoolURL, output: url, visual: request.visual, frames: frames, gain: 1 / peak, progress: progress)
+        try await encode(spool: spoolURL, output: url, visual: request.visual, frames: frames, gain: 1 / peak, fadeIn: request.fadeIn, fadeOut: request.fadeOut, progress: progress)
         var urls = [url]
         if let captions = request.captions {
             let text = DiscourseCaptions.srt(captions, start: start, end: end)
@@ -178,7 +180,15 @@ final class DiscourseClipExporter {
         return urls
     }
 
-    private static func encode(spool: URL, output: URL, visual: URL?, frames: Int64, gain: Float,
+    static func fadeGain(frame: Int64, frames: Int64, fadeIn: Bool, fadeOut: Bool) -> Float {
+        let length = min(96000, Double(frames) / (fadeIn && fadeOut ? 2 : 1))
+        guard length > 0 else { return 1 }
+        let start = fadeIn ? min(1, Double(frame) / length) : 1
+        let end = fadeOut ? min(1, Double(max(0, frames - 1 - frame)) / length) : 1
+        return Float(max(0, min(start, end)))
+    }
+
+    private static func encode(spool: URL, output: URL, visual: URL?, frames: Int64, gain: Float, fadeIn: Bool, fadeOut: Bool,
                                progress: @escaping (Double) -> Void) async throws {
         try Task.checkCancellation()
         let writer = try AVAssetWriter(outputURL: output, fileType: visual == nil ? .m4a : .mp4)
@@ -216,7 +226,10 @@ final class DiscourseClipExporter {
                 try file.read(into: buffer, frameCount: AVAudioFrameCount(min(4096, frames - position)))
                 guard buffer.frameLength > 0 else { throw error("CLIP_FAILED") }
                 for channel in 0..<2 {
-                    for index in 0..<Int(buffer.frameLength) { channels[channel][index] *= gain }
+                    for index in 0..<Int(buffer.frameLength) {
+                        channels[channel][index] *= gain * fadeGain(frame: position + Int64(index), frames: frames,
+                                                                  fadeIn: fadeIn, fadeOut: fadeOut)
+                    }
                 }
                 var description = buffer.format.streamDescription.pointee
                 var format: CMAudioFormatDescription?

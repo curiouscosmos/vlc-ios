@@ -1073,9 +1073,7 @@
 "CLIP_BUTTON" = "Clip";
 "CLIP_CUT" = "Cut";
 "CLIP_SELECTED" = "Selected: %@";
-"CLIP_SAVE" = "Save Clip";
 "CLIP_SHARE_DESCRIPTION" = "Share clip link with anyone";
-"CLIP_DOWNLOAD_DESCRIPTION" = "Save clip to your device";
 "CLIP_DOWNLOADING" = "Downloading track… %d%%";
 "CLIP_FAILED" = "Could not create clip. Tap to retry.";
 
@@ -1083,9 +1081,7 @@
 "DISCOURSE" = "Discourse";
 
 /* New strings */
-"CLIP_DOWNLOAD" = "Download Clip";
 "CLIP_END" = "Clip end";
-"CLIP_SHARE_TRACK_LINK" = "Share Link to Track";
 "CLIP_START" = "Clip start";
 
 /* Clip source download consent */
@@ -1112,9 +1108,7 @@
 "CC_ON" = "On"; /* Captions on */
 
 /* Local clip export */
-"CLIP_EXPORT_VIDEO" = "Export Video";
-"CLIP_VIDEO_DESCRIPTION" = "Choose one photo or video. Includes enabled noise cancellation and background music.";
-"CLIP_EXPORT_CC" = "Export CC";
+"CLIP_EXPORT_CC" = "Export closed captions";
 
 /* New strings */
 "CLIP_CC_FAILED" = "Captions could not be exported for this range. Retry or turn Export CC off.";
@@ -1128,3 +1122,16 @@
 "CLIP_PROGRESS_PERCENT" = "%d%%"; /* Export percentage */
 "CLIP_CREATING_VIDEO" = "Creating Video Clip"; /* Export progress title */
 "CLIP_CREATING_AUDIO" = "Creating Audio Clip"; /* Export progress title */
+
+/* Clip export drawer */
+"CLIP_EXPORT_TITLE" = "Export Clip";
+"CLIP_NOISE" = "Noise cancellation";
+"CLIP_MUSIC" = "Background music";
+"CLIP_ADD_MUSIC" = "Add music in Mixer first";
+"CLIP_UNAVAILABLE" = "Not available for this track";
+"CLIP_FADE_IN" = "Fade in (2 seconds)";
+"CLIP_FADE_OUT" = "Fade out (2 seconds)";
+"CLIP_SHARE_LINK" = "Share clip link";
+"CLIP_DOWNLOAD_AUDIO" = "Download clip audio";
+"CLIP_CREATE_VIDEO" = "Create video from clip";
+"CLIP_SELECT_VISUAL" = "Select video or photo";

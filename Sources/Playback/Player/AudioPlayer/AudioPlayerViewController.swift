@@ -281,7 +281,7 @@ class AudioPlayerViewController: PlayerViewController {
             guard let self, let editor else { return }
             self.playbackService.pause()
             let sheet = UINavigationController(rootViewController: DiscourseClipSaveController(track: track, range: editor.range))
-            sheet.sheetPresentationController?.detents = [.medium()]
+            sheet.sheetPresentationController?.detents = [.large()]
             sheet.sheetPresentationController?.prefersGrabberVisible = true
             self.present(sheet, animated: true)
         }

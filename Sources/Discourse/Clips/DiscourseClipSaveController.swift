@@ -17,6 +17,9 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
     private var status: String?
     private var progressController: DiscourseClipProgressController?
     private var exportCC = false
+    private var requestedCC = false
+    private var fadeIn = true
+    private var fadeOut = true
     private var visual: URL?
     private var visualDirectory: URL?
     private var captionTask: Task<Void, Never>?
@@ -27,7 +30,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         self.track = track
         self.range = range
         super.init(style: .insetGrouped)
-        title = NSLocalizedString("CLIP_SAVE", comment: "")
+        title = NSLocalizedString("CLIP_EXPORT_TITLE", comment: "")
         navigationItem.largeTitleDisplayMode = .never
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -38,56 +41,157 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         tableView.backgroundColor = DiscourseColors.current.surfaceStart
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 86
-        navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancel))
+        navigationItem.rightBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "xmark"), style: .plain, target: self, action: #selector(cancel))
+        navigationItem.rightBarButtonItem?.accessibilityLabel = NSLocalizedString("BUTTON_CLOSE", comment: "")
+        for name in [Notification.Name(rawValue: VLCPlaybackServiceNoiseReductionDidChange), .discourseMixerDidChange,
+                     .VLCThemeDidChangeNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(refreshSettings), name: name, object: nil)
+        }
         NotificationCenter.default.addObserver(self, selector: #selector(background), name: UIApplication.didEnterBackgroundNotification, object: nil)
     }
-    override func numberOfSections(in tableView: UITableView) -> Int { 1 }
-    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { track.captionURL == nil ? 3 : 4 }
+    @objc private func refreshSettings() {
+        tableView.backgroundColor = DiscourseColors.current.surfaceStart
+        tableView.reloadData()
+    }
+    override func numberOfSections(in tableView: UITableView) -> Int { 4 }
+    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        [1, 3, 2, 3][section]
+    }
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
         cell.backgroundColor = DiscourseColors.current.surfaceEnd
         cell.textLabel?.textColor = DiscourseColors.current.primaryText
         cell.detailTextLabel?.textColor = DiscourseColors.current.primaryText.withAlphaComponent(0.65)
-        if indexPath.row == 3 {
-            cell.textLabel?.text = NSLocalizedString("CLIP_EXPORT_CC", comment: "")
-            cell.textLabel?.font = .preferredFont(forTextStyle: .headline)
-            cell.textLabel?.adjustsFontForContentSizeCategory = true
-            cell.textLabel?.numberOfLines = 0
+        cell.selectionStyle = .none
+        let row = indexPath.row
+        let service = PlaybackService.sharedInstance()
+        let mixer = DiscourseAudioMixer.shared
+        if indexPath.section == 0 {
+            let artwork = VLCNetworkImageView()
+            artwork.translatesAutoresizingMaskIntoConstraints = false
+            artwork.contentMode = .scaleAspectFill
+            artwork.clipsToBounds = true
+            artwork.layer.cornerRadius = 12
+            if let url = track.thumbnailURL { artwork.setImageWith(url, maxPixelSize: 400) }
+            else {
+                artwork.image = UIImage(systemName: "waveform")
+                artwork.contentMode = .scaleAspectFit
+                artwork.tintColor = DiscourseColors.current.accent
+            }
+            let title = UILabel()
+            title.text = track.title
+            title.font = .preferredFont(forTextStyle: .title2, compatibleWith: traitCollection)
+            title.textColor = DiscourseColors.current.primaryText
+            title.adjustsFontForContentSizeCategory = true
+            title.numberOfLines = 0
+            let time = UILabel()
+            time.text = DiscourseClipRange.time(range.start) + " – " + DiscourseClipRange.time(range.end)
+            time.font = .preferredFont(forTextStyle: .body, compatibleWith: traitCollection)
+            time.textColor = DiscourseColors.current.primaryText
+            time.adjustsFontForContentSizeCategory = true
+            time.numberOfLines = 0
+            let stack = UIStackView(arrangedSubviews: [artwork, title, time])
+            stack.axis = .vertical; stack.spacing = 12; stack.alignment = .center
+            stack.translatesAutoresizingMaskIntoConstraints = false
+            cell.contentView.addSubview(stack)
+            NSLayoutConstraint.activate([
+                stack.leadingAnchor.constraint(equalTo: cell.contentView.layoutMarginsGuide.leadingAnchor),
+                stack.trailingAnchor.constraint(equalTo: cell.contentView.layoutMarginsGuide.trailingAnchor),
+                stack.topAnchor.constraint(equalTo: cell.contentView.topAnchor, constant: 16),
+                stack.bottomAnchor.constraint(equalTo: cell.contentView.bottomAnchor, constant: -16),
+                artwork.widthAnchor.constraint(equalToConstant: 128), artwork.heightAnchor.constraint(equalTo: artwork.widthAnchor)
+            ])
+        } else if indexPath.section == 1 || indexPath.section == 2 {
+            let settings = indexPath.section == 1
+            let titles = settings
+                ? [NSLocalizedString("CLIP_NOISE", comment: ""), NSLocalizedString("CLIP_MUSIC", comment: ""),
+                   NSLocalizedString("CLIP_EXPORT_CC", comment: "")]
+                : [NSLocalizedString("CLIP_FADE_IN", comment: ""), NSLocalizedString("CLIP_FADE_OUT", comment: "")]
+            cell.textLabel?.text = titles[row]
             let toggle = UISwitch()
-            toggle.isOn = exportCC
-            toggle.isEnabled = !busy
+            toggle.onTintColor = DiscourseColors.current.accent
+            toggle.tag = settings ? row : row + 3
+            toggle.isOn = settings ? [service.noiseReductionEnabled, mixer.isEnabled, exportCC][row] : [fadeIn, fadeOut][row]
+            let available = !settings || (row == 0 ? service.noiseReductionAvailable : row == 1 ? mixer.selectedURL != nil : track.captionURL != nil)
+            toggle.isEnabled = !busy && available
+            if !available {
+                cell.detailTextLabel?.text = row == 1 ? NSLocalizedString("CLIP_ADD_MUSIC", comment: "") : NSLocalizedString("CLIP_UNAVAILABLE", comment: "")
+            }
             toggle.accessibilityLabel = cell.textLabel?.text
-            toggle.addTarget(self, action: #selector(captionsChanged(_:)), for: .valueChanged)
+            toggle.accessibilityHint = cell.detailTextLabel?.text
+            toggle.accessibilityIdentifier = "clipSetting\(toggle.tag)"
+            toggle.addTarget(self, action: #selector(settingChanged(_:)), for: .valueChanged)
             cell.accessoryView = toggle
-            cell.selectionStyle = .none
-            return cell
+        } else {
+            var configuration = UIButton.Configuration.filled()
+            configuration.title = [NSLocalizedString("CLIP_SHARE_LINK", comment: ""),
+                NSLocalizedString("CLIP_DOWNLOAD_AUDIO", comment: ""), NSLocalizedString("CLIP_CREATE_VIDEO", comment: "")][row]
+            configuration.subtitle = row == 0 ? NSLocalizedString("CLIP_SHARE_DESCRIPTION", comment: "")
+                : status ?? (row == 2 ? NSLocalizedString("CLIP_SELECT_VISUAL", comment: "") : nil)
+            configuration.image = UIImage(systemName: ["square.and.arrow.up", "arrow.down.to.line", "video"][row])
+            configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 24)
+            configuration.imagePadding = 12
+            configuration.titleAlignment = .leading
+            configuration.titleLineBreakMode = .byWordWrapping
+            configuration.subtitleLineBreakMode = .byWordWrapping
+            configuration.contentInsets = NSDirectionalEdgeInsets(top: 18, leading: 16, bottom: 18, trailing: 16)
+            configuration.baseBackgroundColor = DiscourseColors.current.accent
+            configuration.baseForegroundColor = .white
+            let button = UIButton(configuration: configuration)
+            button.configurationUpdateHandler = { button in
+                let traits = button.traitCollection
+                button.configuration?.imagePlacement = traits.preferredContentSizeCategory.isAccessibilityCategory ? .top : .leading
+                button.configuration?.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+                    var attributes = attributes
+                    attributes.font = UIFont.preferredFont(forTextStyle: .headline, compatibleWith: traits)
+                    return attributes
+                }
+            }
+            button.tag = row
+            button.isEnabled = !busy
+            button.accessibilityLabel = configuration.title
+            button.accessibilityHint = configuration.subtitle
+            button.translatesAutoresizingMaskIntoConstraints = false
+            button.addTarget(self, action: #selector(exportAction(_:)), for: .touchUpInside)
+            cell.backgroundColor = .clear
+            cell.separatorInset = UIEdgeInsets(top: 0, left: tableView.bounds.width, bottom: 0, right: 0)
+            cell.contentView.addSubview(button)
+            NSLayoutConstraint.activate([
+                button.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor),
+                button.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor),
+                button.topAnchor.constraint(equalTo: cell.contentView.topAnchor, constant: 6),
+                button.bottomAnchor.constraint(equalTo: cell.contentView.bottomAnchor, constant: -6),
+                button.heightAnchor.constraint(greaterThanOrEqualToConstant: 64)
+            ])
         }
-        let share = indexPath.row == 0
-        let video = indexPath.row == 2
-        cell.textLabel?.text = share ? NSLocalizedString("CLIP_SHARE_TRACK_LINK", comment: "") : NSLocalizedString("CLIP_DOWNLOAD", comment: "")
-        cell.detailTextLabel?.text = share ? NSLocalizedString("CLIP_SHARE_DESCRIPTION", comment: "") : status ?? NSLocalizedString("CLIP_DOWNLOAD_DESCRIPTION", comment: "")
-        if video {
-            cell.textLabel?.text = NSLocalizedString("CLIP_EXPORT_VIDEO", comment: "")
-            cell.detailTextLabel?.text = status ?? NSLocalizedString("CLIP_VIDEO_DESCRIPTION", comment: "")
+        cell.textLabel?.font = .preferredFont(forTextStyle: .headline, compatibleWith: traitCollection)
+        cell.detailTextLabel?.font = .preferredFont(forTextStyle: .subheadline, compatibleWith: traitCollection)
+        for label in [cell.textLabel, cell.detailTextLabel] {
+            label?.adjustsFontForContentSizeCategory = true
+            label?.numberOfLines = 0
         }
-        cell.isUserInteractionEnabled = !busy
-        cell.contentView.alpha = busy ? 0.5 : 1
-        cell.accessibilityTraits = busy ? [.button, .notEnabled] : .button
-        cell.imageView?.image = UIImage(systemName: share ? "square.and.arrow.up" : video ? "video" : "arrow.down.to.line")
-        cell.imageView?.tintColor = DiscourseColors.current.accent
-        cell.accessoryType = .disclosureIndicator
-        cell.textLabel?.font = .preferredFont(forTextStyle: .headline)
-        cell.detailTextLabel?.font = .preferredFont(forTextStyle: .subheadline)
-        cell.textLabel?.adjustsFontForContentSizeCategory = true
-        cell.textLabel?.numberOfLines = 0
-        cell.detailTextLabel?.adjustsFontForContentSizeCategory = true
-        cell.detailTextLabel?.numberOfLines = 0
-        cell.accessibilityLabel = cell.textLabel?.text
+        cell.contentView.directionalLayoutMargins.top = 18
+        cell.contentView.directionalLayoutMargins.bottom = 18
         return cell
+    }
+    @objc private func settingChanged(_ sender: UISwitch) {
+        guard !busy else { return }
+        switch sender.tag {
+        case 0: _ = PlaybackService.sharedInstance().setNoiseReduction(enabled: sender.isOn)
+        case 1: DiscourseAudioMixer.shared.setEnabled(sender.isOn)
+        case 2: exportCC = sender.isOn
+        case 3: fadeIn = sender.isOn
+        case 4: fadeOut = sender.isOn
+        default: break
+        }
+        refreshSettings()
+    }
+    @objc private func exportAction(_ sender: UIButton) {
+        tableView(tableView, didSelectRowAt: IndexPath(row: sender.tag, section: 3))
     }
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        guard !busy else { return }
+        guard !busy, indexPath.section == 3 else { return }
         if indexPath.row == 0 {
             guard let url = DiscourseDeepLink.clipURL(discourseID: track.discourseID, audioID: track.id,
                                                        start: range.start, end: range.end) else { return }
@@ -96,16 +200,26 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
             activity.popoverPresentationController?.sourceRect = tableView.rectForRow(at: indexPath)
             present(activity, animated: true)
         } else if indexPath.row == 2 {
+            snapshotSettings()
             var configuration = PHPickerConfiguration()
             configuration.selectionLimit = 1
             configuration.filter = .any(of: [.images, .videos])
             let picker = PHPickerViewController(configuration: configuration)
             picker.delegate = self
             present(picker, animated: true)
-        } else if indexPath.row == 1 {
+        } else {
             clearVisual()
+            snapshotSettings()
             download()
         }
+    }
+    private func snapshotSettings() {
+        requestedCC = exportCC
+        let mixer = DiscourseAudioMixer.shared
+        request = DiscourseClipExportRequest(source: URL(fileURLWithPath: "/"), sourceExtension: track.audioURL?.pathExtension,
+            title: track.title, range: range, noise: PlaybackService.sharedInstance().noiseReductionEnabled,
+            music: mixer.selectedURL, musicEnabled: mixer.isEnabled && mixer.selectedURL != nil,
+            musicVolume: Float(mixer.volume) / 100, musicLoops: mixer.isLooping, fadeIn: fadeIn, fadeOut: fadeOut)
     }
     private func download() {
         status = nil
@@ -113,10 +227,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         exporting = false
         isModalInPresentation = true
         operation = UUID()
-        let mixer = DiscourseAudioMixer.shared
-        request = DiscourseClipExportRequest(source: URL(fileURLWithPath: "/"), sourceExtension: track.audioURL?.pathExtension,
-            title: track.title, range: range, visual: visual, noise: PlaybackService.sharedInstance().noiseReductionEnabled,
-            music: mixer.selectedURL, musicEnabled: mixer.isEnabled, musicVolume: Float(mixer.volume) / 100, musicLoops: mixer.isLooping)
+        request?.visual = visual
         showProgress(isVideo: visual != nil)
         tableView.reloadData()
         if DiscourseDownloadStore.shared.localURL(for: track.id) == nil {
@@ -140,7 +251,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
                 guard let self else { return }
                 do {
                     var captions: [DiscourseCaption]?
-                    if self.exportCC {
+                    if self.requestedCC {
                         guard let url = self.track.captionURL else { throw DiscourseClipExporter.error("CLIP_CC_FAILED") }
                         do { captions = try await DiscourseCaptionLoader().load(url: url) }
                         catch { throw DiscourseClipExporter.error("CLIP_CC_FAILED") }
@@ -153,7 +264,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
                     let request = DiscourseClipExportRequest(source: source, sourceExtension: snapshot.sourceExtension,
                         title: snapshot.title, range: snapshot.range, visual: snapshot.visual, noise: snapshot.noise,
                         music: snapshot.music, musicEnabled: snapshot.musicEnabled, musicVolume: snapshot.musicVolume,
-                        musicLoops: snapshot.musicLoops, captions: captions)
+                        musicLoops: snapshot.musicLoops, captions: captions, fadeIn: snapshot.fadeIn, fadeOut: snapshot.fadeOut)
                     self.exporter.export(request, progress: { [weak self] fraction in
                         guard let self, self.operation == token else { return }
                         self.progressController?.update(progress: fraction)
@@ -227,7 +338,6 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         busy = false; exporting = false; isModalInPresentation = false
         exporter.clean(); clearVisual(); status = nil; tableView.reloadData()
     }
-    @objc private func captionsChanged(_ sender: UISwitch) { exportCC = sender.isOn }
     private func clearVisual() {
         if let visualDirectory { try? FileManager.default.removeItem(at: visualDirectory) }
         visualDirectory = nil; visual = nil
@@ -266,7 +376,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
     }
 }
 
-/// One operation owns the progress surface; the Save Clip rows retain their descriptions.
+/// One operation owns the progress surface while the export drawer keeps its options.
 final class DiscourseClipProgressController: UIViewController {
     var onCancel: (() -> Void)?
     private let isVideo: Bool

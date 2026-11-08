@@ -272,6 +272,16 @@ class VLCTestMenu: XCTestCase {
         let handle = end.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         handle.press(forDuration: 0.1, thenDragTo: handle.withOffset(CGVector(dx: 100, dy: 0)))
         XCTAssertNotEqual(end.value as? String, before)
+        // Cancel the longer selection before shortening it for the Files round trip.
+        app.buttons["Cut"].tap()
+        XCTAssertTrue(app.navigationBars["Export Clip"].waitForExistence(timeout: 5))
+        app.tables.firstMatch.swipeUp()
+        app.buttons["Download clip audio"].tap()
+        let cancelExport = app.buttons["clipExportCancel"]
+        XCTAssertTrue(cancelExport.waitForExistence(timeout: 5))
+        cancelExport.tap()
+        XCTAssertTrue(app.navigationBars["Export Clip"].waitForExistence(timeout: 5))
+        app.navigationBars["Export Clip"].buttons["Close"].tap()
         let start = app.descendants(matching: .any)["Clip start"].firstMatch
         let startHandle = start.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         startHandle.press(forDuration: 0.1, thenDragTo: end.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
@@ -307,27 +317,27 @@ class VLCTestMenu: XCTestCase {
         editorImage.lifetime = .keepAlways
         add(editorImage)
         app.buttons["Cut"].tap()
-        XCTAssertTrue(app.navigationBars["Save Clip"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.tables.cells.containing(.staticText, identifier: "Download Clip").firstMatch.exists)
+        XCTAssertTrue(app.navigationBars["Export Clip"].waitForExistence(timeout: 5))
+        app.tables.firstMatch.swipeUp()
+        XCTAssertTrue(app.buttons["Download clip audio"].exists)
         let drawerImage = XCTAttachment(screenshot: app.screenshot())
-        XCTAssertTrue(app.tables.cells.containing(.staticText, identifier: "Export Video").firstMatch.exists)
-        app.tables.cells.containing(.staticText, identifier: "Export Video").firstMatch.tap()
+        XCTAssertTrue(app.buttons["Create video from clip"].exists)
+        app.buttons["Create video from clip"].tap()
         let pickerCancel = app.navigationBars["Photos"].buttons["Cancel"]
         XCTAssertTrue(pickerCancel.waitForExistence(timeout: 5))
         pickerCancel.tap()
-        XCTAssertTrue(app.navigationBars["Save Clip"].waitForExistence(timeout: 5))
-        app.tables.cells.containing(.staticText, identifier: "Download Clip").firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Export Clip"].waitForExistence(timeout: 5))
+        app.buttons["Download clip audio"].tap()
         let filesSave = app.buttons["Save"].firstMatch
         XCTAssertTrue(filesSave.waitForExistence(timeout: 60), "Processed clip should open Files")
         filesSave.tap()
         let keepBoth = app.alerts.buttons["Keep Both"]
         if keepBoth.waitForExistence(timeout: 2) { keepBoth.tap() }
-        XCTAssertTrue(app.navigationBars["Save Clip"].waitForExistence(timeout: 5))
-        drawerImage.name = "Save Clip drawer"
+        XCTAssertTrue(app.navigationBars["Export Clip"].waitForExistence(timeout: 5))
+        drawerImage.name = "Export Clip drawer"
         drawerImage.lifetime = .keepAlways
         add(drawerImage)
-        XCTAssertTrue(app.staticTexts["Share clip link with anyone"].exists)
-        app.tables.cells.containing(.staticText, identifier: "Share Link to Track").firstMatch.tap()
+        app.buttons["Share clip link"].tap()
         let shareSheet = app.otherElements["ActivityListView"]
         XCTAssertTrue(shareSheet.waitForExistence(timeout: 5))
         XCTAssertTrue(shareSheet.cells["Copy"].exists)

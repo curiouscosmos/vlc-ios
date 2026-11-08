@@ -55,26 +55,105 @@ final class DiscourseClipTests: XCTestCase {
 
     @MainActor
     func testDrawerCaptionsAreOptionalAndResetEachSession() throws {
-        for hasCC in [false, true] {
+        for (hasCC, path) in [(false, "https://example.com/a.srt"), (true, "https://example.com/a.srt"), (true, "http://invalid.example/a.srt")] {
             let track = DiscourseAudio(id: "a", discourseID: "d", discourseName: "", title: "Track", audioURLString: "",
-                                       hasCC: hasCC, ccPath: "https://example.com/a.srt")
+                                       hasCC: hasCC, ccPath: path)
             func drawer() -> DiscourseClipSaveController {
                 let controller = DiscourseClipSaveController(track: track, range: DiscourseClipRange(duration: 3, position: 0))
                 controller.loadViewIfNeeded()
                 return controller
             }
             let controller = drawer()
-            XCTAssertEqual(controller.tableView(controller.tableView, numberOfRowsInSection: 0), hasCC ? 4 : 3)
-            if hasCC {
-                func toggle(_ controller: DiscourseClipSaveController) throws -> UISwitch {
-                    let cell = controller.tableView(controller.tableView, cellForRowAt: IndexPath(row: 3, section: 0))
-                    return try XCTUnwrap(cell.accessoryView as? UISwitch)
+            func toggle(_ controller: DiscourseClipSaveController, section: Int, row: Int) throws -> UISwitch {
+                let cell = controller.tableView(controller.tableView, cellForRowAt: IndexPath(row: row, section: section))
+                return try XCTUnwrap(cell.accessoryView as? UISwitch)
+            }
+            let captions = try toggle(controller, section: 1, row: 2)
+            XCTAssertEqual(captions.isEnabled, track.captionURL != nil)
+            XCTAssertFalse(captions.isOn)
+            if track.captionURL != nil {
+                captions.isOn = true; captions.sendActions(for: .valueChanged)
+                XCTAssertTrue(try toggle(controller, section: 1, row: 2).isOn)
+                XCTAssertFalse(try toggle(drawer(), section: 1, row: 2).isOn)
+            }
+            for row in 0..<2 {
+                let fade = try toggle(controller, section: 2, row: row)
+                XCTAssertTrue(fade.isOn)
+                fade.isOn = false; fade.sendActions(for: .valueChanged)
+                XCTAssertFalse(try toggle(controller, section: 2, row: row).isOn)
+                XCTAssertTrue(try toggle(drawer(), section: 2, row: row).isOn)
+            }
+            let noise = try toggle(controller, section: 1, row: 0)
+            XCTAssertEqual(noise.isOn, PlaybackService.sharedInstance().noiseReductionEnabled)
+            XCTAssertEqual(noise.isEnabled, PlaybackService.sharedInstance().noiseReductionAvailable)
+            let mixer = DiscourseAudioMixer.shared
+            let original = mixer.isEnabled
+            defer { mixer.setEnabled(original) }
+            mixer.setEnabled(!original)
+            NotificationCenter.default.post(name: .discourseMixerDidChange, object: mixer)
+            let music = try toggle(controller, section: 1, row: 1)
+            XCTAssertEqual(music.isOn, !original)
+            XCTAssertEqual(music.isEnabled, mixer.selectedURL != nil)
+            if mixer.selectedURL == nil {
+                let cell = controller.tableView(controller.tableView, cellForRowAt: IndexPath(row: 1, section: 1))
+                XCTAssertEqual(cell.detailTextLabel?.text, "Add music in Mixer first")
+            }
+            for (row, title) in ["Share clip link", "Download clip audio", "Create video from clip"].enumerated() {
+                let cell = controller.tableView(controller.tableView, cellForRowAt: IndexPath(row: row, section: 3))
+                XCTAssertEqual(cell.contentView.subviews.compactMap { $0 as? UIButton }.first?.configuration?.title, title)
+            }
+        }
+    }
+
+    @MainActor
+    func testDrawerLayoutsAtNarrowAndAccessibilitySizes() throws {
+        let original = PresentationTheme.current
+        defer { PresentationTheme.current = original }
+        for (name, theme, category) in [("dark", PresentationTheme.darkTheme, UIContentSizeCategory.large),
+                                         ("light", .brightTheme, .large),
+                                         ("accessible", .darkTheme, .accessibilityExtraExtraExtraLarge)] {
+            PresentationTheme.current = theme
+            let track = DiscourseAudio(id: "a", discourseID: "d", discourseName: "", title: "A long discourse title that wraps on a narrow screen", audioURLString: "")
+            let drawer = DiscourseClipSaveController(track: track, range: DiscourseClipRange(duration: 120, position: 10))
+            let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+            let window = UIWindow(windowScene: scene)
+            window.rootViewController = drawer
+            window.makeKeyAndVisible()
+            defer { window.isHidden = true }
+            drawer.loadViewIfNeeded()
+            if #available(iOS 17.0, *) {
+                drawer.traitOverrides.preferredContentSizeCategory = category
+                XCTAssertEqual(drawer.traitCollection.preferredContentSizeCategory, category)
+            }
+            RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+            drawer.view.frame = CGRect(x: 0, y: 0, width: 320, height: 568)
+            drawer.view.layoutIfNeeded()
+            drawer.tableView.reloadData(); drawer.tableView.layoutIfNeeded()
+            let image = UIGraphicsImageRenderer(bounds: drawer.view.bounds).image { context in
+                drawer.view.layer.render(in: context.cgContext)
+            }
+            let attachment = XCTAttachment(image: image)
+            attachment.name = "Export drawer \(name)"; attachment.lifetime = .keepAlways; add(attachment)
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("clip-drawer-\(name).png")
+            try image.pngData()?.write(to: url)
+            print("Clip drawer preview: \(url.path)")
+            let last = IndexPath(row: 2, section: 3)
+            drawer.tableView.scrollToRow(at: last, at: .bottom, animated: false)
+            drawer.tableView.layoutIfNeeded()
+            XCTAssertTrue(drawer.tableView.indexPathsForVisibleRows?.contains(last) == true)
+            let actions = UIGraphicsImageRenderer(bounds: drawer.view.bounds).image { context in
+                drawer.view.layer.render(in: context.cgContext)
+            }
+            try actions.pngData()?.write(to: url.deletingLastPathComponent().appendingPathComponent("clip-drawer-\(name)-actions.png"))
+            for cell in drawer.tableView.visibleCells {
+                XCTAssertGreaterThanOrEqual(cell.bounds.height, 44)
+                if let button = cell.contentView.subviews.compactMap({ $0 as? UIButton }).first {
+                    XCTAssertLessThanOrEqual(button.bounds.height, drawer.view.safeAreaLayoutGuide.layoutFrame.height,
+                                             "An action must fit the narrow viewport even at accessibility sizes")
                 }
-                let first = try toggle(controller)
-                XCTAssertFalse(first.isOn)
-                first.isOn = true; first.sendActions(for: .valueChanged)
-                XCTAssertTrue(try toggle(controller).isOn)
-                XCTAssertFalse(try toggle(drawer()).isOn)
+                if let toggle = cell.accessoryView {
+                    XCTAssertLessThanOrEqual(cell.textLabel?.frame.maxX ?? 0, toggle.frame.minX)
+                }
             }
         }
     }
@@ -148,6 +227,62 @@ final class DiscourseClipTests: XCTestCase {
             request.musicVolume = 0
             wait(for: [done], timeout: 30)
         }
+    }
+
+    func testExportFadesInAudioAndVideoWithBackgroundMusic() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appendingPathComponent("tone.wav")
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 288000))
+        buffer.frameLength = buffer.frameCapacity
+        let data = try XCTUnwrap(buffer.floatChannelData)
+        for index in 0..<Int(buffer.frameLength) {
+            for channel in 0..<2 { data[channel][index] = sin(Float(index) * Float.pi / 24) * 0.4 }
+        }
+        try AVAudioFile(forWriting: source, settings: format.settings).write(from: buffer)
+        let image = folder.appendingPathComponent("photo.png")
+        let picture = UIGraphicsImageRenderer(size: CGSize(width: 32, height: 32)).image { _ in
+            UIColor.red.setFill(); UIRectFill(CGRect(x: 0, y: 0, width: 32, height: 32))
+        }
+        try picture.pngData()?.write(to: image)
+        for duration in [1.0, 6.0] {
+            for (fadeIn, fadeOut) in [(false, false), (true, false), (false, true), (true, true)] {
+                for video in [false, true] {
+                    let exporter = DiscourseClipExporter()
+                    defer { exporter.clean() }
+                    let done = expectation(description: "Faded soundtrack")
+                    let request = DiscourseClipExportRequest(source: source, sourceExtension: "wav", title: "Fade",
+                        range: DiscourseClipRange(duration: duration, position: 0), visual: video ? image : nil,
+                        music: source, musicEnabled: true, musicVolume: 1, fadeIn: fadeIn, fadeOut: fadeOut)
+                    exporter.export(request) { result in
+                        do {
+                            let url = try XCTUnwrap(try result.get().first)
+                            XCTAssertEqual(CMTimeGetSeconds(AVURLAsset(url: url).duration), duration, accuracy: 0.035)
+                            let audio = try AVAudioFile(forReading: url)
+                            let pcm = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: audio.processingFormat, frameCapacity: AVAudioFrameCount(audio.length)))
+                            try audio.read(into: pcm)
+                            let channel = try XCTUnwrap(pcm.floatChannelData)[0]
+                            let count = Int(pcm.frameLength)
+                            let ramp: [Float] = duration == 6 ? [0.06, 0.75, 1, 1, 1]
+                                : fadeIn && fadeOut ? [0.04, 0.5, 1, 1, 1] : [0.02, 0.25, 0.5, 0.75, 0.98]
+                            for (index, fraction) in [0.02, 0.25, 0.5, 0.75, 0.98].enumerated() {
+                                let center = min(count - 481, max(480, Int(fraction * Double(count))))
+                                let rms = sqrt((center-240..<center+240).reduce(Float(0)) { $0 + channel[$1] * channel[$1] } / 480)
+                                let expected = 0.8 / sqrt(Float(2)) * min(fadeIn ? ramp[index] : 1, fadeOut ? ramp[4 - index] : 1)
+                                XCTAssertEqual(rms, expected, accuracy: 0.035, "\(video) \(duration) \(fadeIn) \(fadeOut) at \(fraction)")
+                            }
+                        } catch { XCTFail("Fade export failed: \(error)") }
+                        done.fulfill()
+                    }
+                    wait(for: [done], timeout: 30)
+                }
+            }
+        }
+        XCTAssertEqual(DiscourseClipExporter.fadeGain(frame: 0, frames: 48000, fadeIn: true, fadeOut: true), 0)
+        XCTAssertEqual(DiscourseClipExporter.fadeGain(frame: 47999, frames: 48000, fadeIn: true, fadeOut: true), 0)
+        XCTAssertEqual(DiscourseClipExporter.fadeGain(frame: 24000, frames: 48000, fadeIn: true, fadeOut: true), 1, accuracy: 0.0001)
     }
 
     func testNoiseWithoutMusicRetainsFractionalRange() throws {
