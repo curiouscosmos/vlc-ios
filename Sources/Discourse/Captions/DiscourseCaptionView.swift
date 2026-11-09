@@ -4,6 +4,15 @@ import UIKit
 private final class DiscourseCaptionText: UITextView {
     var userScrolled: (() -> Void)?
     private var phrases: [Any] = []
+    // Phrases provide accessible content; avoid UIKit converting the entire styled transcript.
+    override var accessibilityValue: String? {
+        get { nil }
+        set { }
+    }
+    override var accessibilityAttributedValue: NSAttributedString? {
+        get { nil }
+        set { }
+    }
     override var accessibilityElements: [Any]? {
         get { phrases }
         set { phrases = newValue ?? [] }
@@ -44,7 +53,11 @@ final class DiscourseCaptionView: UIView, UITextViewDelegate {
     var phraseTapped: ((DiscourseCaption) -> Void)?
     var retry: (() -> Void)?
     private(set) var captions: [DiscourseCaption] = []
-    private let transcript = DiscourseCaptionText(frame: .zero, textContainer: nil)
+    private let transcript: DiscourseCaptionText = {
+        // TextKit 2 fragment drawing stalls the main thread when scrolling long transcripts.
+        if #available(iOS 16.0, *) { return DiscourseCaptionText(usingTextLayoutManager: false) }
+        return DiscourseCaptionText(frame: .zero, textContainer: nil)
+    }()
     private var phraseRanges: [NSRange] = []
     private var phraseElements: [DiscourseCaptionElement] = []
     private let message = UILabel()
@@ -187,7 +200,10 @@ final class DiscourseCaptionView: UIView, UITextViewDelegate {
                             .paragraphStyle: paragraph], range: NSRange(location: 0, length: text.length))
         transcript.attributedText = text
         transcript.accessibilityElements = phraseElements
+        // Batch initial styling to avoid a full layout for every phrase in a visible transcript.
+        transcript.textStorage.beginEditing()
         for index in captions.indices { stylePhrase(at: index) }
+        transcript.textStorage.endEditing()
     }
 
     private func stylePhrase(at index: Int) {

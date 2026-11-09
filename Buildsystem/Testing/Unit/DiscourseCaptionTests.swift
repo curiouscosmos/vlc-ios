@@ -125,9 +125,15 @@ final class DiscourseCaptionTests: XCTestCase {
     func testTranscriptDisplaysAllPhrasesAndReportsTaps() throws {
         let view = DiscourseCaptionView(frame: CGRect(x: 0, y: 0, width: 320, height: 300))
         let captions = DiscourseCaptions.parse(source)
-        view.display(captions)
         let transcript = try XCTUnwrap(view.subviews.compactMap { $0 as? UITextView }.first)
+        if #available(iOS 16.0, *) {
+            // Check before display, taps or accessibility geometry can cause implicit fallback.
+            XCTAssertNil(transcript.textLayoutManager)
+        }
+        view.display(captions)
         XCTAssertEqual(transcript.text, "ओम नमः श्री संभवे, स्वात्मानंद")
+        XCTAssertNil(transcript.accessibilityValue)
+        XCTAssertNil(transcript.accessibilityAttributedValue)
         let elements = try XCTUnwrap(transcript.accessibilityElements as? [UIAccessibilityElement])
         XCTAssertEqual(elements.count, 2)
         var tapped: DiscourseCaption?
