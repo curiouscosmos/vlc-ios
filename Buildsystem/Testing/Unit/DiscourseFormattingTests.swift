@@ -140,6 +140,73 @@ final class DiscourseFormattingTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testDetailHeaderMetadataChipsAndLayouts() throws {
+        let original = PresentationTheme.current
+        defer { PresentationTheme.current = original }
+        let like = DiscourseLikeState(isLiked: false, count: 2, isPending: false)
+        for (themeName, theme) in [("dark", PresentationTheme.darkTheme), ("light", .brightTheme)] {
+            PresentationTheme.current = theme
+            for width in [CGFloat(320), 800] {
+                for accessible in [false, true] {
+                    let header = DiscourseDetailHeaderView()
+                    let controller = UIViewController()
+                    let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+                    let window = UIWindow(windowScene: scene)
+                    window.rootViewController = controller
+                    window.makeKeyAndVisible()
+                    defer { window.isHidden = true }
+                    controller.view.addSubview(header)
+                    if #available(iOS 17.0, *) {
+                        controller.traitOverrides.preferredContentSizeCategory = accessible ? .accessibilityExtraExtraExtraLarge : .large
+                    }
+                    RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+                    let discourse = Discourse(id: "d", title: "A Bird on the Wing", language: "english",
+                        date: "1974-06-10 09:00:00", location: "Pune, Maharashtra, India", totalTracks: 11)
+                    header.configure(with: discourse, like: like)
+                    header.frame = CGRect(x: 0, y: 0, width: width, height: 500)
+                    header.layoutIfNeeded()
+                    header.frame.size = header.systemLayoutSizeFitting(CGSize(width: width, height: 0),
+                        withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel)
+                    header.layoutIfNeeded()
+                    let chips = header.subviews.flatMap { descendants(in: $0) }.compactMap { $0 as? DiscourseCardMetadata }
+                    let city = try XCTUnwrap(chips.first { $0.accessibilityIdentifier == "discourseDetailLocation" })
+                    let date = try XCTUnwrap(chips.first { $0.accessibilityIdentifier == "discourseDetailDate" })
+                    XCTAssertEqual(city.text, "Pune")
+                    XCTAssertEqual(date.text, DiscourseMetadataText.date(discourse.date))
+                    let title = try XCTUnwrap(allLabels(in: header).first { $0.text == discourse.title })
+                    let titleFrame = title.convert(title.bounds, to: header)
+                    for chip in [city, date] {
+                        XCTAssertFalse(chip.isHidden)
+                        XCTAssertEqual(chip.accessibilityLabel, chip.text)
+                        let frame = chip.convert(chip.bounds, to: header)
+                        XCTAssertGreaterThanOrEqual(frame.minY, titleFrame.maxY)
+                        XCTAssertLessThanOrEqual(frame.maxX, width + 0.5)
+                        XCTAssertLessThanOrEqual(frame.maxY, header.bounds.height + 0.5)
+                    }
+                    let image = UIGraphicsImageRenderer(bounds: header.bounds).image { context in
+                        DiscourseColors.current.appBackground.setFill()
+                        context.fill(header.bounds)
+                        header.layer.render(in: context.cgContext)
+                    }
+                    let attachment = XCTAttachment(image: image)
+                    attachment.name = "Discourse header \(themeName) \(Int(width)) \(accessible ? "accessible" : "regular")"
+                    attachment.lifetime = .keepAlways; add(attachment)
+                    for (rawDate, rawLocation) in [(nil, nil), (discourse.date, nil), (nil, discourse.location), ("invalid", " , India")] as [(String?, String?)] {
+                        header.configure(with: Discourse(id: "d", title: discourse.title, date: rawDate, location: rawLocation), like: like)
+                        XCTAssertEqual(city.isHidden, DiscourseMetadataText.location(rawLocation) == nil)
+                        XCTAssertEqual(date.isHidden, DiscourseMetadataText.date(rawDate) == nil)
+                        if city.isHidden && date.isHidden { XCTAssertTrue(city.superview?.isHidden == true) }
+                    }
+                }
+            }
+        }
+    }
+
+    private func descendants(in view: UIView) -> [UIView] {
+        [view] + view.subviews.flatMap { descendants(in: $0) }
+    }
+
     func testTrackSubtitleOmitsDuplicateTitleAndKeepsDurationFirst() {
         XCTAssertEqual(DiscourseMetadataText.trackSubtitle(title: "Talk 001", discourseName: " talk 001 ",
                                                           durationSeconds: 5940), "1:39:00")

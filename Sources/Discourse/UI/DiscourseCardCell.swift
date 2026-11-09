@@ -325,7 +325,7 @@ final class DiscourseCardView: UIView {
     }
 }
 
-private final class DiscourseCardMetadata: UIView {
+final class DiscourseCardMetadata: UIView {
     private let label = UILabel()
     private let icon: UIImageView
     private let pill: Bool

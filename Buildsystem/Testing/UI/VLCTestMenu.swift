@@ -172,6 +172,7 @@ class VLCTestMenu: XCTestCase {
 
         XCTAssertTrue(app.buttons["discoursePlayAll"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.tables["discourseTracks"].exists)
+        attachDiscourseCards("Discourse detail header")
 
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(app.buttons["Filter"].waitForExistence(timeout: 5))

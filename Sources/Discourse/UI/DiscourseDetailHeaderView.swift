@@ -9,7 +9,7 @@
  * like the upstream project it is derived from. See COPYING.
  *
  * The table header of a discourse: artwork, title, the language/track/like
- * summary and the "Play all" action.
+ * summary, optional city/date chips and the "Play all" action.
  *****************************************************************************/
 
 import UIKit
@@ -18,6 +18,12 @@ final class DiscourseDetailHeaderView: UIView {
     private let artworkView = VLCNetworkImageView()
     private let titleLabel = UILabel()
     private let metadataLabel = UILabel()
+    private let locationChip = DiscourseCardMetadata(symbol: "mappin.and.ellipse", pill: true)
+    private let dateChip = DiscourseCardMetadata(symbol: "calendar", pill: true)
+    private let chips = UIStackView()
+    private let textStack = UIStackView()
+    private let stack = UIStackView()
+    private var accessibleTextWidth: NSLayoutConstraint?
     let playAllButton = UIButton(type: .system)
     let likeControl = DiscourseLikeControl()
 
@@ -77,13 +83,26 @@ final class DiscourseDetailHeaderView: UIView {
         actionsStack.alignment = .center
         actionsStack.spacing = 12
 
-        let textStack = UIStackView(arrangedSubviews: [titleLabel, metadataLabel, actionsStack])
+        chips.axis = .vertical
+        chips.alignment = .leading
+        chips.spacing = 6
+        chips.addArrangedSubview(locationChip)
+        chips.addArrangedSubview(dateChip)
+        for chip in [locationChip, dateChip] {
+            chip.isAccessibilityElement = true
+            chip.accessibilityTraits = .staticText
+        }
+        locationChip.accessibilityIdentifier = "discourseDetailLocation"
+        dateChip.accessibilityIdentifier = "discourseDetailDate"
+
+        for view in [titleLabel, chips, metadataLabel, actionsStack] { textStack.addArrangedSubview(view) }
         textStack.translatesAutoresizingMaskIntoConstraints = false
         textStack.axis = .vertical
         textStack.alignment = .leading
         textStack.spacing = 8
 
-        let stack = UIStackView(arrangedSubviews: [artworkView, textStack])
+        stack.addArrangedSubview(artworkView)
+        stack.addArrangedSubview(textStack)
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .horizontal
         stack.alignment = .top
@@ -100,7 +119,21 @@ final class DiscourseDetailHeaderView: UIView {
             artworkView.heightAnchor.constraint(equalTo: artworkView.widthAnchor)
         ])
 
+        accessibleTextWidth = textStack.widthAnchor.constraint(equalTo: stack.widthAnchor)
+        updateLayout()
         updateTheme()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        updateLayout()
+    }
+
+    private func updateLayout() {
+        let accessible = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        stack.axis = accessible ? .vertical : .horizontal
+        stack.alignment = accessible ? .leading : .top
+        accessibleTextWidth?.isActive = accessible
     }
 
     // MARK: - Content
@@ -108,6 +141,11 @@ final class DiscourseDetailHeaderView: UIView {
     func configure(with discourse: Discourse, like: DiscourseLikeState) {
         let title = discourse.title.trimmingCharacters(in: .whitespacesAndNewlines)
         titleLabel.text = title
+        locationChip.setText(DiscourseMetadataText.location(discourse.location))
+        dateChip.setText(DiscourseMetadataText.date(discourse.date))
+        locationChip.accessibilityLabel = locationChip.text
+        dateChip.accessibilityLabel = dateChip.text
+        chips.isHidden = locationChip.isHidden && dateChip.isHidden
         metadataLabel.text = DiscourseMetadataText.summary(language: discourse.language,
                                                            tracks: discourse.totalTracks,
                                                            likes: like.count)
@@ -140,5 +178,7 @@ final class DiscourseDetailHeaderView: UIView {
         playAllButton.configuration?.baseBackgroundColor = colors.accent
         playAllButton.configuration?.baseForegroundColor = .white
         likeControl.updateTheme()
+        locationChip.updateTheme()
+        dateChip.updateTheme()
     }
 }
