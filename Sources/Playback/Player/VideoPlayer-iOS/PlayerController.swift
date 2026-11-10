@@ -84,6 +84,7 @@ class PlayerController: NSObject {
     private func setupObservers() {
         let notificationCenter = NotificationCenter.default
 
+        #if !os(iOS)
         // External Screen
         notificationCenter.addObserver(self,
                                        selector: #selector(handleExternalScreenDidConnect),
@@ -93,6 +94,7 @@ class PlayerController: NSObject {
                                        selector: #selector(handleExternalScreenDidDisconnect),
                                        name: NSNotification.Name(rawValue: VLCNonInteractiveWindowSceneDisconnected),
                                        object: nil)
+        #endif
         // UIApplication
         notificationCenter.addObserver(self,
                                        selector: #selector(handleAppBecameActive),

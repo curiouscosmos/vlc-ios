@@ -54,14 +54,19 @@
         } else {
             orientation = UIInterfaceOrientationMaskPortrait;
         }
+        #if !TARGET_OS_IOS
         VLCPlayerDisplayController *vpdc = [[VLCPlaybackService sharedInstance] playerDisplayController];
         VLCVideoPlayerViewController *videoVC = (VLCVideoPlayerViewController *)vpdc.videoPlayerViewController;
         videoVC.supportedInterfaceOrientations = orientation;
+        UIViewController *rotationPresenter = videoVC.navigationController;
+        #else
+        UIViewController *rotationPresenter = self.window.rootViewController.presentedViewController ?: self.window.rootViewController;
+        #endif
 
         /* this is a gross hack to force the OS to redraw */
         DummyViewController *dummyVC = [DummyViewController new];
         dummyVC.modalPresentationStyle = UIModalPresentationFullScreen;
-        [videoVC.navigationController presentViewController:dummyVC animated:NO completion:^{
+        [rotationPresenter presentViewController:dummyVC animated:NO completion:^{
             [dummyVC dismissViewControllerAnimated:NO completion:nil];
         }];
     }

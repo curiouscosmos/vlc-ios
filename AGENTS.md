@@ -168,6 +168,9 @@ Before changing observable behaviour, read the corresponding §6 contract in [Ag
 - Track cards show the title once; subtitles put duration first and omit a matching discourse name.
 - Detail track rows keep the duration, download and like controls at their intrinsic width; long titles wrap to a second line instead of squeezing the icons.
 - Player scrub-bar seeks capture the chosen time when the gesture ends, hold the display until the player reports it, and use absolute timestamps for audio, so streaming position updates cannot snap a 20-minute seek back to the pre-seek time.
+- iOS playback is audio-only, including mixed containers and files with embedded artwork. Use the audio player and
+  existing queue/mini-player; video screens, Picture in Picture and external video scenes are excluded from shipping
+  targets. Audio casting/AirPlay and AVFoundation clip-to-video export remain available.
 - Dark is the default; light, Dynamic Type, accessibility and localisation must work.
 
 ## 7. Local persistence contract
@@ -176,7 +179,7 @@ Before changing persisted state, read the key/type/owner table in [AgentReferenc
 
 ## 8. Testing and verification
 
-Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseCaptionTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **213 unit tests** and **19 UI tests** (§3.5).
+Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseCaptionTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **218 unit tests** and **19 UI tests** (§3.5).
 
 Manual: clean build; local playback/playlists/background/lock screen; five tabs and branding; catalogue paging/filters/refresh; detail queue continuation; Home sections/states; like persistence and rollback; 60 s qualification and 24 h stats dedupe; downloads (progress/cancel/remove/offline); mixer add/select/reorder/remove/clear/follow/volume/relaunch; VoiceOver, Dynamic Type, light theme; offline, interruption, route change and media-services reset on a device. UI tests cover navigation, catalogue → detail, search, Home, the like round trip, the download round trip (skips on a slow CDN), the mixer picker, playback history, payload-less favourites, and clip preview progress and end stopping, and the clip editor/save drawer link sharing, video-picker cancellation and processed-audio Files saving.
 
@@ -184,7 +187,9 @@ Manual: clean build; local playback/playlists/background/lock screen; five tabs 
 
 iOS shipping targets exclude upstream network/cloud browsing, Wi-Fi upload/web control, podcasts/radio/On Air,
 donations, onboarding, legacy Transfers and radio/video App Intents. CarPlay retains library/playlists. Cloud SDKs
-and CocoaHTTPServer are unlinked from iOS; shared playback/video internals remain pending a separate audited removal.
+and CocoaHTTPServer are unlinked from iOS. iOS uses the existing audio player for every track; video playback screens,
+previews, Picture in Picture, subtitle downloading and external video scenes are excluded from both shipping targets.
+The main VLC engine disables video/subpicture output; the audio mixer and AVFoundation clip-video exports remain.
 
 Playback performance: five-second checkpoints reuse queue metadata and write on the snapshot queue; lifecycle saves drain writes synchronously. Queue identity records persist in batches, and identity/progress indexes stay in memory under their existing serial owners. Download progress is coalesced and targets affected controls; Home reuses local history until the library changes and skips unchanged sections; detail cache reads/sorting run off-main and unchanged track lists skip registration/rendering.
 

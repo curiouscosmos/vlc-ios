@@ -47,6 +47,7 @@
 "EQUALIZER_MOVE_DOWN" = "Move Down";
 
 "PLAYBACK_FAILED" = "Playback failed";
+"AUDIO_ONLY_NO_AUDIO" = "This file doesn’t contain a playable audio track.";
 "PLEASE_WAIT" = "Please wait";
 "AR_CHANGED" = "Aspect Ratio: %@";
 "DEFAULT" = "Default";

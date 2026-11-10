@@ -18,7 +18,6 @@ import MediaPlayer
 @objc(VLCMediaNavigationBarDelegate)
 protocol MediaNavigationBarDelegate {
     func mediaNavigationBarDidTapClose(_ mediaNavigationBar: MediaNavigationBar)
-    @objc optional func mediaNavigationBarDidTapPictureInPicture(_ mediaNavigationBar: MediaNavigationBar)
     @objc optional func mediaNavigationBarDidToggleQueueView(_ mediaNavigationBar: MediaNavigationBar)
     @objc optional func mediaNavigationBarDidToggleFavorite(_ mediaNavigationBar: MediaNavigationBar)
     @objc optional func mediaNavigationBarDidToggleChromeCast(_ mediaNavigationBar: MediaNavigationBar)
@@ -120,16 +119,6 @@ private enum RendererActionSheetContent: Int, CaseIterable {
         return chromeButton
     }()
 
-    lazy var pictureInPictureButton: UIButton = {
-        var button = UIButton(type: .system)
-        button.addTarget(self, action: #selector(togglePictureInPicture),
-                               for: .touchDown)
-        button.setImage(UIImage(named: "pip.enter"), for: .normal)
-        button.tintColor = .white
-        button.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-        return button
-    }()
-
     private var closureQueue: (() -> Void)? = nil
 
     private lazy var deviceActionSheet: ActionSheet = {
@@ -198,14 +187,7 @@ private enum RendererActionSheetContent: Int, CaseIterable {
         ])
     }
 
-#if os(iOS)
-    func addPictureInPictureButton() {
-        addArrangedSubview(pictureInPictureButton)
-        NSLayoutConstraint.activate([
-            pictureInPictureButton.widthAnchor.constraint(equalTo: heightAnchor)
-        ])
-    }
-#endif
+
 
     func updateDeviceButton(with image: UIImage?, color: UIColor) {
 #if os(iOS)
@@ -284,10 +266,6 @@ private enum RendererActionSheetContent: Int, CaseIterable {
     }
 #endif
 
-    func togglePictureInPicture() {
-        delegate?.mediaNavigationBarDidTapPictureInPicture?(self)
-    }
-
     func handleCloseTap() {
         assert(delegate != nil, "Delegate not set for MediaNavigationBar")
         delegate?.mediaNavigationBarDidTapClose(self)
@@ -335,12 +313,7 @@ private enum RendererActionSheetContent: Int, CaseIterable {
         closePlaybackButton.accessibilityHint = accessibility.1
     }
 
-#if os(iOS)
-    func updatePictureInPictureButton(enabled: Bool) {
-        let image = UIImage(named: enabled ? "pip.exit" : "pip.enter")
-        pictureInPictureButton.setImage(image, for: .normal)
-    }
-#endif
+
 }
 
 // MARK: - ActionSheetDelegate, ActionSheetDataSource

@@ -73,7 +73,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
 #if TARGET_OS_TV
 @interface VLCPlaybackService () <VLCMediaPlayerDelegate, VLCMediaDelegate, VLCMediaListPlayerDelegate, VLCDrawable, VLCPictureInPictureDrawable>
-#elif TARGET_OS_WATCH
+#elif TARGET_OS_WATCH || TARGET_OS_IOS
 @interface VLCPlaybackService () <VLCMediaPlayerDelegate, VLCMediaDelegate, VLCMediaListPlayerDelegate>
 #else
 @interface VLCPlaybackService () <VLCMediaPlayerDelegate, VLCMediaDelegate, VLCMediaListPlayerDelegate, VLCDrawable, VLCPictureInPictureDrawable>
@@ -138,7 +138,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     NSInteger _secondaryVideoSubtitleTrackIndex;
 }
 
-#if !TARGET_OS_WATCH
+#if !TARGET_OS_WATCH && !TARGET_OS_IOS
 @property (weak, atomic) id<VLCPictureInPictureWindowControlling> pipController;
 @property (atomic) BOOL isPipEnabled;
 @property (atomic) id<VLCPictureInPictureMediaControlling> mediaController;
@@ -342,7 +342,11 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     if (_dialogProvider) {
         return;
     }
+#if TARGET_OS_IOS
+    _dialogProvider = [[VLCDialogProvider alloc] initWithLibrary:_mediaPlayer.libraryInstance customUI:YES];
+#else
     _dialogProvider = [[VLCDialogProvider alloc] initWithLibrary:[VLCLibrary sharedLibrary] customUI:YES];
+#endif
     _customDialogHandler = [[VLCCustomDialogRendererHandler alloc]
                             initWithDialogProvider:_dialogProvider];
     _dialogProvider.customRenderer = _customDialogHandler;
@@ -363,7 +367,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         return;
     }
 
-#if !TARGET_OS_WATCH
+#if !TARGET_OS_WATCH && !TARGET_OS_IOS
     [self setupDialogProvider];
 #endif
 
@@ -411,6 +415,9 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     
     NSMutableArray *libVLCOptions = [NSMutableArray array];
 #if TARGET_OS_IOS
+    [libVLCOptions addObjectsFromArray:@[@"--no-video", @"--no-spu"]];
+#endif
+#if TARGET_OS_IOS
     BOOL chromecastPassthrough = [[userDefaults objectForKey:kVLCSettingCastingAudioPassthrough] boolValue];
     int chromecastQuality = [[userDefaults objectForKey:kVLCSettingCastingConversionQuality] intValue];
     if (chromecastPassthrough) {
@@ -452,6 +459,10 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         APLog(@"Reusing exising list player %@ with media player %@", _listPlayer, _mediaPlayer);
     }
     _listPlayer.delegate = self;
+#if TARGET_OS_IOS
+    // Audio-only options create a private library; native prompts must use that same instance.
+    [self setupDialogProvider];
+#endif
 
     NSMutableArray *debugLoggers = [NSMutableArray array];
 #if MEDIA_PLAYBACK_DEBUG
@@ -496,12 +507,6 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     newFilter.enabled = _adjustFilter.mediaPlayerAdjustFilter.isEnabled;
     _adjustFilter = [[VLCPlaybackServiceAdjustFilter alloc] initWithMediaPlayerAdjustFilter:newFilter];
 #endif
-#if TARGET_OS_IOS
-    if (!_mediaController) {
-        _mediaController = [[VLCPictureInPictureMediaController alloc] initWithMediaPlayer:_mediaPlayer];
-    }
-#endif
-
     [_mediaPlayer setDelegate:self];
     CGFloat defaultPlaybackSpeed = self.defaultPlaybackRate;
     if ([defaults boolForKey:kVLCSettingPlaybackSpeedAppliesToAll] && defaultPlaybackSpeed != 0.)
@@ -1245,7 +1250,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 #if TARGET_OS_IOS
     NSUInteger generation = _playbackGeneration;
 #endif
-#if !TARGET_OS_WATCH
+#if !TARGET_OS_WATCH && !TARGET_OS_IOS
     if (currentState == VLCMediaPlayerStatePlaying ||
         currentState == VLCMediaPlayerStatePaused) {
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -1296,6 +1301,23 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
             case VLCMediaPlayerStatePlaying: {
                 APLog(@"%s: playing", __func__);
+#if TARGET_OS_IOS
+                BOOL hasAudio = NO;
+                BOOL hasVideo = NO;
+                for (VLCMediaTrack *track in self->_mediaPlayer.media.tracksInformation) {
+                    hasAudio |= track.type == VLCMediaTrackTypeAudio;
+                    hasVideo |= track.type == VLCMediaTrackTypeVideo;
+                }
+                if (hasVideo && !hasAudio) {
+                    NSString *message = NSLocalizedString(@"AUDIO_ONLY_NO_AUDIO", nil);
+                    [[NSNotificationCenter defaultCenter] postNotificationName:VLCPlaybackServicePlaybackDidFail
+                                                                        object:self
+                                                                      userInfo:@{NSLocalizedDescriptionKey: message}];
+                    self->_sessionWillRestart = NO;
+                    [self stopPlayback];
+                    return;
+                }
+#endif
                 [[NSNotificationCenter defaultCenter] postNotificationName:VLCPlaybackServicePlaybackDidResume object:self];
 #if TARGET_OS_IOS
                 [self saveMediaForWidget];
@@ -2779,12 +2801,23 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 }
 #endif
 
+#if TARGET_OS_IOS
+// Shared library callers can request video mode; iOS always plays its audio track.
+- (BOOL)playAsAudio { return YES; }
+- (void)setPlayAsAudio:(BOOL)playAsAudio {}
+#endif
+
 #pragma mark - helpers
 
 - (NSDictionary *)mediaOptionsDictionary
 {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    return @{ kVLCSettingNetworkCaching : [defaults objectForKey:kVLCSettingNetworkCaching],
+    return @{
+#if TARGET_OS_IOS
+              @"no-video" : @YES,
+              @"no-spu" : @YES,
+#endif
+              kVLCSettingNetworkCaching : [defaults objectForKey:kVLCSettingNetworkCaching],
               kVLCSettingTextEncoding : [defaults objectForKey:kVLCSettingTextEncoding],
               kVLCSettingSkipLoopFilter : [defaults objectForKey:kVLCSettingSkipLoopFilter],
               kVLCSettingHardwareDecoding : [defaults objectForKey:kVLCSettingHardwareDecoding],
@@ -2955,7 +2988,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
 #pragma mark - VLCPictureInPictureDrawable
 
-#if !TARGET_OS_WATCH
+#if !TARGET_OS_WATCH && !TARGET_OS_IOS
 - (void (^)(id<VLCPictureInPictureWindowControlling>))pictureInPictureReady {
     __weak typeof(self) drawable = self;
     return ^(id<VLCPictureInPictureWindowControlling> pipController){

@@ -14,6 +14,7 @@
  *****************************************************************************/
 
 import XCTest
+import AVFoundation
 @testable import VLC
 
 final class DiscoursePlaybackTests: XCTestCase {
@@ -36,6 +37,158 @@ final class DiscoursePlaybackTests: XCTestCase {
 
     private var settings: DiscourseSettings {
         DiscourseSettings(defaults: defaults)
+    }
+
+    @MainActor
+    func testAudioOnlyPolicyAndPlayerSurface() throws {
+        let service = PlaybackService()
+        service.playAsAudio = false
+        XCTAssertTrue(service.playAsAudio, "Mixed containers must also follow the audio mixer policy")
+        XCTAssertEqual(service.mediaOptionsDictionary["no-video"] as? Bool, true)
+        XCTAssertEqual(service.mediaOptionsDictionary["no-spu"] as? Bool, true)
+        let display = VLCPlayerDisplayController()
+        XCTAssertTrue(display.value(forKey: "movieViewController") is AudioPlayerViewController)
+        for name in ["VLCVideoPlayerViewController", "VLCExternalDisplayController",
+                     "VLCNonInteractiveWindowSceneDelegate", "VLCPictureInPictureMediaController",
+                     "VLCPlaybackInfoSubtitlesFetcherViewController", "VLCDeviceMotion"] {
+            XCTAssertNil(NSClassFromString(name), name)
+        }
+    }
+
+    @MainActor
+    func testQueueDisappearanceUsesItsDelegateWithoutAVideoPlayer() {
+        let queue = QueueViewController(medialibraryService: VLCAppCoordinator.sharedInstance().mediaLibraryService)
+        let observer = DiscourseAudioQueueObserver()
+        queue.delegate = observer
+        queue.loadViewIfNeeded()
+        queue.viewWillDisappear(false)
+        XCTAssertTrue(observer.disappearedQueue === queue)
+    }
+
+    @MainActor
+    func testNewStreamExpandsAudioPlayerButHonorsMiniPlayerRequests() {
+        let service = PlaybackService()
+        let display = VLCPlayerDisplayController()
+        display.playbackController = service
+        display.displayMode = .miniplayer
+        let selector = NSSelectorFromString("playbackDidStart:")
+        let expanded = NSNotification(name: Notification.Name(VLCPlaybackServicePlaybackDidStart), object: service)
+        display.perform(selector, with: expanded)
+        XCTAssertEqual(display.displayMode, .fullscreen)
+        let mini = NSNotification(name: Notification.Name(VLCPlaybackServicePlaybackDidStart), object: service,
+                                  userInfo: [kVLCPlayerOpenInMiniPlayer: true])
+        display.perform(selector, with: mini)
+        XCTAssertEqual(display.displayMode, .miniplayer)
+        XCTAssertFalse(service.isPlaying)
+    }
+
+    @MainActor
+    func testMixedContainerAndArtworkAudioPlayWithoutVideo() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let mixed = try makeMixedMedia(in: folder)
+
+        let artworkAudio = folder.appendingPathComponent("artwork.m4a")
+        let export = try XCTUnwrap(AVAssetExportSession(asset: AVURLAsset(url: mixed), presetName: AVAssetExportPresetAppleM4A))
+        export.outputURL = artworkAudio
+        export.outputFileType = .m4a
+        let artwork = AVMutableMetadataItem()
+        artwork.identifier = .commonIdentifierArtwork
+        artwork.value = try Data(contentsOf: folder.appendingPathComponent("cover.png")) as NSData
+        export.metadata = [artwork]
+        let exported = expectation(description: "Audio with embedded artwork")
+        export.exportAsynchronously { exported.fulfill() }
+        wait(for: [exported], timeout: 15)
+        XCTAssertEqual(export.status, .completed, "\(String(describing: export.error))")
+
+        for url in [mixed, artworkAudio] {
+            let service = PlaybackService()
+            defer { service.stopPlayback() }
+            let media = try XCTUnwrap(VLCMedia(url: url))
+            let finished = expectation(description: "Audio playback of \(url.lastPathComponent)")
+            let observer = NotificationCenter.default.addObserver(forName: Notification.Name(VLCPlaybackServicePlaybackDidStop),
+                                                                  object: service, queue: .main) { _ in finished.fulfill() }
+            defer { NotificationCenter.default.removeObserver(observer) }
+            let metadataObserver = NotificationCenter.default.addObserver(forName: Notification.Name(VLCPlaybackServicePlaybackMetadataDidChange),
+                                                                          object: service.metadata, queue: .main) { _ in
+                XCTAssertTrue(service.metadata.isAudioOnly, "Lock-screen metadata must describe audio even for mixed containers")
+            }
+            defer { NotificationCenter.default.removeObserver(metadataObserver) }
+            service.playMediaList(VLCMediaList(array: [media]), firstIndex: 0, subtitlesFilePath: nil)
+            wait(for: [finished], timeout: 15)
+            XCTAssertGreaterThan(media.statistics.decodedAudio, 0)
+            XCTAssertEqual(media.statistics.decodedVideo, 0)
+            XCTAssertTrue(service.metadata.isAudioOnly)
+        }
+    }
+
+    @MainActor
+    func testVideoWithoutAudioFailsPlayback() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let mixed = try makeMixedMedia(in: folder)
+        let composition = AVMutableComposition()
+        let asset = AVURLAsset(url: mixed)
+        let video = try XCTUnwrap(asset.tracks(withMediaType: .video).first)
+        let track = try XCTUnwrap(composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid))
+        try track.insertTimeRange(CMTimeRange(start: .zero, duration: video.timeRange.duration), of: video, at: .zero)
+        let export = try XCTUnwrap(AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough))
+        let silent = folder.appendingPathComponent("video-only.mp4")
+        export.outputURL = silent
+        export.outputFileType = .mp4
+        let exported = expectation(description: "Video-only fixture")
+        export.exportAsynchronously { exported.fulfill() }
+        wait(for: [exported], timeout: 15)
+        XCTAssertEqual(export.status, .completed, "\(String(describing: export.error))")
+        XCTAssertTrue(AVURLAsset(url: silent).tracks(withMediaType: .audio).isEmpty)
+
+        let service = PlaybackService()
+        defer { service.stopPlayback() }
+        let failed = expectation(description: "Video-only playback reports failure")
+        let observer = NotificationCenter.default.addObserver(forName: Notification.Name(VLCPlaybackServicePlaybackDidFail),
+                                                              object: service, queue: .main) { notification in
+            XCTAssertEqual(notification.userInfo?[NSLocalizedDescriptionKey] as? String,
+                           NSLocalizedString("AUDIO_ONLY_NO_AUDIO", comment: ""))
+            failed.fulfill()
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+        let media = try XCTUnwrap(VLCMedia(url: silent))
+        service.playMediaList(VLCMediaList(array: [media]), firstIndex: 0, subtitlesFilePath: nil)
+        wait(for: [failed], timeout: 10)
+        XCTAssertEqual(media.statistics.decodedVideo, 0)
+    }
+
+    @MainActor
+    private func makeMixedMedia(in folder: URL) throws -> URL {
+        let source = folder.appendingPathComponent("tone.wav")
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 96_000))
+        buffer.frameLength = buffer.frameCapacity
+        let samples = try XCTUnwrap(buffer.floatChannelData)[0]
+        for index in 0..<Int(buffer.frameLength) { samples[index] = sin(Float(index) * 0.06) * 0.2 }
+        do { let file = try AVAudioFile(forWriting: source, settings: format.settings); try file.write(from: buffer) }
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 32, height: 32)).image { context in
+            UIColor.orange.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 32, height: 32))
+        }
+        let cover = folder.appendingPathComponent("cover.png")
+        try XCTUnwrap(image.pngData()).write(to: cover)
+        let exporter = DiscourseClipExporter()
+        defer { exporter.clean() }
+        let output = folder.appendingPathComponent("mixed.mp4")
+        let done = expectation(description: "Mixed video/audio fixture")
+        var failure: Error?
+        exporter.export(DiscourseClipExportRequest(source: source, sourceExtension: "wav", title: "Fixture",
+                                                   range: DiscourseClipRange(duration: 2, position: 0), visual: cover)) { result in
+            do { try FileManager.default.copyItem(at: result.get()[0], to: output) }
+            catch { failure = error }
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 15)
+        if let failure { throw failure }
+        return output
     }
 
     func testArtworkSwipeThresholds() {
@@ -661,5 +814,13 @@ final class DiscoursePlaybackTests: XCTestCase {
         }
         """
         return try JSONDecoder().decode(Discourse.self, from: Data(json.utf8))
+    }
+}
+
+private final class DiscourseAudioQueueObserver: NSObject, QueueViewControllerDelegate {
+    var disappearedQueue: QueueViewController?
+
+    func queueViewControllerDidDisappear(_ queueViewController: QueueViewController?) {
+        disappearedQueue = queueViewController
     }
 }

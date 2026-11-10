@@ -324,11 +324,13 @@ class PlayerViewController: UIViewController {
 
     private var minimizationInitialCenter: CGPoint?
 
+    #if !os(iOS)
     private lazy var deviceMotion: DeviceMotion = {
         let deviceMotion = DeviceMotion()
         deviceMotion.delegate = self
         return deviceMotion
     }()
+    #endif
 
     private var systemBrightness: Double?
 
@@ -694,6 +696,7 @@ class PlayerViewController: UIViewController {
         })
     }
 
+#if !os(iOS)
     private func resetVideoFilters() {
         playbackService.adjustFilter.reset()
         updateVideoFiltersIcon()
@@ -717,6 +720,8 @@ class PlayerViewController: UIViewController {
         showOverlayCard(videoFiltersCard)
         videoFiltersCard.focusForAccessibility()
     }
+
+#endif
 
     func showPlaybackSpeedCard() {
         guard !(overlayCardView is PlaybackSpeedControlsView) else {
@@ -889,9 +894,11 @@ class PlayerViewController: UIViewController {
 
     private func handleReset(button: UIButton) {
         switch button {
+        #if !os(iOS)
         case optionsNavigationBar.videoFiltersButton:
             resetVideoFilters()
             return
+        #endif
         case optionsNavigationBar.playbackSpeedButton:
             resetPlaybackSpeed()
             return
@@ -953,6 +960,7 @@ class PlayerViewController: UIViewController {
     }
 
     private func applyYaw(yaw: CGFloat, pitch: CGFloat) {
+        #if !os(iOS)
         //Add and limit new pitch and yaw
         deviceMotion.yaw += yaw
         deviceMotion.pitch += pitch
@@ -961,6 +969,7 @@ class PlayerViewController: UIViewController {
                                         pitch: deviceMotion.pitch,
                                         roll: 0,
                                         fov: fov, absolute: true)
+        #endif
     }
 
     private func updateProjection(with recognizer: UIPanGestureRecognizer) {
@@ -1187,7 +1196,9 @@ class PlayerViewController: UIViewController {
             }
             if playbackService.currentMediaIs360Video {
                 projectionLocation = currentPos
+                #if !os(iOS)
                 deviceMotion.stopDeviceMotion()
+                #endif
             }
         }
 
@@ -1311,7 +1322,9 @@ class PlayerViewController: UIViewController {
 
             currentPanType = .none
             if playbackService.currentMediaIs360Video {
+                #if !os(iOS)
                 deviceMotion.startDeviceMotion()
+                #endif
             }
         }
     }
@@ -1412,11 +1425,7 @@ class PlayerViewController: UIViewController {
 // MARK: - VLCPlaybackServiceDelegate
 
 extension PlayerViewController: VLCPlaybackServiceDelegate {
-#if os(iOS)
-    func pictureInPictureStateDidChange(enabled: Bool) {
-        mediaNavigationBar.updatePictureInPictureButton(enabled: enabled)
-    }
-#endif
+
 
     func playbackPositionUpdated(_ playbackService: PlaybackService) {
         mediaScrubProgressBar.updateInterfacePosition()
@@ -1518,6 +1527,7 @@ extension PlayerViewController: EqualizerViewDelegate {
 
 // MARK: - VideoFiltersControlsViewDelegate
 
+#if !os(iOS)
 extension PlayerViewController: VideoFiltersControlsViewDelegate {
     func videoFiltersControlsViewDidChangeFilters(_ controlsView: VideoFiltersControlsView) {
         updateVideoFiltersIcon()
@@ -1527,6 +1537,8 @@ extension PlayerViewController: VideoFiltersControlsViewDelegate {
         dismissOverlayCard()
     }
 }
+
+#endif
 
 // MARK: - MediaMoreOptionsActionSheetDelegate
 
@@ -1581,9 +1593,12 @@ extension PlayerViewController: MediaMoreOptionsActionSheetDelegate {
         showSleepTimerCard()
     }
 
+#if !os(iOS)
     func mediaMoreOptionsActionSheetPresentVideoFilters() {
         showVideoFiltersCard()
     }
+
+#endif
 
     func mediaMoreOptionsActionSheetPresentEqualizer() {
         showEqualizerCard()
@@ -1799,6 +1814,7 @@ extension PlayerViewController: OptionsNavigationBarDelegate {
 
 // MARK: - DeviceMotionDelegate
 
+#if !os(iOS)
 extension PlayerViewController: DeviceMotionDelegate {
     func deviceMotionHasAttitude(deviceMotion: DeviceMotion, pitch: Double, yaw: Double) {
         if panRecognizer.state != .changed
@@ -1807,6 +1823,8 @@ extension PlayerViewController: DeviceMotionDelegate {
         }
     }
 }
+
+#endif
 
 // MARK: - VLCRendererDiscovererManagerDelegate
 

@@ -38,7 +38,7 @@ static const CGFloat kVLCArtworkMaxPixelSize = 1024.;
         self.artist = @"";
         self.albumName = @"";
         self.artworkImage = nil;
-        self.isAudioOnly = NO;
+        self.isAudioOnly = TARGET_OS_IOS;
         self.identifier = nil;
         self.isLiveStream = NO;
     }
@@ -76,7 +76,11 @@ static const CGFloat kVLCArtworkMaxPixelSize = 1024.;
         } else {
             [self updateArtworkImage:[media thumbnailImage]];
         }
+#if TARGET_OS_IOS
+        self.isAudioOnly = YES;
+#else
         self.isAudioOnly = ([media subtype] == VLCMLMediaSubtypeAlbumTrack || media.videoTracks.count == 0) ? YES : NO;
+#endif
         self.identifier = @(media.identifier);
 
         if (self.artist.length == 0 && media.nbSubscriptions > 0) {
@@ -236,8 +240,12 @@ static const CGFloat kVLCArtworkMaxPixelSize = 1024.;
 
 - (void)checkIsAudioOnly:(VLCMediaPlayer *)mediaPlayer
 {
+#if TARGET_OS_IOS
+    _isAudioOnly = YES;
+#else
     NSArray *videoTracks = [mediaPlayer videoTracks];
     _isAudioOnly = videoTracks.count == 0;
+#endif
 }
 
 - (void)fillFromMetaDict:(VLCMediaPlayer *)mediaPlayer

@@ -14,8 +14,8 @@ scene delegate.
 - Tabs, in order, each in a `UINavigationController` with an SF Symbol and `VLCAccessibilityIdentifier`:
   `DiscourseHomeViewController` (`HOME`), `DiscourseCatalogueViewController` (`DISCOURSES`, catalogue root),
   `DiscourseSearchViewController` (`SEARCH`), `PlaylistViewController` (`PLAYLISTS`),
-  `DiscourseAudioMixerViewController` (`AUDIO_MIXER`, shown as **Mixer**). `VideoViewController` remains in the
-  shared library code without a tab; network browser and On Air implementations are excluded from iOS targets.
+  `DiscourseAudioMixerViewController` (`AUDIO_MIXER`, shown as **Mixer**). Video library/player/preview screens,
+  network browser and On Air implementations are excluded from both iOS targets.
 - Selected index persists as `TabBarIndex` (0…4). iPhone keeps the system tab bar (iOS 26 Liquid Glass capsule;
   `.tabSidebar` is iPad only) and tints the selected item with the discourse accent; fork scroll views add
   `discourseFloatingTabBarInset` on iOS 26.
@@ -48,12 +48,24 @@ scene delegate.
 - `VLCMetaData` is the only writer of `MPNowPlayingInfoCenter`; `VLCRemoteControlService` handles remote commands.
   Background mode is `audio` only; the service activates `AVAudioSession` before the first play/resume (VLCKit owns
   its category) and handles interruptions, route changes and backgrounding. No `setCategory:` in app code.
-- Mini player: `VLCPlayerDisplayController` + `VLCAudioMiniPlayer`. Full player: `AudioPlayerViewController`
-  (discourse heart before more-options; Share row for a discourse track) and `VideoPlayerViewController`; buffering is
+- Mini player: `VLCPlayerDisplayController` + `VLCAudioMiniPlayer`. Full iOS player: `AudioPlayerViewController`
+  (discourse heart before more-options; Share row for a discourse track); buffering is
   a plain white spinner. The player’s Discourse header action uses the current media identity’s `discourse_id` and
   remains enabled while the full track payload is being fetched. Disabled Clip and Download controls stay white
   in both themes for contrast. Expanded audio artwork swipes horizontally: left = Next, right = Previous (commit
   at ¼ width or 500 pt/s; Reduce Motion uses a cut).
+- **Audio-only iOS playback.** The main VLC library uses `--no-video` / `--no-spu`, also applied through the existing
+  media-options dictionary for queued/restored tracks. Native dialog handling binds to the player's private library.
+  Mixed containers and embedded artwork never switch players;
+  `playAsAudio` is always true on iOS so the mixer follows their audio normally. Metadata identifies mixed
+  containers as audio for lock-screen controls. The display coordinator reuses the existing audio presentation,
+  dismissal and mini-player paths. Queue callbacks use `QueueViewControllerDelegate`
+  rather than downcasting to the removed video player. Video-only screens/resources, PiP, external-display scenes,
+  video filters, 360-degree motion and subtitle downloading are excluded from iOS targets. A container reporting
+  video tracks and no audio tracks fails with “This file doesn’t contain a playable audio track.” before a resume
+  notification; native failures retain the existing generic error. Share-extension metadata no longer
+  advertises movies. Audio casting/AirPlay, local Files, playlists and AVFoundation clip-to-video export remain.
+  Shared decoder/API types stay in VLCKit for compatibility with the existing engine and other platform targets.
 - **Paused queue restoration (iOS only).** `VLCPlaybackService` checkpoints
   `Application Support/PlaybackSnapshot.json` (version 1: queue URLs, display metadata, optional artwork URL, discourse ids, selected index,
   shuffle order, repeat mode, duration, position ms); `RDPlaybackSnapshot` (`DiscoursePlayback.swift`) validates and
@@ -318,8 +330,8 @@ crash); writes are synchronous/serialised; never store the key, the UUID in logs
 ## 10. Known gaps and intentional deviations
 
 - **App Review cleanup.** Retired integrations are excluded from iOS binaries rather than merely hidden in navigation.
-  Shared video player/library, external display and decoder internals still compile; removing these needs a separately
-  verified playback/queue change. The current cleanup alone does not establish the cause of Apple's rejection or
+  Video playback UI, PiP and external video scenes are also excluded; shared engine types remain in VLCKit.
+  The cleanup alone does not establish the cause of Apple's rejection or
   guarantee approval. Confirm the submitted Release archive and metadata before resubmission.
 - **Captions.** Current SRT sources contain phrase timing, so playback highlights whole phrases and clip taps use phrase boundaries regardless of the word tapped. No estimated word timing. Captions are opportunistically cached separately from audio downloads. Physical-device caption scrolling responsiveness, synchronization, VoiceOver and bracket-selection acceptance remain manual.
 
@@ -390,7 +402,13 @@ collections or the removal of retired iOS integrations, Google Drive/OneDrive an
 Fork touch points (upstream files we intentionally edit):
 
 - `Sources/Playback/Control/VLCPlaybackService.{h,m}` and `VLCPlaybackService+MediaLibrary.m` — RNNoise switching,
-  audio session, snapshot hooks, asynchronous periodic checkpoints with cached queue metadata, paused retention and absolute-time clip seeking.
+  audio session, snapshot hooks, asynchronous periodic checkpoints with cached queue metadata, paused retention,
+  absolute-time clip seeking and iOS audio-only engine options/PiP removal.
+- `Sources/Playback/Control/VLCPlayerDisplayController.{h,m}`, `Sources/Playback/Queue/QueueViewController.swift`,
+  audio player, `PlayerController`, `PlayerInfoView`, navigation bar and `UIStackView+Orientation.m` — audio-only
+  presentation/queue callbacks, no external video display, PiP or 360-degree motion on iOS; shared audio controls stay.
+  `Sources/ShareExtension/Info.plist` — no movie activation; iOS Info.plist removes external scenes/cloud query schemes.
+- `Sources/Playback/OS Integration/VLCMetadata.m` — iOS metadata always identifies the main session as audio.
 - `Sources/Playback/Player/` — `PlayerViewController`, `AudioPlayerViewController`, `VideoPlayerViewController`,
   `AudioPlayerView`, `MediaMoreOptionsActionSheet` + subviews, `ActionSheetCell`: white spinner, noise switch, discourse heart, targeted player download updates, Share row, Clip editor integration, 168 pt Dynamic Type-scaled height and the scrub bar's captured seek intent with absolute audio seeks; restored-paused Clip eligibility and metadata-driven action refresh; CC action, portrait transcript artwork/metadata replacement and active clip-bracket caption selection.
 - `Sources/App/iOS/TabBarCoordinator.swift` — five tabs, index, accent, bar modes, local library, album/deep links,

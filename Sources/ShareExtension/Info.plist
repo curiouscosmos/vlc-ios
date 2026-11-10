@@ -12,8 +12,7 @@
 			<dict>
 				<key>NSExtensionActivationSupportsFileWithMaxCount</key>
 				<integer>100</integer>
-				<key>NSExtensionActivationSupportsMovieWithMaxCount</key>
-				<integer>100</integer>
+
 			</dict>
 		</dict>
 		<key>NSExtensionPointIdentifier</key>

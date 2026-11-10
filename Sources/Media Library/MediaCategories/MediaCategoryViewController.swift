@@ -283,8 +283,7 @@ class MediaCategoryViewController: UICollectionViewController, UISearchBarDelega
     private var fabAction: FABAction? {
         if parent is AudioViewController {
             return .shuffleAudio
-        } else if parent is VideoViewController {
-            return .playAllVideo
+
         }
         return nil
     }
@@ -2215,20 +2214,7 @@ extension MediaCategoryViewController {
             ?? (cell as? MediaGridCollectionCell)?.thumbnailView
         let thumbnail = thumbnailView?.image
         let placeholderName = thumbnailView?.placeholderName
-        let videoMedia: VLCMLMedia?
-        if let media = modelContent as? VLCMLMedia, media.type() == .video {
-            videoMedia = media
-        } else if let group = modelContent as? VLCMLMediaGroup,
-                  let first = group.media(of: .video)?.first {
-            videoMedia = first
-        } else {
-            videoMedia = nil
-        }
-
         let configuration = UIContextMenuConfiguration(identifier: indexPath as NSCopying, previewProvider: {
-            if let videoMedia = videoMedia {
-                return VideoPreviewController(media: videoMedia, thumbnail: thumbnail)
-            }
             guard let thumbnail = thumbnail ?? placeholderName.map({
                 VLCPlaceholderArtwork.placeholderImage(forName: $0, pixelSize: 1024)
             }) else {
@@ -2244,11 +2230,6 @@ extension MediaCategoryViewController {
 
     override func collectionView(_ collectionView: UICollectionView, willPerformPreviewActionForMenuWith configuration: UIContextMenuConfiguration, animator: UIContextMenuInteractionCommitAnimating) {
         guard let indexPath = configuration.identifier as? IndexPath else { return }
-
-        if animator.previewViewController is VideoPreviewController {
-            selectedItem(at: indexPath)
-            return
-        }
 
         if let modelContent = getObject(at: indexPath), !(modelContent is VLCMLMedia) {
             selectedItem(at: indexPath)
@@ -2647,9 +2628,7 @@ extension MediaCategoryViewController: EditControllerDelegate {
             } else if let controller = navigationController?.viewControllers.last as? PlaylistViewController {
                 controller.resetTitleView()
                 return
-            } else if let controller = navigationController?.viewControllers.last as? VideoViewController {
-                controller.resetTitleView()
-                return
+
             } else if let controller = navigationController?.viewControllers.last as? CollectionCategoryViewController,
                       let model = controller.model as? CollectionModel,
                       let collection = model.mediaCollection as? VLCMLAlbum {

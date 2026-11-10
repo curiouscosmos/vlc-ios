@@ -20,7 +20,9 @@ protocol MediaMoreOptionsActionSheetDelegate {
     func mediaMoreOptionsActionSheetHideAlertIfNecessary()
     func mediaMoreOptionsActionSheetPresentPlaybackSpeed()
     func mediaMoreOptionsActionSheetPresentSleepTimer()
+    #if !os(iOS)
     func mediaMoreOptionsActionSheetPresentVideoFilters()
+    #endif
     func mediaMoreOptionsActionSheetPresentEqualizer()
     func mediaMoreOptionsActionSheetUpdateProgressBar()
     func mediaMoreOptionsActionSheetGetCurrentMedia() -> VLCMLMedia?
@@ -301,7 +303,9 @@ extension MediaMoreOptionsActionSheet {
         case .sleepTimer:
             moreOptionsDelegate?.mediaMoreOptionsActionSheetPresentSleepTimer()
         case .filter:
+            #if !os(iOS)
             moreOptionsDelegate?.mediaMoreOptionsActionSheetPresentVideoFilters()
+            #endif
         case .equalizer:
             moreOptionsDelegate?.mediaMoreOptionsActionSheetPresentEqualizer()
         default:

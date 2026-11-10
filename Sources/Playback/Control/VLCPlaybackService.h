@@ -224,7 +224,9 @@ NS_SWIFT_NAME(PlaybackService)
 - (unsigned int)numberOfBands;
 - (CGFloat)frequencyOfBandAtIndex:(unsigned int)index;
 - (NSArray<VLCAudioEqualizerPreset *> *)equalizerProfiles;
+#if !TARGET_OS_IOS
 - (void)togglePictureInPicture;
+#endif
 
 - (void)savePlaybackState;
 

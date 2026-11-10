@@ -76,6 +76,7 @@ class PlayerInfoView: UIView {
     @objc func shouldDisplay(_ show: Bool, movieView: UIView) {
         self.isHidden = !show
 
+        #if !os(iOS)
         if show {
             guard let externalWindow = VLCAppCoordinator.sharedInstance().externalWindow else {
                 return
@@ -104,6 +105,7 @@ class PlayerInfoView: UIView {
             externalWindow = nil
         }
         externalWindow?.isHidden = !show
+        #endif
     }
 }
 

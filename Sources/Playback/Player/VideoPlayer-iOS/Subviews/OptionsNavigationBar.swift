@@ -28,6 +28,7 @@ class OptionsNavigationBar: UIStackView {
     // MARK: - Instance Variables
     weak var delegate: OptionsNavigationBarDelegate?
 
+    #if !os(iOS)
     lazy var videoFiltersButton: UIButton = {
         var videoFiltersButton = UIButton(type: .system)
         videoFiltersButton.addTarget(self, action: #selector(handleVideoFiltersTap), for: .touchUpInside)
@@ -41,6 +42,8 @@ class OptionsNavigationBar: UIStackView {
         videoFiltersButton.setContentHuggingPriority(.defaultLow, for: .horizontal)
         return videoFiltersButton
     }()
+
+    #endif
 
     lazy var playbackSpeedButton: UIButton = {
         var playbackSpeedButton = UIButton(type: .system)
@@ -128,7 +131,9 @@ class OptionsNavigationBar: UIStackView {
         axis = .horizontal
         alignment = .fill
         translatesAutoresizingMaskIntoConstraints = false
+        #if !os(iOS)
         addArrangedSubview(videoFiltersButton)
+        #endif
         addArrangedSubview(playbackSpeedButton)
         addArrangedSubview(equalizerButton)
         addArrangedSubview(sleepTimerButton)
@@ -137,11 +142,14 @@ class OptionsNavigationBar: UIStackView {
     }
 
     // MARK: - Button Actions
+    #if !os(iOS)
     @objc private func handleVideoFiltersTap() {
         let title = NSLocalizedString("VIDEO_FILTER", comment: "")
         let message = NSLocalizedString("RESET_VIDEO_FILTERS", comment: "")
         delegate?.optionsNavigationBarDisplayAlert(title: title, message: message, button: videoFiltersButton)
     }
+
+    #endif
 
     @objc private func handlePlaybackSpeedTap() {
         let title = NSLocalizedString("PLAYBACK_SPEED", comment: "")

@@ -77,13 +77,7 @@ class QueueViewController: UIViewController {
     private lazy var collectionViewLayout = QueueViewFlowLayout()
     private var constraints: [NSLayoutConstraint] = []
     private var topConstraint: NSLayoutConstraint?
-    private var topConstraintConstant: CGFloat {
-        if parent is VideoPlayerViewController {
-            return view.safeAreaInsets.bottom > 0 ? 75 : 50
-        } else {
-            return 0
-        }
-    }
+    private var topConstraintConstant: CGFloat { 0 }
     var bottomConstraint: NSLayoutConstraint?
 
     var heightConstraint: NSLayoutConstraint?
@@ -157,9 +151,7 @@ class QueueViewController: UIViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        if let delegate = delegate as? VideoPlayerViewController {
-            delegate.queueViewControllerDidDisappear(self)
-        }
+        delegate?.queueViewControllerDidDisappear?(self)
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -205,13 +197,7 @@ class QueueViewController: UIViewController {
             } else {
                 grabberView.isHidden = false
                 closeButton.isHidden = false
-                if let parent = parent as? VideoPlayerViewController {
-                    topConstraint = nil
-                    heightConstraint = view.heightAnchor.constraint(equalTo: parent.view.heightAnchor,
-                                                                    constant: -(topConstraintConstant + parent.videoPlayerControls.frame.height + parent.mediaScrubProgressBar.frame.height))
-                    bottomConstraint = view.bottomAnchor.constraint(equalTo: parent.view.bottomAnchor,
-                                                                    constant: self.view.frame.height)
-                } else if let parent = parent as? AudioPlayerViewController {
+                if let parent = parent as? AudioPlayerViewController {
                     heightConstraint = nil
                     grabberView.isHidden = true
                     closeButton.isHidden = true
@@ -331,9 +317,6 @@ class QueueViewController: UIViewController {
             bottomConstraint.constant = max(0.0, bottomConstraint.constant + translation.y)
         }
         sender.setTranslation(CGPoint.zero, in: parent?.view)
-        if let parent = parent as? VideoPlayerViewController {
-            darkOverlayView.alpha = max(0.0, darkOverlayAlpha - view.frame.minY / parent.view.frame.maxY)
-        }
     }
 
     func dragDidEnd(_ sender: UIPanGestureRecognizer) {
@@ -496,13 +479,9 @@ private extension QueueViewController {
     }
 
     @objc private func dismissView() {
-        guard let delegate = delegate as? VideoPlayerViewController else {
-            return
-        }
-
         dismiss(animated: true) {
             [weak self] in
-            delegate.queueViewControllerDidDisappear(self)
+            self?.delegate?.queueViewControllerDidDisappear?(self)
         }
     }
 }

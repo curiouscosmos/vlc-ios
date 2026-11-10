@@ -208,7 +208,7 @@ class MediaViewController: VLCPagingViewController<VLCLabelCell> {
     }
 
     private func offersExternalFolders(on viewController: UIViewController) -> Bool {
-        return (self is VideoViewController || self is AudioViewController) && viewControllers.contains(viewController)
+        return (self is AudioViewController) && viewControllers.contains(viewController)
     }
 
     override func configure(cell: VLCLabelCell, for indicatorInfo: IndicatorInfo) {
@@ -559,15 +559,9 @@ extension MediaViewController {
         }
 
         if let parentViewController = viewController?.parent,
-           parentViewController is VideoViewController || parentViewController is AudioViewController {
+           parentViewController is AudioViewController {
             let historyMenu = generateHistoryMenu()
             rightMenuItems.append(historyMenu)
-        }
-
-        if let parentViewController = viewController?.parent,
-           parentViewController is VideoViewController {
-            let folderMenu = generateFolderMenu()
-            rightMenuItems.append(folderMenu)
         }
 
         let layoutSubMenu = generateLayoutMenu(with: mediaCategoryViewController)

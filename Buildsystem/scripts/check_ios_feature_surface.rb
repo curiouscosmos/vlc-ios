@@ -6,11 +6,14 @@ require 'rexml/document'
 root = File.expand_path('../..', __dir__)
 project = Xcodeproj::Project.open(File.join(root, 'VLC.xcodeproj'))
 retired_roots = %w[Network Cloud OnAir Podcasts Donation Onboarding].map { |name| "Sources/#{name}/" }
-retired_roots += ['Sources/WiFi Sharing/', 'Resources/web/']
+retired_roots += ['Sources/WiFi Sharing/', 'Sources/Playback/Subtitles Downloading/', 'Resources/web/']
 retained_files = %w[VLCArtworkCacher.m VLCDocumentPickerController.m]
 retired_files = %w[CarPlayPodcastsController.swift VLCCarPlayOnAirController.m CPListTemplate+NetworkStreams.m
                    RadioStationEntity.swift PlayRadioStationIntent.swift VideoEntities.swift VideoIntents.swift
-                   Reachability.m VLCActivityManager.m]
+                   Reachability.m VLCActivityManager.m VideoViewController.swift VideoPreviewController.swift
+                   VideoPlayerViewController.swift VideoPlayerViewController+ControlsDelegate.swift
+                   VideoPlayerControls.swift VideoPlayerControls.xib VideoFiltersControlsView.swift PictureInPictureMediaController.swift
+                   DeviceMotion.swift VLCNonInteractiveWindowSceneDelegate.m VLCExternalDisplayController.m]
 errors = []
 
 %w[VLC-iOS VLC-iOS-no-watch].each do |name|
@@ -35,6 +38,11 @@ end
 info = REXML::Document.new(File.read(File.join(root, 'Resources/iOS/Info.plist')))
 schemes = REXML::XPath.match(info, '/plist/dict/key[text()="CFBundleURLTypes"]/following-sibling::array[1]//string')
 errors << 'Legacy custom URL schemes are registered' unless schemes.empty?
+scenes = REXML::XPath.match(info, '//key[starts-with(text(), "UIWindowSceneSessionRoleExternalDisplay")]')
+errors << 'External video-display scenes are registered' unless scenes.empty?
+share = REXML::Document.new(File.read(File.join(root, 'Sources/ShareExtension/Info.plist')))
+movies = REXML::XPath.match(share, '//key[text()="NSExtensionActivationSupportsMovieWithMaxCount"]')
+errors << 'The share extension advertises movie import' unless movies.empty?
 
 abort errors.join("\n") unless errors.empty?
-puts 'Both iOS targets exclude retired VLC integrations, SDKs and URL schemes.'
+puts 'Both iOS targets exclude retired integrations, video playback screens, SDKs and URL schemes.'

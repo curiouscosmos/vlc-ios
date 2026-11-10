@@ -975,12 +975,6 @@ extension AudioPlayerViewController {
         let accessibilityHint: String = isPlaying ? NSLocalizedString("MINIMIZE_HINT", comment: "") : NSLocalizedString("CLOSE_HINT", comment: "")
         mediaNavigationBar.updateCloseButton(with: image, accessibility: (accessibilityLabel, accessibilityHint))
 
-        if currentState == .opening && playbackService.numberOfVideoTracks > 0 {
-            // This media contains video tracks and can be played with the Video Player.
-            delegate?.audioPlayerViewControllerShouldSwitchPlayer(self)
-            return
-        }
-
         if let queueCollectionView = queueViewController?.queueCollectionView {
             queueCollectionView.reloadData()
         }
