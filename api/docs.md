@@ -25,6 +25,28 @@ The paginated `/discourses` route also accepts `language=hindi` or `language=eng
 # No pagination:
 GET /discourse-audios?discourse_id=UUID
 
+# Closed captions (CC)
+
+Both `discourse` and `discourse_audio` now have `has_cc` (BOOLEAN stored as 0/1, default false) and `cc_path` (TEXT, default empty string). Existing database tables gain these fields automatically on schema initialization; no records are removed. The API returns `has_cc` as a JSON boolean. The two sets of metadata are independent: updating a discourse does not change its audio tracks, and vice versa.
+
+POST /discourses/:id/cc
+BODY: `{ "has_cc": true }`
+Updates the `has_cc` flag for one discourse by ID.
+
+POST /discourse-audios/:id/cc
+BODY: `{ "has_cc": true, "cc_path": "/captions/audio-uuid.vtt" }`
+Updates the `has_cc` flag and `cc_path` for one discourse audio by ID.
+
+Both fields are required: `has_cc` must be a JSON boolean (`true` or `false`, not `1` or `"true"`); `cc_path` must be a string and may be empty only when `has_cc` is false. To disable captions, send `{ "has_cc": false, "cc_path": "" }`. A successful update returns HTTP `200` with `{ "data": { ...full updated discourse or discourse_audio... } }`, including `has_cc` as a boolean. Invalid/missing body fields return `400`; an unknown ID returns `404`. A valid `x-api-key` header is required. The server stores the supplied path without uploading or validating the caption file.
+
+Example:
+```bash
+curl -X POST "https://oshoapi-0i8tq.bunny.run/discourse-audios/AUDIO_UUID/cc" \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"has_cc":true,"cc_path":"/captions/audio-uuid.vtt"}'
+```
+
 PUT /discourses/:id/like
 BODY: { "user_id": "USER_UUID" }
 Adds one to the discourse `total_likes` on the first like from this user. Repeated likes are idempotent.
@@ -55,32 +77,20 @@ GET /stats?by=discourse_audio&time=24_hours
 `by` accepts `discourse` or `discourse_audio`; `time` accepts `7_days` or `24_hours`. Returns up to 16 full discourse or audio objects, each with an additional `plays` count, ordered by plays descending and ID ascending. Records are fetched separately after ranking IDs; no SQL join is used.
 
 
+# Timeline
+
+GET /timeline
+GET /timeline?page=2
+Returns a paginated list of timeline posts, 12 per page, newest first (`created_at DESC`, then `rowid DESC`). The response has `data` (an array of posts) and `meta` containing `page`, `page_size`, `total_records`, and `total_pages`. Missing or invalid page numbers default to 1. Currently returns both approved and unapproved posts; there is no approval filter.
+
+POST /timeline
+BODY: `{ "title": "A beautiful moment from Osho", "image_url": "https://example.com/image.jpg", "user_id": "USER_UUID", "discourse_audio_id": "AUDIO_UUID", "start_time": 120, "end_time": 180 }`
+Required non-empty text fields: `title`, `image_url`, `user_id`, and `discourse_audio_id`. `start_time` and `end_time` are optional non-negative integer values (seconds); when both are supplied, `end_time` must be greater than `start_time`. Invalid fields return `400`. An unknown `discourse_audio_id` returns `404`.
+
+The server generates a UUID for `id`, finds the referenced audio in `discourse_audio`, populates `discourse_id` from that record, and saves the full audio record as JSON in `discourse_audio`. `likes_count` defaults to `0`, and `is_approved` defaults to `false`. Both routes return `is_approved` as a JSON boolean and `discourse_audio` as a JSON object (or null). A successful POST returns `201` with `{ "data": { ...created timeline post... } }`.
+
+Timeline database fields: `id` (TEXT primary key), `title` (TEXT required), `image_url` (TEXT required), `user_id` (TEXT required), `discourse_id` (TEXT), `discourse_audio_id` (TEXT required), `start_time` (INTEGER), `end_time` (INTEGER), `discourse_audio` (JSON), `likes_count` (INTEGER default 0), `is_approved` (BOOLEAN default false), `created_at` (TEXT), and `updated_at` (TEXT).
+
 # Seed
 // https://seeddata-pdiw5.bunny.run/seed
 POST /seed
-
-## Favourite metadata resolution
-
-`POST /favourites/resolve` requires the existing `x-api-key` header. It returns
-public metadata only and never changes likes or downloads audio.
-
-```json
-{"discourse_ids":["discourse-id"],"discourse_audio_ids":["audio-id"]}
-```
-
-Both arrays are required, may be empty, and accept at most 100 IDs combined.
-IDs must be nonempty trimmed strings of at most 256 characters; malformed JSON,
-invalid arrays/IDs, unknown fields and oversized batches return HTTP 400.
-Resolution uses two parameterized indexed queries, without catalogue scanning.
-
-```json
-{"discourses":[],"audios":[],"missing_discourse_ids":["discourse-id"],"missing_discourse_audio_ids":["audio-id"]}
-```
-
-Resolved objects use the existing catalogue payload formats. Explicit missing IDs
-are distinct from transport failures. Clients retain favourite membership in both
-cases. Deploy the updated `api/edge.ts` to the existing Bunny Edge Script before
-releasing the iOS feature; no schema migration is required. This checkout has no
-automated deployment command or deployment credentials configured.
-
-Validation: `node api/tests/favourites.test.cjs` (Node 24+, local SQLite).
