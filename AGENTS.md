@@ -185,6 +185,9 @@ Manual: clean build; local playback/playlists/background/lock screen; five tabs 
 
 ## 9. Current status
 
+Privacy Policy is available from the main header dropdown and About's header menu, opening
+`https://rajneeshdiscourse.com/privacy` in the system browser.
+
 iOS shipping targets exclude upstream network/cloud browsing, Wi-Fi upload/web control, podcasts/radio/On Air,
 donations, onboarding, legacy Transfers and radio/video App Intents. CarPlay retains library/playlists. Cloud SDKs
 and CocoaHTTPServer are unlinked from iOS. iOS uses the existing audio player for every track; video playback screens,

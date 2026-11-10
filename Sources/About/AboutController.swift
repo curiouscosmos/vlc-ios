@@ -91,7 +91,11 @@ class AboutController: UIViewController, MFMailComposeViewControllerDelegate, UI
                                          action: #selector(dismissView))
         doneButton.accessibilityIdentifier = VLCAccessibilityIdentifier.done
         self.navigationItem.leftBarButtonItem = feedbackButton
-        self.navigationItem.rightBarButtonItem = doneButton
+        let menuButton = UIBarButtonItem(image: UIImage(systemName: "chevron.down"),
+                                         menu: UIMenu(children: [AppMenuBarButtonItem.privacyPolicyAction()]))
+        menuButton.accessibilityLabel = NSLocalizedString("MENU", comment: "Opens the app menu")
+        menuButton.accessibilityIdentifier = "aboutMenu"
+        self.navigationItem.rightBarButtonItems = [doneButton, menuButton]
     }
 
     private func loadWebsite() {

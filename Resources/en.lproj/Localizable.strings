@@ -48,6 +48,7 @@
 
 "PLAYBACK_FAILED" = "Playback failed";
 "AUDIO_ONLY_NO_AUDIO" = "This file doesn’t contain a playable audio track.";
+"PRIVACY_POLICY" = "Privacy Policy"; /* Opens the privacy policy website */
 "PLEASE_WAIT" = "Please wait";
 "AR_CHANGED" = "Aspect Ratio: %@";
 "DEFAULT" = "Default";

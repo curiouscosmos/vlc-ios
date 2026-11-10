@@ -19,9 +19,11 @@ scene delegate.
 - Selected index persists as `TabBarIndex` (0…4). iPhone keeps the system tab bar (iOS 26 Liquid Glass capsule;
   `.tabSidebar` is iPad only) and tints the selected item with the discourse accent; fork scroll views add
   `discourseFloatingTabBarInset` on iOS 26.
-- Settings is modal from `AppMenuBarButtonItem` (**About Rajneesh Discourse** + **Settings**); Home uses a static logo
+- Settings is modal from `AppMenuBarButtonItem` (**About Rajneesh Discourse**, **Privacy Policy**, **Settings**); Home uses a static logo
   with a right-hand chevron dropdown. Home, Search and Mixer share `DiscourseScreenViewController` and
   `DiscourseEmptyStateView`; Home and Mixer have no navigation title, the catalogue owns its collection view.
+- About retains Contact and Done and adds a header dropdown with **Privacy Policy**. Both privacy menu actions
+  open `https://rajneeshdiscourse.com/privacy` in the system browser using the same localized UIAction.
 - The device library is not a tab: `DiscourseLocalLibraryViewController` (an `AudioViewController` reduced to Songs +
   Folders) is pushed above the catalogue by `TabBarCoordinator.showLocalLibrary(pushing:)`.
 - iOS excludes upstream network/cloud browsers, Wi-Fi upload/web control, podcasts/radio, donations, onboarding,

@@ -79,7 +79,17 @@ class AppMenuBarButtonItem: UIBarButtonItem {
         settings.accessibilityIdentifier = VLCAccessibilityIdentifier.openSettings
 
         let settingsSection = UIMenu(title: "", options: .displayInline, children: [settings])
-        return UIMenu(title: "", children: [about, settingsSection])
+        return UIMenu(title: "", children: [about, Self.privacyPolicyAction(), settingsSection])
+    }
+
+    static func privacyPolicyAction() -> UIAction {
+        let action = UIAction(title: NSLocalizedString("PRIVACY_POLICY", comment: "Opens the privacy policy website"),
+                              image: UIImage(systemName: "hand.raised")) { _ in
+            guard let url = URL(string: "https://rajneeshdiscourse.com/privacy") else { return }
+            UIApplication.shared.open(url)
+        }
+        action.accessibilityIdentifier = "privacyPolicy"
+        return action
     }
 
     private func showAbout() {

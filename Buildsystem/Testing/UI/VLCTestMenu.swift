@@ -576,7 +576,12 @@ class VLCTestMenu: XCTestCase {
     func testNavigationToAbout() {
         helper.tapTabBarItem(VLCAccessibilityIdentifier.home)
         app.navigationBars[VLCAccessibilityIdentifier.home].buttons[VLCAccessibilityIdentifier.settings].tap()
+        XCTAssertTrue(app.buttons["privacyPolicy"].waitForExistence(timeout: 5))
         app.buttons[VLCAccessibilityIdentifier.about].tap()
         XCTAssertTrue(app.navigationBars.buttons[VLCAccessibilityIdentifier.done].waitForExistence(timeout: 5))
+        app.navigationBars.buttons["aboutMenu"].tap()
+        app.buttons["privacyPolicy"].tap()
+        let browser = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
+        XCTAssertTrue(browser.wait(for: .runningForeground, timeout: 10))
     }
 }
