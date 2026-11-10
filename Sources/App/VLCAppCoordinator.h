@@ -34,7 +34,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (nonnull instancetype)sharedInstance;
 
-#if !TARGET_OS_WATCH
+#if !TARGET_OS_WATCH && !TARGET_OS_IOS
 @property (readonly) VLCHTTPUploaderController *httpUploaderController;
 @property (readonly) VLCTransferController *transferController;
 @property (readonly) VLCFavoriteService *favoriteService;
@@ -52,7 +52,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) UIWindow *externalWindow;
 #endif
 
-#if TARGET_OS_IOS || TARGET_OS_VISION
+#if TARGET_OS_VISION
 @property (readonly) VLCStripeController *stripeController;
 @property (readonly) PodcastStore *podcastStore;
 #endif

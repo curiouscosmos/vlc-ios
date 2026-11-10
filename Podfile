@@ -5,8 +5,6 @@ inhibit_all_warnings!
 def ios_specific_pods
   use_modular_headers!
   pod 'FirebaseAnalytics/Core'
-  pod 'ObjectiveDropboxOfficial'
-  pod 'box-ios-sdk-v2', :git => 'https://github.com/fkuehne/box-ios-sdk-v2.git', :commit => '08161e74' #has a our fixes
 end
 
 target 'VLC-iOS' do

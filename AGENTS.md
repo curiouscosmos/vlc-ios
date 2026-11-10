@@ -70,8 +70,8 @@ Shared schemes: `VLC-iOS`, `VLC-iOS-no-watch`, `VLC-iOS-Tests`, `VLC-iOS-UITests
 `VLC-ShareExtension`, `VLC-tvOS`, `VLC-visionOS`, `VLC-watchOS`; only the iOS app targets matter.
 
 Identifiers: app `com.oshodiscourse`, widget `.widget`, share extension `.shareextension`, watch `.watchos`, app group
-`group.com.oshodiscourse`. Podcast URL registration supports `feed`, `feeds`, `itpc` (`pcast` fails App Store
-validation). `project.pbxproj` uses classic `PBXGroup`s; register files and target membership with
+`group.com.oshodiscourse`. iOS registers no legacy VLC, network, podcast or cloud-auth URL schemes; local Files
+opening and discourse universal links remain. `project.pbxproj` uses classic `PBXGroup`s; register files and target membership with
 `ruby Buildsystem/scripts/add_to_xcodeproj.rb "Sources/Discourse" "Foo.swift" "VLC-iOS"` (or `--target VLC-iOSTests`).
 Never hand-edit pbxproj UUIDs; rebuild after every `pod` command.
 
@@ -106,6 +106,7 @@ Screenshots use `Buildsystem/Testing/Screenshots/` (`VLC_SCREENSHOTS_OUTPUT`).
 `Buildsystem/swiftlint.yml` (small explicit rule set; one space around `=`); `swiftlint` is installed by CI, not
 locally. CI is `Buildsystem/gitlab-ci.yml` (lint, build; **no test stage**); when the local RNNoise package is active
 it runs `Buildsystem/RNNoise/build.sh` before resolving packages.
+Run `ruby Buildsystem/scripts/check_ios_feature_surface.rb` after changing iOS target membership or upstream integrations.
 
 ### 3.7 RNNoise
 
@@ -175,11 +176,15 @@ Before changing persisted state, read the key/type/owner table in [AgentReferenc
 
 ## 8. Testing and verification
 
-Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseCaptionTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **216 unit tests** and **19 UI tests** (§3.5).
+Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseCaptionTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **213 unit tests** and **19 UI tests** (§3.5).
 
 Manual: clean build; local playback/playlists/background/lock screen; five tabs and branding; catalogue paging/filters/refresh; detail queue continuation; Home sections/states; like persistence and rollback; 60 s qualification and 24 h stats dedupe; downloads (progress/cancel/remove/offline); mixer add/select/reorder/remove/clear/follow/volume/relaunch; VoiceOver, Dynamic Type, light theme; offline, interruption, route change and media-services reset on a device. UI tests cover navigation, catalogue → detail, search, Home, the like round trip, the download round trip (skips on a slow CDN), the mixer picker, playback history, payload-less favourites, and clip preview progress and end stopping, and the clip editor/save drawer link sharing, video-picker cancellation and processed-audio Files saving.
 
 ## 9. Current status
+
+iOS shipping targets exclude upstream network/cloud browsing, Wi-Fi upload/web control, podcasts/radio/On Air,
+donations, onboarding, legacy Transfers and radio/video App Intents. CarPlay retains library/playlists. Cloud SDKs
+and CocoaHTTPServer are unlinked from iOS; shared playback/video internals remain pending a separate audited removal.
 
 Playback performance: five-second checkpoints reuse queue metadata and write on the snapshot queue; lifecycle saves drain writes synchronously. Queue identity records persist in batches, and identity/progress indexes stay in memory under their existing serial owners. Download progress is coalesced and targets affected controls; Home reuses local history until the library changes and skips unchanged sections; detail cache reads/sorting run off-main and unchanged track lists skip registration/rendering.
 

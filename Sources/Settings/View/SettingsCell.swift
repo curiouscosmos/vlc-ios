@@ -229,13 +229,6 @@ class SettingsCell: UITableViewCell {
                 accessoryType = .none
                 selectionStyle = .default
 
-            case .transfers:
-                switchControl.isHidden = true
-                infoButton.isHidden = true
-                activityIndicator.isHidden = true
-                accessoryView = .none
-                accessoryType = .disclosureIndicator
-                selectionStyle = .default
             }
 
             stackViewToSwitchConstraint.isActive = !switchControl.isHidden

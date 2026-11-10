@@ -36,29 +36,6 @@ extension UITableViewController {
     }
 }
 
-#if os(iOS)
-extension VLCOpenNetworkStreamViewController {
-    open override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        PresentationTheme.traitCollectionDidChange(from: previousTraitCollection, to: traitCollection)
-    }
-}
-
-extension VLCTransferViewController {
-    open override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        PresentationTheme.traitCollectionDidChange(from: previousTraitCollection, to: traitCollection)
-    }
-}
-
-extension VLCNetworkLoginViewController {
-    open override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        PresentationTheme.traitCollectionDidChange(from: previousTraitCollection, to: traitCollection)
-    }
-}
-#endif
-
 extension UINavigationController {
     open override func viewDidLoad() {
         super.viewDidLoad()

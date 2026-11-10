@@ -1,7 +1,4 @@
 PODS:
-  - box-ios-sdk-v2 (1.2.3):
-    - box-ios-sdk-v2/no-arc (= 1.2.3)
-  - box-ios-sdk-v2/no-arc (1.2.3)
   - FirebaseAnalytics/Core (12.19.0):
     - FirebaseCore (~> 12.19.0)
     - FirebaseInstallations (~> 12.19.0)
@@ -60,13 +57,10 @@ PODS:
     - nanopb/encode (= 3.30910.0)
   - nanopb/decode (3.30910.0)
   - nanopb/encode (3.30910.0)
-  - ObjectiveDropboxOfficial (7.4.2)
   - PromisesObjC (2.4.1)
 
 DEPENDENCIES:
-  - box-ios-sdk-v2 (from `https://github.com/fkuehne/box-ios-sdk-v2.git`, commit `08161e74`)
   - FirebaseAnalytics/Core
-  - ObjectiveDropboxOfficial
 
 SPEC REPOS:
   trunk:
@@ -77,21 +71,9 @@ SPEC REPOS:
     - GoogleAppMeasurement
     - GoogleUtilities
     - nanopb
-    - ObjectiveDropboxOfficial
     - PromisesObjC
 
-EXTERNAL SOURCES:
-  box-ios-sdk-v2:
-    :commit: '08161e74'
-    :git: https://github.com/fkuehne/box-ios-sdk-v2.git
-
-CHECKOUT OPTIONS:
-  box-ios-sdk-v2:
-    :commit: '08161e74'
-    :git: https://github.com/fkuehne/box-ios-sdk-v2.git
-
 SPEC CHECKSUMS:
-  box-ios-sdk-v2: 9423bd75373350ea40b92f3d2d6e89f81d96d634
   FirebaseAnalytics: e9f8c369447e453da23f0455a06e4910bad10de0
   FirebaseCore: c990214798d7c568ad436a15ba7da25c7a278c9a
   FirebaseCoreInternal: 656b1c2fd5a1c5976183dc54b73deda78fb26ee3
@@ -99,9 +81,8 @@ SPEC CHECKSUMS:
   GoogleAppMeasurement: f2f676480e4c97936df934aa181bc29caea46975
   GoogleUtilities: 7dc09b3fa9ecb5c2298b952313d14628b61b9da3
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
-  ObjectiveDropboxOfficial: 1645cbc5a542831173425b00ed6929d5a07d0a95
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
 
-PODFILE CHECKSUM: 0356a85a549fe93d10257b47fafa07cb2b494d6c
+PODFILE CHECKSUM: 8e0d34693667abca4d6263456012f86ddc0c8336
 
 COCOAPODS: 1.16.2

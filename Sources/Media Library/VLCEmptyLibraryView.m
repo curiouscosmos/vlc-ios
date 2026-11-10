@@ -13,7 +13,6 @@
 
 #import <Foundation/Foundation.h>
 #import "VLCEmptyLibraryView.h"
-#import "VLCFirstStepsViewController.h"
 #import "VLC-Swift.h"
 
 @implementation VLCEmptyLibraryView
@@ -36,13 +35,7 @@
 {
     if (self.addExternalFolderHandler) {
         self.addExternalFolderHandler();
-        return;
     }
-
-      UIViewController *firstStepsVC = [[VLCFirstStepsViewController alloc] initWithNibName:nil bundle:nil];
-      UINavigationController *navCon = [[UINavigationController alloc] initWithRootViewController:firstStepsVC];
-      navCon.modalPresentationStyle = UIModalPresentationFormSheet;
-      [self.window.rootViewController presentViewController:navCon animated:YES completion:nil];
 }
 
 - (void)themeDidChange
@@ -73,7 +66,7 @@
         case VLCEmptyLibraryViewContentTypeAudio:
             title = NSLocalizedString(@"EMPTY_LIBRARY", nil);
             description = NSLocalizedString(@"EMPTY_LIBRARY_LONG", nil);
-            _learnMoreButton.hidden = NO;
+            _learnMoreButton.hidden = self.addExternalFolderHandler == nil;
             break;
         case VLCEmptyLibraryViewContentTypePlaylist:
             title = NSLocalizedString(@"EMPTY_PLAYLIST", nil);

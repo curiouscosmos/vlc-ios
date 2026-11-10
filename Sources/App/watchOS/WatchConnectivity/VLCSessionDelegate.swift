@@ -265,9 +265,6 @@ class VLCSessionDelegate: NSObject, WCSessionDelegate {
         if let error = error {
             message.errorMessage = error.localizedDescription
             postNotificationOnMainQueueAsync(name: .dataDidFlow, object: message)
-            #if os(iOS)
-            VLCAppCoordinator.sharedInstance().transferController.failWatch(fileTransfer, errorDescription: error.localizedDescription)
-            #endif
             return
         }
 
@@ -279,10 +276,6 @@ class VLCSessionDelegate: NSObject, WCSessionDelegate {
 //        commandStatus.timedColor = TimedColor(fileTransfer.file.metadata!)
 
         postNotificationOnMainQueueAsync(name: .dataDidFlow, object: message)
-
-        #if os(iOS)
-        VLCAppCoordinator.sharedInstance().transferController.finishWatch(fileTransfer, filePath: fileTransfer.file.fileURL.path)
-        #endif
 
         UserDefaults.standard.set(Date(), forKey: kVLCSettingAutomaticallySyncMediaLibraryLastUpdated)
     }

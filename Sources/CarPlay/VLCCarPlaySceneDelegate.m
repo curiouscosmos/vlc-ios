@@ -16,12 +16,9 @@
 
 #import "VLCCarPlayLibraryController.h"
 #import "CPInterfaceController+VLCTemplateStack.h"
-#import "VLCCarPlayOnAirController.h"
 #import "VLCCarPlayPlaylistsController.h"
 #import "VLCCarPlayBrowserController.h"
 #import "VLCNowPlayingTemplateObserver.h"
-#import "VLCFavoriteService.h"
-#import "VLCRadioService.h"
 
 #import "VLC-Swift.h"
 
@@ -32,7 +29,6 @@
     VLCNowPlayingTemplateObserver *_nowPlayingTemplateObserver;
     VLCCarPlayLibraryController *_libraryController;
     VLCCarPlayPlaylistsController *_playlistsController;
-    VLCCarPlayOnAirController *_onAirController;
     CPListTemplate *_playQueueTemplate;
     VLCPlaybackService *_playbackService;
     BOOL _templateUpdateScheduled;
@@ -61,9 +57,6 @@
     [notificationCenter addObserver:self selector:@selector(displayPlayQueueTemplate) name:VLCDisplayPlayQueueCarPlay object:nil];
     [notificationCenter addObserver:self selector:@selector(resetPlayQueueTemplate) name:VLCPlaybackServicePlaybackDidStop object:nil];
     [notificationCenter addObserver:self selector:@selector(resetPlayQueueTemplate) name:VLCPlaybackServiceShuffleModeUpdated object:nil];
-    [notificationCenter addObserver:self selector:@selector(streamListNeedsUpdate) name:VLCFavoriteServiceContentDidChange object:nil];
-    [notificationCenter addObserver:self selector:@selector(streamListNeedsUpdate) name:VLCRadioRecentStreamsDidChangeNotification object:nil];
-    [notificationCenter addObserver:self selector:@selector(podcastsNeedUpdate) name:NSNotification.VLCPodcastsContentDidChange object:nil];
 }
 
 - (void)templateApplicationScene:(CPTemplateApplicationScene *)templateApplicationScene
@@ -77,7 +70,6 @@ didDisconnectInterfaceController:(CPInterfaceController *)interfaceController
     _nowPlayingTemplateObserver = nil;
     _libraryController = nil;
     _playlistsController = nil;
-    _onAirController = nil;
     _playQueueTemplate = nil;
     _playbackService = nil;
     _templateUpdateScheduled = NO;
@@ -89,24 +81,11 @@ didDisconnectInterfaceController:(CPInterfaceController *)interfaceController
     _libraryController.interfaceController = _interfaceController;
     _playlistsController = [[VLCCarPlayPlaylistsController alloc] init];
     _playlistsController.interfaceController = _interfaceController;
-    _onAirController = [[VLCCarPlayOnAirController alloc] init];
-    _onAirController.interfaceController = _interfaceController;
 
     CPGridTemplate *library = [_libraryController libraryTemplate];
     CPListTemplate *playlists = [_playlistsController playlists];
-    CPGridTemplate *onAir = [_onAirController onAirTemplate];
 
-    return [[CPTabBarTemplate alloc] initWithTemplates:@[library, playlists, onAir]];
-}
-
-- (void)streamListNeedsUpdate
-{
-    [_onAirController radioListNeedsUpdate];
-}
-
-- (void)podcastsNeedUpdate
-{
-    [_onAirController podcastsNeedUpdate];
+    return [[CPTabBarTemplate alloc] initWithTemplates:@[library, playlists]];
 }
 
 - (void)templatesNeedUpdate

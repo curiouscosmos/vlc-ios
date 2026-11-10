@@ -232,7 +232,9 @@ class MediaLibraryService: NSObject {
     private var didRestoreLastPlayedMediaListOnDemand = false
 
 #if !os(watchOS)
+#if !os(iOS)
     let subscriptionCacher = VLCSubscriptionCacher()
+#endif
     private let artworkCacher = VLCArtworkCacher()
 #endif
 
@@ -489,7 +491,9 @@ private extension MediaLibraryService {
 
         privateMediaLib.delegate = self
 #if !os(watchOS)
+#if !os(iOS)
         privateMediaLib.cacherDelegate = subscriptionCacher
+#endif
         privateMediaLib.artworkCacherDelegate = artworkCacher
 #endif
 
@@ -641,7 +645,7 @@ private extension MediaLibraryService {
         if let media = medialib.media(withMrl: mrl) {
             return media
         }
-#if !os(watchOS)
+#if !os(watchOS) && !os(iOS)
         if mrl.isFileURL {
             let cachedIdentifier = subscriptionCacher.mediaIdentifier(forCachePath: mrl.path)
             if cachedIdentifier != 0 {

@@ -585,30 +585,6 @@
 		</dict>
 		<dict>
 			<key>Type</key>
-			<string>PSMultiValueSpecifier</string>
-			<key>Title</key>
-			<string>SETTINGS_PODCASTS_EPISODES_PER_SHOW</string>
-			<key>Key</key>
-			<string>PodcastEpisodesPerShow</string>
-			<key>DefaultValue</key>
-			<integer>2</integer>
-			<key>Titles</key>
-			<array>
-				<string>1</string>
-				<string>2</string>
-				<string>3</string>
-				<string>4</string>
-			</array>
-			<key>Values</key>
-			<array>
-				<integer>1</integer>
-				<integer>2</integer>
-				<integer>3</integer>
-				<integer>4</integer>
-			</array>
-		</dict>
-		<dict>
-			<key>Type</key>
 			<string>PSGroupSpecifier</string>
 			<key>Title</key>
 			<string>SETTINGS_MEDIA_LIBRARY</string>
@@ -719,56 +695,6 @@
 				<key>Format</key>
 				<string>SETTINGS_NETWORK_CACHING_CUSTOM_FORMAT</string>
 			</dict>
-		</dict>
-		<dict>
-			<key>DefaultValue</key>
-			<false/>
-			<key>Key</key>
-			<string>wifi-sharing-ipv6</string>
-			<key>Title</key>
-			<string>SETTINGS_WIFISHARING_IPv6</string>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-		</dict>
-		<dict>
-			<key>DefaultValue</key>
-			<false/>
-			<key>Key</key>
-			<string>rtsp-tcp</string>
-			<key>Title</key>
-			<string>SETTINGS_RTSP_TCP</string>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-		</dict>
-		<dict>
-			<key>DefaultValue</key>
-			<false/>
-			<key>Key</key>
-			<string>rtsp-http</string>
-			<key>Title</key>
-			<string>SETTINGS_RTSP_HTTP</string>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-		</dict>
-		<dict>
-			<key>DefaultValue</key>
-			<false/>
-			<key>Key</key>
-			<string>smb-force-v1</string>
-			<key>Title</key>
-			<string>SETTINGS_FORCE_SMBV1</string>
-			<key>IASKSubtitle</key>
-			<string>SETTINGS_FORCE_SMBV1_LONG</string>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSTextFieldSpecifier</string>
-			<key>Title</key>
-			<string>SETTINGS_NETWORK_SATIP_CUSTOM_CHANNEL_LIST</string>
-			<key>Key</key>
-			<string>satip-channellist-url</string>
 		</dict>
 		<dict>
 			<key>Type</key>

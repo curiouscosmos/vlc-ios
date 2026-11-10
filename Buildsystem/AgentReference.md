@@ -14,8 +14,8 @@ scene delegate.
 - Tabs, in order, each in a `UINavigationController` with an SF Symbol and `VLCAccessibilityIdentifier`:
   `DiscourseHomeViewController` (`HOME`), `DiscourseCatalogueViewController` (`DISCOURSES`, catalogue root),
   `DiscourseSearchViewController` (`SEARCH`), `PlaylistViewController` (`PLAYLISTS`),
-  `DiscourseAudioMixerViewController` (`AUDIO_MIXER`, shown as **Mixer**). `VideoViewController`,
-  `VLCServerListViewController` and `VLCOnAirViewController` remain for upstream sync but have no surface.
+  `DiscourseAudioMixerViewController` (`AUDIO_MIXER`, shown as **Mixer**). `VideoViewController` remains in the
+  shared library code without a tab; network browser and On Air implementations are excluded from iOS targets.
 - Selected index persists as `TabBarIndex` (0…4). iPhone keeps the system tab bar (iOS 26 Liquid Glass capsule;
   `.tabSidebar` is iPad only) and tints the selected item with the discourse accent; fork scroll views add
   `discourseFloatingTabBarInset` on iOS 26.
@@ -24,6 +24,12 @@ scene delegate.
   `DiscourseEmptyStateView`; Home and Mixer have no navigation title, the catalogue owns its collection view.
 - The device library is not a tab: `DiscourseLocalLibraryViewController` (an `AudioViewController` reduced to Songs +
   Folders) is pushed above the catalogue by `TabBarCoordinator.showLocalLibrary(pushing:)`.
+- iOS excludes upstream network/cloud browsers, Wi-Fi upload/web control, podcasts/radio, donations, onboarding,
+  and legacy Transfers from both app targets, including their resources. CarPlay exposes library/playlists only;
+  radio/video App Intents and their Spotlight entity association are removed. Files opening and discourse universal
+  links remain; generic streaming, podcast and cloud-auth schemes/handlers are absent on iOS. The OS remote-command
+  service is retained for lock-screen/Control Center audio. Run `ruby Buildsystem/scripts/check_ios_feature_surface.rb`
+  after upstream merges or target-membership changes. Other platform source files remain available for upstream sync.
 - Theming: `PresentationTheme.current` + `ColorPalette` (semantic hex, no asset colour sets); changes post
   `.VLCThemeDidChangeNotification` (`"themeDidChangeNotfication"`, upstream spelling). Fork screens use
   `DiscourseColors` (brief tokens, `.light`/`.dark`), never `ColorPalette`; dark is the first-launch default. The shell
@@ -70,7 +76,7 @@ scene delegate.
   `Library/MediaLibrary/`; `MediaLibraryService` is the only entry point (setup, fetch, playlists, playback state,
   `MediaLibraryObserver`). iOS has no global audio permission: access is per external folder via the document picker
   (`addExternalFolder(at:)`); the Local Songs empty state distinguishes "No files found" from "add a folder".
-- HTTP: `VLCHTTPClient` (NSURLSession + JSON), `VLCTransferController`, `VLCThumbnailsCache`/`VLCNetworkImageView`,
+- HTTP: URLSession for discourse requests/downloads, `VLCThumbnailsCache`/`VLCNetworkImageView`,
   Firebase Analytics (needs gitignored `Resources/iOS/GoogleService-Info.plist`). **No crash SDK**: `APLog` and
   `DiscourseDiagnostics` only.
 - Settings are `NSUserDefaults` keys in `VLCConstants.h` (registered in `VLCAppDelegate`). Keychain via
@@ -80,9 +86,11 @@ scene delegate.
 - About: `AboutController` + `iOS/About Contents.html` (branded icon, site link, `support@marfells.com`). Launch
   screen: branded tile on `#0D0D0D`. Settings model: `Sources/Settings/Model/SettingsSection.swift` plus
   `Settings.bundle`. Localisation: `NSLocalizedString` over `Resources/<lang>.lproj`, new strings in `en.lproj`.
-- Pinned: local RNNoise VLCKit (patched `4.0.0-a25`); SPM VLCMediaLibraryKit `0.15.0-b2`, XKKeychain `1.0.3`, pcloud
-  `3.2.3`, CocoaHTTPServer `2.4.2`, InAppSettingsKit `3.7.1`, OBSlider `1.1.3`, GRKArrayDiff `1.1.2`, MarqueeLabel
-  `4.5.3`; Pods box/ObjectiveDropboxOfficial.
+- Pinned iOS playback/UI dependencies: local RNNoise VLCKit (patched `4.0.0-a25`), VLCMediaLibraryKit `0.15.0-b2`,
+  XKKeychain `1.0.3`, OBSlider `1.1.3`, MarqueeLabel `4.5.3`; Firebase Analytics remains the only direct Pod.
+  pcloud is removed from the package graph; CocoaHTTPServer remains for other platforms and is unlinked from iOS.
+  Box and ObjectiveDropboxOfficial are removed from the Podfile/lockfile. Subscription caching is disabled on iOS;
+  the local library's existing artwork cacher remains.
 
 ### 4.4 Discourse API layer (`Sources/Discourse/API/`)
 
@@ -309,6 +317,10 @@ crash); writes are synchronous/serialised; never store the key, the UUID in logs
 
 ## 10. Known gaps and intentional deviations
 
+- **App Review cleanup.** Retired integrations are excluded from iOS binaries rather than merely hidden in navigation.
+  Shared video player/library, external display and decoder internals still compile; removing these needs a separately
+  verified playback/queue change. The current cleanup alone does not establish the cause of Apple's rejection or
+  guarantee approval. Confirm the submitted Release archive and metadata before resubmission.
 - **Captions.** Current SRT sources contain phrase timing, so playback highlights whole phrases and clip taps use phrase boundaries regardless of the word tapped. No estimated word timing. Captions are opportunistically cached separately from audio downloads. Physical-device caption scrolling responsiveness, synchronization, VoiceOver and bracket-selection acceptance remain manual.
 
 1. **Architecture.** Android's `PlaybackService`/`DownloadManager`/`SharedPreferences` become `VLCPlaybackService`/`URLSession`/`UserDefaults` + Keychain; `osho_api_*` names are kept.
@@ -373,7 +385,7 @@ This fork tracks VLC for iOS `master`. Keep fork code in named files/directories
 types) and upstream edits small and listed here. Merge by rebasing/cherry-picking onto `master`, preserve fork
 behaviour on conflicts, re-run `pod install`, rebuild, re-run [AGENTS.md §8](../AGENTS.md#8-testing-and-verification) and update [AGENTS.md §9](../AGENTS.md#9-current-status) / §10. Never let a sync drop the rebrand,
 the five tabs, the dark default, the discourse/mixer layers, paused snapshot restoration, automatic favourite
-collections or the removal of Google Drive/OneDrive/optional permissions.
+collections or the removal of retired iOS integrations, Google Drive/OneDrive and optional permissions.
 
 Fork touch points (upstream files we intentionally edit):
 
@@ -384,14 +396,22 @@ Fork touch points (upstream files we intentionally edit):
 - `Sources/App/iOS/TabBarCoordinator.swift` — five tabs, index, accent, bar modes, local library, album/deep links,
   tracker/mixer startup, likes refresh. `VLCAppDelegate.m` — defaults, background downloads, web-activity links.
   `Sources/App/VLCAppCoordinator.{h,m}`, `VLCAppSceneDelegate.m` — registration, deferred links, restoration.
+- `Sources/App/VLCAppCoordinator.{h,m}` — iOS omits upstream network/cloud/subscription/donation services;
+  `VLCAppDelegate.m` and watch session delegate omit legacy Transfers reporting; OS remote commands remain.
+  `Sources/Helpers/Network/URLHandler.swift` — iOS accepts local media/playlist files only; other platform handlers
+  are compiled separately. `Sources/CarPlay/VLCCarPlaySceneDelegate.m` — library/playlists without On Air.
+  `Sources/App/iOS/AppShortcuts.swift`, `MediaLibraryModel/MediaModel.swift` — removed radio/video intent exposure.
+  `Sources/Helpers/ColorThemeExtension.swift`, bridging header and player display controller — removed retired
+  screen imports, transfer banners and presentation. Player navigation omits upstream radio favourites.
 - Entitlements (`Resources/iOS/VLC*.entitlements`) — Associated Domains, removed caches.
 - `Sources/Discourse/DeepLink/` + `Buildsystem/DeepLinks/` — parser, share URL, tests, AASA.
 - `Sources/Media Library/` — playlist accent/artwork/rounded thumbnails/favourite rows (`PlaylistViewController`,
   `CollectionArtworkHeader`, `PlaylistModel`, `MediaCollectionViewCell`, `MediaGridCollectionCell`,
   `CollectionInfoFooter`, `MediaCategory`); self-sizing favourite discourse cards, scrolling favourite header; targeted favourite-row download updates; **Add to Audio Mixer** and local-library empty state (`MediaCategoryViewController`);
   branded empty state (`VLCEmptyLibraryView`, `MediaViewController`).
-- `Sources/Settings/Model/SettingsSection.swift` and `Resources/iOS/Settings.bundle/*` — playback history, removed
-  video/subtitle rows.
+- `Sources/Settings/{Model/SettingsSection.swift,Controller/SettingsController.swift,View/SettingsCell.swift}` and
+  `Resources/iOS/Settings.bundle/*` — playback history, removed video/subtitle/podcast/network rows and Transfers.
+- `Sources/Media Library/MediaLibraryService.swift` — iOS omits subscription caching; local artwork caching stays.
 - `Sources/UI Elements/Buttons/AppMenuBarButtonItem.swift`, `Sources/About/*`, `Sources/Onboarding/*`,
   `Resources/en.lproj/Localizable.strings` — branding, About, contact, empty-state copy.
 - `Resources/iOS/{Info.plist,Launch Screen.storyboard}`, `Buildsystem/SharedConfig.xcconfig`, app/watch/tvOS asset

@@ -209,10 +209,6 @@ class MediaCategoryViewController: UICollectionViewController, UISearchBarDelega
 
     private lazy var navItemTitle: VLCMarqueeLabel = VLCMarqueeLabel()
 
-    private var hasLaunchedBefore: Bool {
-        return userDefaults.bool(forKey: kVLCHasLaunchedBefore)
-    }
-
     private lazy var clearHistoryButton: UIBarButtonItem = {
         return setupClearHistoryButton()
     }()
@@ -647,7 +643,6 @@ class MediaCategoryViewController: UICollectionViewController, UISearchBarDelega
     }
 
     override func viewDidAppear(_ animated: Bool) {
-        showGuideOnLaunch()
         updateCollectionViewForArtworkHeader()
 #if os(iOS)
         setNeedsStatusBarAppearanceUpdate()
@@ -789,16 +784,6 @@ class MediaCategoryViewController: UICollectionViewController, UISearchBarDelega
 
         artworkHeader?.updateTheme()
         updateArtworkHeader()
-    }
-
-    private func showGuideOnLaunch() {
-        if !hasLaunchedBefore {
-            let firstStepController = VLCFirstStepsViewController()
-            let navigationController = UINavigationController(rootViewController: firstStepController)
-            navigationController.modalPresentationStyle = .formSheet
-            self.present(navigationController, animated: true)
-            userDefaults.set(true, forKey: kVLCHasLaunchedBefore)
-        }
     }
 
     @objc private func playbackDidStop() {

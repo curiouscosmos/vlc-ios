@@ -12,45 +12,6 @@
 			<key>CFBundleTypeIconFiles</key>
 			<array/>
 			<key>CFBundleTypeName</key>
-			<string>Video Files</string>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>LSHandlerRank</key>
-			<string>Owner</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>public.audiovisual-content</string>
-				<string>public.movie</string>
-				<string>public.video</string>
-				<string>public.avi</string>
-				<string>com.microsoft.advanced-systems-format</string>
-				<string>com.microsoft.windows-media-wmv</string>
-				<string>public.3gpp</string>
-				<string>public.3gpp2</string>
-				<string>public.mpeg-4</string>
-				<string>public.mpeg</string>
-				<string>com.microsoft.windows-media-wm</string>
-				<string>com.microsoft.windows-media-wmv</string>
-				<string>com.real.realmedia</string>
-				<string>com.apple.quicktime-movie</string>
-				<string>public.mpeg4</string>
-				<string>org.videolan.mxg</string>
-				<string>org.videolan.webm</string>
-				<string>org.videolan.mxf</string>
-				<string>org.matroska.mkv</string>
-				<string>org.videolan.mts</string>
-				<string>com.divx.divx</string>
-				<string>org.xiph.ogv</string>
-				<string>org.videolan.hevc</string>
-				<string>public.3gpp</string>
-				<string>com.adobe.flv</string>
-				<string>public.h264</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeIconFiles</key>
-			<array/>
-			<key>CFBundleTypeName</key>
 			<string>Audio Files</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
@@ -79,48 +40,6 @@
 				<string>public.adts</string>
 			</array>
 		</dict>
-		<dict>
-			<key>CFBundleTypeIconFiles</key>
-			<array/>
-			<key>CFBundleTypeName</key>
-			<string>Subtitles Files</string>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>LSHandlerRank</key>
-			<string>Owner</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>org.videolan.srt</string>
-				<string>org.videolan.sub</string>
-				<string>org.videolan.cdg</string>
-				<string>org.videolan.idx</string>
-				<string>public.utf</string>
-				<string>org.videolan.ass</string>
-				<string>org.videolan.ssa</string>
-				<string>org.videolan.aqt</string>
-				<string>org.videolan.jss</string>
-				<string>org.videolan.psb</string>
-				<string>org.videolan.rt</string>
-				<string>org.videolan.smi</string>
-				<string>org.videolan.smil</string>
-				<string>com.real.smil</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeIconFiles</key>
-			<array/>
-			<key>CFBundleTypeName</key>
-			<string>Podcast Feeds</string>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>LSHandlerRank</key>
-			<string>Alternate</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>public.rss</string>
-				<string>org.opml.opml</string>
-			</array>
-		</dict>
 	</array>
 	<key>CFBundleExecutable</key>
 	<string>${EXECUTABLE_NAME}</string>
@@ -141,131 +60,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>CFBundleURLName</key>
-			<string>RTSP</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>rtsp</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>CFBundleURLName</key>
-			<string>Multimedia Stream URL</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>mms</string>
-				<string>mmsh</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>CFBundleURLName</key>
-			<string>UDP URL</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>udp</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>CFBundleURLName</key>
-			<string>RTP URL</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>rtp</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>CFBundleURLName</key>
-			<string>RTMP</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>rtmp</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>CFBundleURLName</key>
-			<string>SFTP</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>sftp</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>CFBundleURLName</key>
-			<string>FTP</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>ftp</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>CFBundleURLName</key>
-			<string>SMB</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>smb</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>CFBundleURLName</key>
-			<string>Dropbox</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>db-a60fc6qj9zdg7bw</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>CFBundleURLName</key>
-			<string>VLC</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>vlc</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>CFBundleURLName</key>
-			<string>x-callback-url</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>vlc-x-callback</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>CFBundleURLName</key>
-			<string>Podcast Feed</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>feed</string>
-				<string>feeds</string>
-				<string>itpc</string>
-			</array>
-		</dict>
-	</array>
+	<array/>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>INIntentsSupported</key>
@@ -305,15 +100,9 @@
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_googlecast._tcp</string>
-		<string>_sftp-ssh._tcp.</string>
-		<string>_nfs._tcp.</string>
-		<string>_plexmediasvr._tcp.</string>
-		<string>_http._tcp.</string>
-		<string>_ftp._tcp.</string>
-		<string>_smb._tcp.</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>In order to discover media servers we will need access to your local network. This is also needed to find Chromecast devices.</string>
+	<string>Find audio playback devices on your local network.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>org.videolan.vlc-ios.librarymode</string>

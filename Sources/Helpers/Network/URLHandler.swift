@@ -14,6 +14,56 @@
 import Foundation
 import UIKit
 
+#if os(iOS)
+@objc public protocol VLCURLHandler {
+    func canHandleOpen(url: URL, options: [UIApplication.OpenURLOptionsKey: AnyObject]) -> Bool
+    func performOpen(url: URL, options: [UIApplication.OpenURLOptionsKey: AnyObject]) -> Bool
+}
+
+@objc class URLHandlers: NSObject {
+    @objc static let handlers: [VLCURLHandler] = [FileURLHandler()]
+}
+
+final class FileURLHandler: NSObject, VLCURLHandler {
+    func canHandleOpen(url: URL, options: [UIApplication.OpenURLOptionsKey: AnyObject]) -> Bool {
+        url.isFileURL && (url.lastPathComponent.isSupportedMediaFormat()
+                         || url.lastPathComponent.isSupportedPlaylistFormat())
+    }
+
+    func performOpen(url: URL, options: [UIApplication.OpenURLOptionsKey: AnyObject]) -> Bool {
+        guard canHandleOpen(url: url, options: options) else { return false }
+        let service = PlaybackService.sharedInstance()
+        if InboxManager.isInInbox(url) {
+            let movedURL = InboxManager.moveToDocuments(url) ?? url
+            InboxManager.drainInbox()
+            play(url: movedURL, service: service, completion: nil)
+            return true
+        }
+
+        let isSecurityScoped = url.startAccessingSecurityScopedResource()
+        if isSecurityScoped {
+            service.openedLocalURLs.add(url)
+        }
+        play(url: url, service: service) { _ in
+            if isSecurityScoped {
+                url.stopAccessingSecurityScopedResource()
+                service.openedLocalURLs.remove(url)
+            }
+        }
+        return true
+    }
+
+    private func play(url: URL, service: PlaybackService, completion: ((Bool) -> Void)?) {
+        UIApplication.shared.dismissPresentedScreensAbovePlayer()
+        guard let media = VLCMedia(url: url) else {
+            completion?(false)
+            return
+        }
+        service.playMediaList(VLCMediaList(array: [media]), firstIndex: 0,
+                              subtitlesFilePath: nil, completion: completion)
+    }
+}
+#else
 enum VLCXCallbackType {
     case url
     case sub
@@ -526,3 +576,5 @@ extension VLCURLHandler {
 fileprivate func convertToUIApplicationOpenExternalURLOptionsKeyDictionary(_ input: [String: Any]) -> [UIApplication.OpenExternalURLOptionsKey: Any] {
 	return Dictionary(uniqueKeysWithValues: input.map { key, value in (UIApplication.OpenExternalURLOptionsKey(rawValue: key), value)})
 }
+
+#endif

@@ -1,5 +1,5 @@
 {
-  "originHash" : "647da6223d8e247dad0253e3aad7c1b14a2ad73e2d30d3c841c0fcc3a3cd7c4e",
+  "originHash" : "a91bdb5addb1a23df5527b15e07008b77af22c006826280e9a7abde26088b368",
   "pins" : [
     {
       "identity" : "cocoahttpserver",
@@ -44,15 +44,6 @@
       "state" : {
         "revision" : "174df8e49fdc830e420703edd3607dff7076f3f9",
         "version" : "1.1.3"
-      }
-    },
-    {
-      "identity" : "pcloud-sdk-swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/pcloud/pcloud-sdk-swift.git",
-      "state" : {
-        "revision" : "cc81e0250a9f378019470c78ce9a8bb501dcaeda",
-        "version" : "3.2.3"
       }
     },
     {

@@ -22,16 +22,33 @@ class URLHandlerTests: XCTestCase {
         XCTAssertFalse(schemes.contains { $0.hasPrefix("com.googleusercontent.apps") })
     }
 
-    func testVLCHandler() {
-        let handler = VLCCallbackURLHandler()
-        let transformURLString = { handler.transformVLCURL(URL(string: $0)!) }
-        XCTAssertEqual(transformURLString("vlc://http//test"), URL(string: "http://test")!, "strip the custom scheme and re-add the colon")
-        XCTAssertEqual(transformURLString("vlc://http://test"), URL(string: "http://test")!, "just strip the custom scheme")
-        XCTAssertEqual(transformURLString("vlc://test"), URL(string: "http://test")!, "strip the custom scheme and add http")
-        XCTAssertEqual(transformURLString("vlc://ftp//test"), URL(string: "ftp://test")!, "strip the custom scheme and readd :")
-        XCTAssertEqual(transformURLString("vlc://ftp://test"), URL(string: "ftp://test")!, "strip custom scheme")
-        XCTAssertEqual(transformURLString("vlc://https//test"), URL(string: "https://test")!, "strip the custom scheme and readd :")
-        XCTAssertEqual(transformURLString("vlc://https://test"), URL(string: "https://test")!, "strip the custom scheme")
+    func testOnlyLocalFilesAreHandled() throws {
+        XCTAssertEqual(URLHandlers.handlers.count, 1)
+        let handler = try XCTUnwrap(URLHandlers.handlers.first)
+        XCTAssertTrue(handler.canHandleOpen(url: URL(fileURLWithPath: "/tmp/discourse.mp3"), options: [:]))
+        XCTAssertFalse(handler.canHandleOpen(url: URL(fileURLWithPath: "/tmp/readme.txt"), options: [:]))
+
+        for value in ["vlc://example.com/audio.mp3", "vlc-x-callback://x-callback-url/stream?url=https://example.com/audio.mp3",
+                      "https://example.com/audio.mp3", "ftp://example.com/audio.mp3", "feed://example.com/feed.xml",
+                      "db-a60fc6qj9zdg7bw://callback"] {
+            let url = try XCTUnwrap(URL(string: value))
+            XCTAssertFalse(handler.canHandleOpen(url: url, options: [:]), value)
+            XCTAssertFalse(handler.performOpen(url: url, options: [:]), value)
+        }
+    }
+
+    func testLegacyURLSchemesAreNotRegistered() {
+        let types = Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]] ?? []
+        let schemes = types.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }
+        XCTAssertTrue(schemes.isEmpty)
+    }
+
+    func testRetiredNetworkScreensAreAbsent() {
+        for name in ["VLCHTTPUploaderController", "VLCServerListViewController", "VLCOnAirViewController",
+                     "VLCRadioListViewController", "VLCCloudServicesTableViewController",
+                     "VLCDonationViewController", "VLCFirstStepsViewController"] {
+            XCTAssertNil(NSClassFromString(name), name)
+        }
     }
     
 }

@@ -178,10 +178,6 @@
         sessionDelegate = [[VLCSessionDelegate alloc] init];
         [WCSession defaultSession].delegate = sessionDelegate;
         [[WCSession defaultSession] activateSession];
-
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
-            [[[VLCAppCoordinator sharedInstance] transferController] observeOutstandingWatchTransfers];
-        });
     }
 #endif
 
@@ -277,9 +273,6 @@
         VLCAppCoordinator *appCoordinator = [VLCAppCoordinator sharedInstance];
         [appCoordinator.mediaLibraryService saveMetaDataOf:nil from:vps];
     }
-
-    VLCFavoriteService *fs = [[VLCAppCoordinator sharedInstance] favoriteService];
-    [fs storeContentSynchronously];
 
     [vps saveCurrentlyPlayingMediaIdentifier];
 }

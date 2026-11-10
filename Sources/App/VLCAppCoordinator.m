@@ -87,6 +87,7 @@
     return _mediaLibraryService;
 }
 
+#if !TARGET_OS_IOS
 - (VLCFavoriteService *)favoriteService
 {
     if (!_favoriteService) {
@@ -114,27 +115,28 @@
     return _savedServerList;
 }
 
+#endif
+
 - (void)initializeServices
 {
-    if (_httpUploaderController) {
+    if (_remoteControlService) {
         return;
     }
 
-    // Init the HTTP Server and clean its cache if on iOS
+#if !TARGET_OS_IOS
+    // Upstream network services are not part of the iOS audio app.
     _httpUploaderController = [[VLCHTTPUploaderController alloc] init];
-    #if TARGET_OS_IOS
-    [_httpUploaderController cleanCache];
-    #endif
     _httpUploaderController.medialibrary = self.mediaLibraryService;
-
-    // start the remote control service
+#endif
+    // System lock-screen and Control Center playback commands.
     _remoteControlService = [[VLCRemoteControlService alloc] init];
 
-#if TARGET_OS_IOS || TARGET_OS_VISION
+#if TARGET_OS_VISION
     _podcastStore = [[PodcastStore alloc] initWithMediaLibraryService:self.mediaLibraryService];
 #endif
 }
 
+#if !TARGET_OS_IOS
 - (VLCHTTPUploaderController *)httpUploaderController
 {
     if (!_httpUploaderController) {
@@ -152,6 +154,8 @@
     }
     return _transferController;
 }
+
+#endif
 
 #if !TARGET_OS_TV
 
@@ -248,6 +252,7 @@
 }
 
 
+#if !TARGET_OS_IOS
 - (VLCStripeController *)stripeController
 {
     if (!_stripeController) {
@@ -264,5 +269,7 @@
     return _podcastStore;
 }
 #endif
+#endif
+
 
 @end
