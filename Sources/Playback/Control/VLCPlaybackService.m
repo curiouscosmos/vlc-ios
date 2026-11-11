@@ -124,6 +124,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
     BOOL _openInMiniPlayer;
 #if TARGET_OS_IOS
+    BOOL _castingInBackground;
     BOOL _restoredPaused;
     BOOL _retainingPlayback;
     BOOL _naturalCompletion;
@@ -198,6 +199,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         APLog(@"media player failed to remove time observer");
     }
 
+    [_backgroundDummyPlayer stop];
     _backgroundDummyPlayer = nil;
     _mediaPlayer = nil;
     _listPlayer = nil;
@@ -639,6 +641,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 - (void)stopPlayback
 {
 #if TARGET_OS_IOS
+    [self stopCastingBackgroundKeepalive];
     if (_retainingPlayback) return;
     NSDictionary *retained = !_sessionWillRestart && !_shuttingDown ? [self playbackSnapshot] : nil;
     [self saveReadyPlayback];
@@ -1365,6 +1368,9 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         [self _restorePendingPlaybackPositionIfNeeded];
 
         self->_mediaPlayerState = currentState;
+#if TARGET_OS_IOS
+        [self updateCastingBackgroundKeepalive];
+#endif
 
         if ([self.delegate respondsToSelector:@selector(mediaPlayerStateChanged:isPlaying:currentMediaHasTrackToChooseFrom:currentMediaHasChapters:forPlaybackService:)]) {
             [self.delegate mediaPlayerStateChanged:currentState
@@ -1427,6 +1433,9 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
 - (void)pause
 {
+#if TARGET_OS_IOS
+    [self stopCastingBackgroundKeepalive];
+#endif
     [_listPlayer pause];
 }
 
@@ -2191,6 +2200,9 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     NSUInteger interruptionType = [userInfo[AVAudioSessionInterruptionTypeKey] unsignedIntegerValue];
 
     if (interruptionType == AVAudioSessionInterruptionTypeBegan) {
+#if TARGET_OS_IOS
+        [self stopCastingBackgroundKeepalive];
+#endif
         [_mediaPlayer pause];
     } else if (interruptionType == AVAudioSessionInterruptionTypeEnded
                && [userInfo[AVAudioSessionInterruptionOptionKey] unsignedIntegerValue] == AVAudioSessionInterruptionOptionShouldResume) {
@@ -2219,6 +2231,9 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
     if (_externalAudioPlaybackDeviceConnected && !externalAudioPlaybackDeviceConnected && [_mediaPlayer isPlaying]) {
         APLog(@"Pausing playback as previously connected external audio playback device was removed");
+#if TARGET_OS_IOS
+        [self stopCastingBackgroundKeepalive];
+#endif
         [_mediaPlayer pause];
 
         [self savePlaybackState];
@@ -2595,6 +2610,39 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
 #pragma mark - background interaction
 
+#if TARGET_OS_IOS
+- (void)stopCastingBackgroundKeepalive
+{
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self stopCastingBackgroundKeepalive]; });
+        return;
+    }
+    [_backgroundDummyPlayer stop];
+    _backgroundDummyPlayer = nil;
+}
+
+- (void)updateCastingBackgroundKeepalive
+{
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self updateCastingBackgroundKeepalive]; });
+        return;
+    }
+    BOOL shouldRun = _castingInBackground && _renderer && !_restoredPaused && !_retainingPlayback && !_shuttingDown
+        && _mediaPlayerState == VLCMediaPlayerStatePlaying
+        && _mediaPlayer.state == VLCMediaPlayerStatePlaying && _mediaPlayer.isPlaying;
+    if (!shouldRun) {
+        [self stopCastingBackgroundKeepalive];
+        return;
+    }
+    if (!_backgroundDummyPlayer) {
+        // Chromecast needs local audio output only while real casting playback is active in the background.
+        _backgroundDummyPlayer = [[VLCMediaPlayer alloc] initWithOptions:@[@"--demux=rawaud"]];
+        _backgroundDummyPlayer.media = [[VLCMedia alloc] initWithPath:@"/dev/zero"];
+        [_backgroundDummyPlayer play];
+    }
+}
+#endif
+
 - (void)applicationWillResignActive:(NSNotification *)aNotification
 {
     [self savePlaybackState];
@@ -2614,15 +2662,8 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     _preBackgroundWrapperView = _videoOutputViewWrapper;
 
 #if TARGET_OS_IOS
-    if (_renderer) {
-        // A separate media player playing silence keeps the application alive in
-        // background exclusively for Chromecast.
-        if (!_backgroundDummyPlayer) {
-            _backgroundDummyPlayer = [[VLCMediaPlayer alloc] initWithOptions:@[@"--demux=rawaud"]];
-            _backgroundDummyPlayer.media = [[VLCMedia alloc] initWithPath:@"/dev/zero"];
-        }
-        [_backgroundDummyPlayer play];
-    }
+    _castingInBackground = YES;
+    [self updateCastingBackgroundKeepalive];
 #endif
 #endif
 
@@ -2640,9 +2681,8 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     }
 
 #if TARGET_OS_IOS
-    if (_renderer) {
-        [_backgroundDummyPlayer stop];
-    }
+    _castingInBackground = NO;
+    [self stopCastingBackgroundKeepalive];
 #endif
 
     if (_shouldResumePlaying) {
@@ -2663,6 +2703,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 {
     [self saveReadyPlayback];
     _shuttingDown = YES;
+    [self stopCastingBackgroundKeepalive];
 }
 
 - (NSDictionary *)playbackSnapshot
@@ -2761,6 +2802,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 {
     VLCMediaList *list = [RDPlaybackSnapshot mediaList:snapshot];
     if (!list.count) return;
+    [self stopCastingBackgroundKeepalive];
     NSInteger index = [snapshot[@"index"] integerValue];
     _shuffleMode = NO;
     _shuffledList = nil;
@@ -2911,6 +2953,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         if (![_mediaPlayer applyNoiseReductionEnabled:enabled]) APLog(@"RNNoise renderer transition failed");
     }
     [[NSNotificationCenter defaultCenter] postNotificationName:VLCPlaybackServiceNoiseReductionDidChange object:self];
+    [self updateCastingBackgroundKeepalive];
 }
 #endif
 

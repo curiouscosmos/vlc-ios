@@ -50,6 +50,12 @@ scene delegate.
 - `VLCMetaData` is the only writer of `MPNowPlayingInfoCenter`; `VLCRemoteControlService` handles remote commands.
   Background mode is `audio` only; the service activates `AVAudioSession` before the first play/resume (VLCKit owns
   its category) and handles interruptions, route changes and backgrounding. No `setCategory:` in app code.
+- **Chromecast keepalive.** `VLCPlaybackService` starts its local silent player only after a validated Playing event,
+  while the native player is still Playing/playing, a renderer is selected and the app is backgrounded. Keepalive
+  lifecycle reconciliation runs on main. Pause/stop commands, interruptions and route-loss pauses stop it immediately;
+  native state changes reconcile it, so paused/stopped/error states and stale Playing callbacks cannot revive it.
+  Renderer changes also reconcile it. Foregrounding stops it even after disconnection; paused restoration and
+  shutdown stop/release it. A resumed background cast can start it again only once real playback resumes.
 - Mini player: `VLCPlayerDisplayController` + `VLCAudioMiniPlayer`. Full iOS player: `AudioPlayerViewController`
   (discourse heart before more-options; Share row for a discourse track); buffering is
   a plain white spinner. The player’s Discourse header action uses the current media identity’s `discourse_id` and
@@ -331,6 +337,8 @@ crash); writes are synchronous/serialised; never store the key, the UUID in logs
 
 ## 10. Known gaps and intentional deviations
 
+- **Chromecast acceptance.** Simulator lifecycle tests cover keepalive gating/cleanup and stale callbacks;
+  real-receiver background playback, remote pause/resume, disconnection and interruptions still need device acceptance.
 - **App Review cleanup.** Retired integrations are excluded from iOS binaries rather than merely hidden in navigation.
   Video playback UI, PiP and external video scenes are also excluded; shared engine types remain in VLCKit.
   The cleanup alone does not establish the cause of Apple's rejection or
@@ -405,7 +413,7 @@ Fork touch points (upstream files we intentionally edit):
 
 - `Sources/Playback/Control/VLCPlaybackService.{h,m}` and `VLCPlaybackService+MediaLibrary.m` — RNNoise switching,
   audio session, snapshot hooks, asynchronous periodic checkpoints with cached queue metadata, paused retention,
-  absolute-time clip seeking and iOS audio-only engine options/PiP removal.
+  absolute-time clip seeking, iOS audio-only engine options/PiP removal and playback-gated Chromecast keepalive cleanup.
 - `Sources/Playback/Control/VLCPlayerDisplayController.{h,m}`, `Sources/Playback/Queue/QueueViewController.swift`,
   audio player, `PlayerController`, `PlayerInfoView`, navigation bar and `UIStackView+Orientation.m` — audio-only
   presentation/queue callbacks, no external video display, PiP or 360-degree motion on iOS; shared audio controls stay.

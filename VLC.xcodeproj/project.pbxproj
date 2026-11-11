@@ -1190,6 +1190,7 @@
 		A13466B1A73690CEB41E5372 /* DiscourseMixerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB25A73607F7C435E4A8E0CB /* DiscourseMixerTests.swift */; };
 		A1CA2EF328240A8D000DB82F /* VLCOpenManagedServersViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = A1CA2EF228240A8D000DB82F /* VLCOpenManagedServersViewController.xib */; };
 		A1CA2EF628240BA0000DB82F /* VLCOpenManagedServersViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1CA2EF528240BA0000DB82F /* VLCOpenManagedServersViewController.m */; };
+		A568D55F51205707D2B219E4 /* DiscourseCastingTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 2520247542A0FD5980EC4823 /* DiscourseCastingTests.m */; };
 		A63F0D181197B88F4BDAF759 /* DiscourseCaptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE7B5377534EAD89050E32C /* DiscourseCaptionView.swift */; };
 		A77CC807F4B239D93F4F205F /* ContinueListeningSectionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6156983777DD2563597369F8 /* ContinueListeningSectionCell.swift */; };
 		A78218B6BD82E22889F0089C /* DiscourseClipSaveController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD5222A177803433320C4C46 /* DiscourseClipSaveController.swift */; };
@@ -1546,6 +1547,7 @@
 		226D57EB2B4439880090AD88 /* FavoriteListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoriteListViewController.swift; sourceTree = "<group>"; };
 		22A21D0B0A66605DCBF57C33 /* DiscourseStatsCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscourseStatsCache.swift; sourceTree = "<group>"; };
 		22ABF9EA2A77B5CD00F02453 /* SortingHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SortingHandler.swift; sourceTree = "<group>"; };
+		2520247542A0FD5980EC4823 /* DiscourseCastingTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = DiscourseCastingTests.m; sourceTree = "<group>"; };
 		25514A95AD71903F66BDB68B /* VLCActiveDownloadCell.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = VLCActiveDownloadCell.m; path = Sources/Network/Download/VLCActiveDownloadCell.m; sourceTree = SOURCE_ROOT; };
 		2657F3E8CB0CF35824591E99 /* Pods-VLC-iOSTests.distribution.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VLC-iOSTests.distribution.xcconfig"; path = "Target Support Files/Pods-VLC-iOSTests/Pods-VLC-iOSTests.distribution.xcconfig"; sourceTree = "<group>"; };
 		2663ACB122497D21000FBB95 /* VLCNetworkLoginTVViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VLCNetworkLoginTVViewController.swift; sourceTree = "<group>"; };
@@ -4990,6 +4992,7 @@
 				A988E3F709C21F2F333FD4E1 /* DiscourseDeepLinkTests.swift */,
 				55C0941D58365DDB57A7C810 /* DiscourseClipTests.swift */,
 				3B25B4E638F6861D70C5464E /* DiscourseCaptionTests.swift */,
+				2520247542A0FD5980EC4823 /* DiscourseCastingTests.m */,
 			);
 			path = Unit;
 			sourceTree = "<group>";
@@ -5876,6 +5879,7 @@
 				E5965B641DD70FB41B3EC94B /* DiscourseDeepLinkTests.swift in Sources */,
 				E54D5806CB082D584E22A542 /* DiscourseClipTests.swift in Sources */,
 				B4F24295B02DD45398039C45 /* DiscourseCaptionTests.swift in Sources */,
+				A568D55F51205707D2B219E4 /* DiscourseCastingTests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

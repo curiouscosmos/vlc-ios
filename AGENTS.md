@@ -97,7 +97,7 @@ xcodebuild ... -scheme VLC-iOS-UITests -destination ... test
 ```
 
 Unit suites (`Buildsystem/Testing/Unit/`): API, stores, formatting, playback, playback progress, search, home,
-downloads, mixer, clips, captions, deep links, RNNoise (ObjC), launch screen. UI (`Buildsystem/Testing/UI/VLCTestMenu.swift`): one test
+downloads, mixer, casting lifecycle (ObjC), clips, captions, deep links, RNNoise (ObjC), launch screen. UI (`Buildsystem/Testing/UI/VLCTestMenu.swift`): one test
 per tab, catalogue → detail, search, Home, like round trip, download, mixer picker, playback-history setting.
 Screenshots use `Buildsystem/Testing/Screenshots/` (`VLC_SCREENSHOTS_OUTPUT`).
 
@@ -168,6 +168,8 @@ Before changing observable behaviour, read the corresponding §6 contract in [Ag
 - Track cards show the title once; subtitles put duration first and omit a matching discourse name.
 - Detail track rows keep the duration, download and like controls at their intrinsic width; long titles wrap to a second line instead of squeezing the icons.
 - Player scrub-bar seeks capture the chosen time when the gesture ends, hold the display until the player reports it, and use absolute timestamps for audio, so streaming position updates cannot snap a 20-minute seek back to the pre-seek time.
+- Chromecast's local keepalive runs only during active casting playback in the background. Pause, stop,
+  interruption, renderer disconnection, foregrounding, paused restoration and shutdown stop and release it.
 - iOS playback is audio-only, including mixed containers and files with embedded artwork. Use the audio player and
   existing queue/mini-player; video screens, Picture in Picture and external video scenes are excluded from shipping
   targets. Audio casting/AirPlay and AVFoundation clip-to-video export remain available.
@@ -179,7 +181,7 @@ Before changing persisted state, read the key/type/owner table in [AgentReferenc
 
 ## 8. Testing and verification
 
-Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseCaptionTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **218 unit tests** and **19 UI tests** (§3.5).
+Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseCastingTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseCaptionTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **225 unit tests** and **19 UI tests** (§3.5).
 
 Manual: clean build; local playback/playlists/background/lock screen; five tabs and branding; catalogue paging/filters/refresh; detail queue continuation; Home sections/states; like persistence and rollback; 60 s qualification and 24 h stats dedupe; downloads (progress/cancel/remove/offline); mixer add/select/reorder/remove/clear/follow/volume/relaunch; VoiceOver, Dynamic Type, light theme; offline, interruption, route change and media-services reset on a device. UI tests cover navigation, catalogue → detail, search, Home, the like round trip, the download round trip (skips on a slow CDN), the mixer picker, playback history, payload-less favourites, and clip preview progress and end stopping, and the clip editor/save drawer link sharing, video-picker cancellation and processed-audio Files saving.
 
