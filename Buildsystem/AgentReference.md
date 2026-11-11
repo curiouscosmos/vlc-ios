@@ -249,10 +249,11 @@ Starting one track builds a queue continuing with the rest of its discourse; a s
 list after fetching it, without interrupting playback. Index `n` continues at `n+1`. Mapping and resume rules are in
 §4.7. Position saves on pause/stop/next/media change/background and every 30 s, restores when the item starts,
 completes at the end and clears on replay-from-start. A play qualifies for history/stats after **60 s of actual
-playback** (pauses, buffering and seeks excluded); previous/next count. A scrub-bar seek captures the chosen time at
-gesture time, holds the thumb and elapsed label until the player reports that time (or a timeout), and seeks audio by
-absolute timestamp because a streaming duration estimate can make the 0…1 position land elsewhere; later position
-updates therefore cannot re-apply the pre-seek time.
+playback** (pauses, buffering and seeks excluded); previous/next count. A scrub-bar seek captures the chosen time on
+each slider value change, including events outside active dragging. The handler retains the selected thumb value
+instead of resetting it to the old playback position. It holds the thumb and elapsed label until the player reports
+that time (or a timeout), and seeks audio by absolute timestamp because a streaming duration estimate can make the
+0…1 position land elsewhere; later position updates therefore cannot re-apply the pre-seek time.
 
 ### 6.4 Likes
 

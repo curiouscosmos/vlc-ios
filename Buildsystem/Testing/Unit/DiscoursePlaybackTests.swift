@@ -375,6 +375,37 @@ final class DiscoursePlaybackTests: XCTestCase {
         XCTAssertFalse(service.isPlaying)
     }
 
+    @MainActor
+    func testScrubBarValueChangeKeepsTheChosenStreamingPosition() {
+        let snapshotURL = RDPlaybackSnapshot.url
+        let original = try? Data(contentsOf: snapshotURL)
+        let service = PlaybackService.sharedInstance()
+        service.configureReadyPlayback(snapshot())
+        let bar = MediaScrubProgressBar(frame: .zero)
+        defer {
+            NSObject.cancelPreviousPerformRequests(withTarget: bar)
+            service.stopPlayback()
+            if let original { try? original.write(to: snapshotURL, options: .atomic) }
+            else { try? FileManager.default.removeItem(at: snapshotURL) }
+        }
+        bar.updateInterfacePosition()
+        bar.progressSlider.value = 0.75
+        bar.progressSlider.sendActions(for: .valueChanged)
+        XCTAssertEqual(bar.progressSlider.value, 0.75, accuracy: 0.001,
+                       "A value change must not immediately restore the old streaming position")
+        bar.updateInterfacePosition()
+        XCTAssertEqual(bar.progressSlider.value, 0.75, accuracy: 0.001)
+        let applied = expectation(description: "The captured slider target reaches playback")
+        DispatchQueue.main.asyncAfter(deadline: .now() + ScrubSeek.delay + 0.1) {
+            XCTAssertEqual(service.playedTime().intValue, 90_000)
+            XCTAssertFalse(service.isPlaying, "Seeking a restored stream must preserve its paused state")
+            bar.updateInterfacePosition()
+            XCTAssertEqual(bar.progressSlider.value, 0.75, accuracy: 0.001)
+            applied.fulfill()
+        }
+        wait(for: [applied], timeout: 2)
+    }
+
     func testScrubSeekCapturesTheTargetBeforePositionUpdates() throws {
         var seek = ScrubSeek()
         seek.update(fraction: Float(20 * 60) / Float(60 * 60), durationMilliseconds: 3_600_000)

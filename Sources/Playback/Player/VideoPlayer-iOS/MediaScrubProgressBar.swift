@@ -450,10 +450,6 @@ private extension MediaScrubProgressBar {
             perform(#selector(updatePlaybackPosition),
                     with: nil,
                     afterDelay: ScrubSeek.delay)
-            if !isScrubbing {
-                progressSlider.value = playbackService.playbackPosition
-            }
-
             let newPosition = VLCTime(number: NSNumber.init(value: slider.value * Float(playbackService.mediaDuration)))
             elapsedTimeLabel.text = newPosition.stringValue
             elapsedTimeLabel.accessibilityLabel =
