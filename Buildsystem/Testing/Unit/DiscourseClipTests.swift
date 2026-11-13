@@ -54,6 +54,70 @@ final class DiscourseClipTests: XCTestCase {
     }
 
     @MainActor
+    func testExportSurvivesBackgroundAndDefersFilesUntilActive() async throws {
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 48000 * 6))
+        buffer.frameLength = buffer.frameCapacity
+        let channels = try XCTUnwrap(buffer.floatChannelData)
+        for index in 0..<Int(buffer.frameLength) {
+            for channel in 0..<2 { channels[channel][index] = sin(Float(index) * 0.1) * 0.2 }
+        }
+        do {
+            let file = try AVAudioFile(forWriting: source, settings: format.settings)
+            try file.write(from: buffer)
+        }
+        let id = "clip-background-" + UUID().uuidString
+        let downloads = DiscourseDownloadStore.shared
+        try downloads.storeDownloadedFile(at: source, audioID: id, discourseID: id)
+        defer { _ = downloads.remove(audioID: id) }
+        let track = DiscourseAudio(id: id, discourseID: id, discourseName: "", title: "Background export",
+                                   audioURLString: "https://example.com/source.wav")
+        let mixer = DiscourseAudioMixer.shared
+        let enabled = mixer.isEnabled
+        mixer.setEnabled(false)
+        defer { mixer.setEnabled(enabled) }
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        for cancel in [false, true] {
+            let drawer = DiscourseClipSaveController(track: track, range: DiscourseClipRange(duration: 6, position: 0))
+            let window = UIWindow(windowScene: scene)
+            window.rootViewController = drawer
+            window.makeKeyAndVisible()
+            defer { window.isHidden = true; drawer.dismiss(animated: false) }
+            drawer.loadViewIfNeeded()
+            drawer.tableView(drawer.tableView, didSelectRowAt: IndexPath(row: 1, section: 3))
+            let progress = try XCTUnwrap(drawer.presentedViewController as? DiscourseClipProgressController)
+            NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+            func percentage(in view: UIView) -> UILabel? {
+                if view.accessibilityIdentifier == "clipExportPercentage" { return view as? UILabel }
+                return view.subviews.compactMap { percentage(in: $0) }.first
+            }
+            let label = try XCTUnwrap(percentage(in: progress.view))
+            for _ in 0..<150 {
+                if label.text == "100%" { break }
+                try await Task.sleep(nanoseconds: 100_000_000)
+            }
+            try await Task.sleep(nanoseconds: 500_000_000)
+            XCTAssertEqual(label.text, "100%", "Rendering must finish rather than cancel on background")
+            XCTAssertTrue(drawer.presentedViewController === progress, "Keep progress until Files can open in the foreground")
+            if cancel { progress.onCancel?() }
+            NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+            for _ in 0..<50 {
+                if drawer.presentedViewController is UIDocumentPickerViewController { break }
+                if cancel && drawer.presentedViewController == nil { break }
+                try await Task.sleep(nanoseconds: 100_000_000)
+            }
+            if cancel {
+                XCTAssertNil(drawer.presentedViewController, "Cancelled background output must never reach Files")
+            } else {
+                let picker = try XCTUnwrap(drawer.presentedViewController as? UIDocumentPickerViewController)
+                drawer.documentPickerWasCancelled(picker)
+                picker.dismiss(animated: false)
+            }
+        }
+    }
+
+    @MainActor
     func testDrawerCaptionsAreOptionalAndResetEachSession() throws {
         for (hasCC, path) in [(false, "https://example.com/a.srt"), (true, "https://example.com/a.srt"), (true, "http://invalid.example/a.srt")] {
             let track = DiscourseAudio(id: "a", discourseID: "d", discourseName: "", title: "Track", audioURLString: "",

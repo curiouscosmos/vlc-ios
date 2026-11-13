@@ -16,6 +16,9 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
     private var operation = UUID()
     private var status: String?
     private var progressController: DiscourseClipProgressController?
+    private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+    private var isInBackground = false
+    private var pendingResult: Result<[URL], Error>?
     private var exportCC = false
     private var requestedCC = false
     private var fadeIn = true
@@ -34,7 +37,13 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         navigationItem.largeTitleDisplayMode = .never
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    deinit { visualProgress?.cancel(); captionTask?.cancel(); if let visualDirectory { try? FileManager.default.removeItem(at: visualDirectory) }; timer?.invalidate(); NotificationCenter.default.removeObserver(self); exporter.cancel(); exporter.clean() }
+    deinit {
+        if backgroundTask != .invalid { UIApplication.shared.endBackgroundTask(backgroundTask) }
+        visualProgress?.cancel(); captionTask?.cancel()
+        if let visualDirectory { try? FileManager.default.removeItem(at: visualDirectory) }
+        timer?.invalidate(); NotificationCenter.default.removeObserver(self)
+        exporter.cancel(); exporter.clean()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -48,6 +57,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
             NotificationCenter.default.addObserver(self, selector: #selector(refreshSettings), name: name, object: nil)
         }
         NotificationCenter.default.addObserver(self, selector: #selector(background), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(foreground), name: UIApplication.didBecomeActiveNotification, object: nil)
     }
     @objc private func refreshSettings() {
         tableView.backgroundColor = DiscourseColors.current.surfaceStart
@@ -289,17 +299,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
                         self.progressController?.update(progress: fraction)
                     }) { [weak self] result in
                         guard let self, self.operation == token else { return }
-                        // Keep options disabled until Files relinquishes the temporary output.
-                        switch result {
-                        case .success(let urls):
-                            let picker = UIDocumentPickerViewController(forExporting: urls, asCopy: true)
-                            picker.delegate = self
-                            self.closeProgress { [weak self] in
-                                guard let self, self.operation == token, self.busy else { return }
-                                self.present(picker, animated: true)
-                            }
-                        case .failure(let error): self.fail(error)
-                        }
+                        self.completeExport(result)
                     }
                 } catch {
                     guard self.operation == token else { return }
@@ -318,6 +318,11 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
     }
     private func fail(_ error: Error? = nil) {
         timer?.invalidate(); timer = nil
+        if isInBackground {
+            completeExport(.failure(error ?? DiscourseClipExporter.error("CLIP_FAILED")))
+            return
+        }
+        endBackgroundExecution()
         busy = false
         isModalInPresentation = false
         closeProgress()
@@ -329,6 +334,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         let progress = DiscourseClipProgressController(isVideo: isVideo)
         progress.onCancel = { [weak self] in self?.cancelExport() }
         progressController = progress
+        beginBackgroundExecution()
         present(progress, animated: false)
     }
     private func closeProgress(completion: (() -> Void)? = nil) {
@@ -343,17 +349,60 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         closeProgress()
         finished()
     }
+    private func beginBackgroundExecution() {
+        guard backgroundTask == .invalid else { return }
+        backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Discourse clip export") { [weak self] in
+            // Let iOS suspend the retained operation; foregrounding resumes it.
+            self?.endBackgroundExecution()
+        }
+    }
+    private func endBackgroundExecution() {
+        guard backgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundTask)
+        backgroundTask = .invalid
+    }
     @objc private func background() {
-        guard busy, !(presentedViewController is UIDocumentPickerViewController) else { return }
-        operation = UUID(); visualProgress?.cancel(); captionTask?.cancel(); exporter.cancel(); exporter.clean(); fail()
+        isInBackground = true
+    }
+    @objc private func foreground() {
+        isInBackground = false
+        if busy, progressController != nil, pendingResult == nil { beginBackgroundExecution() }
+        presentExportResult()
+    }
+    private func completeExport(_ result: Result<[URL], Error>) {
+        pendingResult = result
+        endBackgroundExecution()
+        presentExportResult()
+    }
+    private func presentExportResult() {
+        guard !isInBackground, UIApplication.shared.applicationState == .active,
+              busy, let result = pendingResult else { return }
+        pendingResult = nil
+        switch result {
+        case .success(let urls):
+            let token = operation
+            closeProgress { [weak self] in
+                guard let self, self.operation == token, self.busy else { return }
+                guard !self.isInBackground, UIApplication.shared.applicationState == .active else {
+                    self.pendingResult = .success(urls)
+                    return
+                }
+                let picker = UIDocumentPickerViewController(forExporting: urls, asCopy: true)
+                picker.delegate = self
+                self.present(picker, animated: true)
+            }
+        case .failure(let error): fail(error)
+        }
     }
     @objc private func cancel() {
+        pendingResult = nil; endBackgroundExecution()
         operation = UUID(); visualProgress?.cancel(); captionTask?.cancel(); timer?.invalidate(); timer = nil; exporter.cancel()
         dismiss(animated: true)
     }
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) { finished() }
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) { finished() }
     private func finished() {
+        pendingResult = nil; endBackgroundExecution()
         busy = false; exporting = false; isModalInPresentation = false
         exporter.clean(); clearVisual(); status = nil; tableView.reloadData()
     }
