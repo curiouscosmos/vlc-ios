@@ -92,9 +92,9 @@ enum DiscourseMediaFactory {
             return nil
         }
 
-        // The native MP3 demuxer mis-seeks the generic .audio downloads,
-        // landing early or at EOF. The bundled FFmpeg demuxer keeps timestamps accurate.
-        if url.isFileURL { media.addOption(":demux=avformat") }
+        // Native MP3 seeks can land early or at EOF, including over HTTP.
+        // Use the bundled FFmpeg demuxer for both streams and verified downloads.
+        media.addOption(":demux=avformat")
         let metadata = media.metaData
         metadata.title = title(for: track, fallbackTrackNumber: fallbackTrackNumber)
         metadata.artist = defaultArtist

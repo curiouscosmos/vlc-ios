@@ -376,6 +376,105 @@ final class DiscoursePlaybackTests: XCTestCase {
     }
 
     @MainActor
+    func testStreamingScrubKeepsDecodedPositionAndQueue() async throws {
+        try await checkStreamingScrub(restored: false)
+    }
+
+    @MainActor
+    func testRestoredStreamingScrubKeepsDecodedPositionAndQueue() async throws {
+        try await checkStreamingScrub(restored: true)
+    }
+
+    @MainActor
+    private func startStreamingPlayback(_ service: PlaybackService, list: VLCMediaList) {
+        service.playMediaList(list, firstIndex: 0, subtitlesFilePath: nil)
+    }
+
+    /// Opt-in integration: serve A Sudden Clash of Thunder 01 with the range-capable
+    /// fixture in Buildsystem/Testing/Fixtures/serve_seek_stream.py.
+    @MainActor
+    private func checkStreamingScrub(restored: Bool) async throws {
+        guard let address = ProcessInfo.processInfo.environment["RD_STREAMING_SEEK_URL"] else {
+            throw XCTSkip("Set RD_STREAMING_SEEK_URL to the controlled HTTP fixture")
+        }
+        let url = try XCTUnwrap(URL(string: address))
+        let list: VLCMediaList
+        if restored {
+            let media = try XCTUnwrap(VLCMedia(url: url))
+            media.length = VLCTime(int: 5_086_947)
+            media.metaData.setExtraValue("stream-seek-test", forKey: DiscourseMediaIdentity.audioExtraKey)
+            let item = try XCTUnwrap(RDPlaybackSnapshot.item(for: media))
+            var value = snapshot()
+            value["items"] = [item, item]
+            value["index"] = 0
+            let data = try JSONSerialization.data(withJSONObject: value)
+            let decoded = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            list = try XCTUnwrap(RDPlaybackSnapshot.mediaList(decoded))
+        } else {
+            guard url.scheme == "https" else {
+                throw XCTSkip("New catalogue queues require an HTTPS fixture URL")
+            }
+            let identityStore = DiscourseMediaIdentityStore(settings: settings)
+            let track = DiscourseAudio(id: "stream-seek-test", discourseID: "stream-seek-test",
+                                       discourseName: "Streaming seek fixture",
+                                       title: "Streaming seek fixture", audioURLString: url.absoluteString,
+                                       durationSeconds: 5_086.947)
+            let media = try XCTUnwrap(DiscourseMediaFactory.media(for: track, discourse: nil,
+                                                                fallbackTrackNumber: 1,
+                                                                identityStore: identityStore,
+                                                                recordIdentity: false))
+            let next = try XCTUnwrap(DiscourseMediaFactory.media(for: track, discourse: nil,
+                                                               fallbackTrackNumber: 2,
+                                                               identityStore: identityStore,
+                                                               recordIdentity: false))
+            list = VLCMediaList(array: [media, next])
+        }
+        let first = try XCTUnwrap(list.media(at: 0))
+        let service = PlaybackService.sharedInstance()
+        let snapshotURL = RDPlaybackSnapshot.url
+        let original = try? Data(contentsOf: snapshotURL)
+        let bar = MediaScrubProgressBar(frame: .zero)
+        defer {
+            NSObject.cancelPreviousPerformRequests(withTarget: bar)
+            service.stopPlayback()
+            if let original { try? original.write(to: snapshotURL, options: .atomic) }
+            else { try? FileManager.default.removeItem(at: snapshotURL) }
+        }
+        service.startPosition = 0
+        startStreamingPlayback(service, list: list)
+        for _ in 0..<150 {
+            if service.isPlaying && service.playedTime().intValue > 1_000 { break }
+            try await Task.sleep(nanoseconds: 200_000_000)
+        }
+        XCTAssertTrue(service.isPlaying, "The HTTP fixture must start playing")
+        XCTAssertGreaterThan(service.mediaDuration, 2_400_000)
+        for target in [300_000, 1_200_000, 2_400_000, 600_000, Int(Double(service.mediaDuration) * 0.9)] {
+            bar.progressSlider.value = Float(target) / Float(service.mediaDuration)
+            bar.progressSlider.sendActions(for: .valueChanged)
+            // VLC initially reports the requested timestamp optimistically. Check
+            // decoded progress after the scrub bar's five-second hold expires.
+            try await Task.sleep(nanoseconds: 6_000_000_000)
+            for _ in 0..<120 {
+                let actual = Int(service.playedTime().intValue)
+                if actual > target + 500 || service.currentlyPlayingMedia !== first { break }
+                try await Task.sleep(nanoseconds: 200_000_000)
+            }
+            XCTAssertTrue(service.currentlyPlayingMedia === first, "Seeking must not advance the queue")
+            let actual = Int(service.playedTime().intValue)
+            XCTAssertGreaterThan(actual, target + 500, "Playback must advance from the selected time")
+            XCTAssertLessThan(actual, target + 30_000, "Playback must not jump to another position")
+            guard service.currentlyPlayingMedia === first else { return }
+        }
+        service.pause()
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        XCTAssertFalse(service.isPlaying, "The fixture must be paused before seeking")
+        bar.updateSliderWithValue(value: 900_000)
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        XCTAssertFalse(service.isPlaying, "Seeking a paused stream must not start it")
+        XCTAssertEqual(Int(service.playedTime().intValue), 900_000, accuracy: 2_000)
+    }
+
+    @MainActor
     func testScrubBarValueChangeKeepsTheChosenStreamingPosition() {
         let snapshotURL = RDPlaybackSnapshot.url
         let original = try? Data(contentsOf: snapshotURL)
