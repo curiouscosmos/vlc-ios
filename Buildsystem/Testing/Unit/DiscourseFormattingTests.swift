@@ -18,6 +18,49 @@ import UIKit
 @testable import VLC
 
 final class DiscourseFormattingTests: XCTestCase {
+    func testVersionCheckUsesOnlyIOSMinimumAndNumericComponents() throws {
+        let data = Data(#"{"ios":{"minSupportedVersion":"1.2.0","unstableVersions":["2.0.0"],"forceUpdate":true},"android":{"minSupportedVersion":"99.0","forceUpdate":true}}"#.utf8)
+        let policy = try JSONDecoder().decode(DiscourseVersionCheck.self, from: data).ios
+        XCTAssertTrue(policy.forceUpdate)
+        for version in ["0.9", "1.1.99", "1.0.10"] {
+            XCTAssertTrue(policy.requiresUpdate(currentVersion: version), version)
+        }
+        for version in ["1.2", "1.2.0", "1.2.0.0", "1.2.1", "1.10.0", "2.0.0"] {
+            XCTAssertFalse(policy.requiresUpdate(currentVersion: version), version)
+        }
+        for version in ["", "1..0", "-1.0", "1.x", "1.0-beta", "18446744073709551616"] {
+            XCTAssertFalse(policy.requiresUpdate(currentVersion: version), version)
+            XCTAssertFalse(DiscourseVersionPolicy(minSupportedVersion: version, forceUpdate: true)
+                .requiresUpdate(currentVersion: "1.0"), version)
+        }
+        XCTAssertTrue(DiscourseVersionPolicy(minSupportedVersion: "1.0.0.1", forceUpdate: false)
+            .requiresUpdate(currentVersion: "1"))
+        XCTAssertEqual(DiscourseVersionCheck.request?.cachePolicy, .reloadIgnoringLocalCacheData)
+        XCTAssertEqual(DiscourseVersionCheck.request?.value(forHTTPHeaderField: "Cache-Control"), "no-cache")
+        XCTAssertNil(DiscourseVersionCheck.request?.value(forHTTPHeaderField: "x-api-key"))
+    }
+
+    @MainActor
+    func testUpdateDialogAllowsSkippingOnlyOptionalUpdates() {
+        for forced in [false, true] {
+            var skipped = false
+            let dialog = DiscourseUpdateViewController(forceUpdate: forced, update: {}, skip: { skipped = true })
+            dialog.loadViewIfNeeded()
+            dialog.view.frame = CGRect(x: 0, y: 0, width: 320, height: 568)
+            dialog.view.setNeedsLayout()
+            dialog.view.layoutIfNeeded()
+            let card = dialog.view.subviews.compactMap { $0 as? UIScrollView }.first
+            XCTAssertGreaterThan(card?.contentSize.height ?? 0, 100)
+            XCTAssertTrue(dialog.view.bounds.contains(card?.frame ?? .zero))
+            func buttons(in view: UIView) -> [UIButton] {
+                (view as? UIButton).map { [$0] } ?? view.subviews.flatMap { buttons(in: $0) }
+            }
+            XCTAssertEqual(buttons(in: dialog.view).count, forced ? 1 : 2)
+            XCTAssertTrue(dialog.accessibilityPerformEscape())
+            XCTAssertEqual(skipped, !forced)
+        }
+    }
+
     func testDiscourseOptionalMetadataDecodesAndSurvivesCacheRoundTrip() throws {
         let decoder = JSONDecoder()
         for payload in [#"{"id":"d","date":null,"location":null}"#,

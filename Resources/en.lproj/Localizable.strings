@@ -1138,3 +1138,10 @@
 "CLIP_RATIO_DESKTOP" = "16:9 — Desktop"; /* Video export ratio */
 
 "DISCOURSE_CARD_NO_DOWNLOADS" = "No downloaded tracks"; /* Discourse download status */
+
+/* App version check */
+"DISCOURSE_UPDATE_TITLE" = "Update available"; /* App update dialog title */
+"DISCOURSE_UPDATE_REQUIRED" = "Please update Rajneesh Discourse to continue using the app."; /* Please update Rajneesh Discourse to continue using the app. */
+"DISCOURSE_UPDATE_OPTIONAL" = "A newer version of Rajneesh Discourse is available. Update from the App Store."; /* A newer version of Rajneesh Discourse is available. Update from the App Store. */
+"DISCOURSE_UPDATE_ACTION" = "Update"; /* Open the App Store */
+"DISCOURSE_UPDATE_SKIP" = "Skip"; /* Skip this app update */

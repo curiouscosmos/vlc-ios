@@ -10,6 +10,7 @@
 		00229A4F53B709945F91CC33 /* libPods-VLC-iOSTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F817147DFDE401AFD44E1592 /* libPods-VLC-iOSTests.a */; };
 		02ADC5D2F265D63EB606E793 /* LibraryTabSearchDataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B8FFA282897F8D52DDF3F41 /* LibraryTabSearchDataSource.swift */; };
 		02C75D30AAFD50625E6626D3 /* DiscourseCaptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4886B97FF565727C762E609 /* DiscourseCaptions.swift */; };
+		04445C50399BE461E2C7EF5B /* DiscourseUpdateViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68D940115594F626CB7F6F1B /* DiscourseUpdateViewController.swift */; };
 		063B76AAFE7CF0C383D5AD4A /* DiscourseCaptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4886B97FF565727C762E609 /* DiscourseCaptions.swift */; };
 		064E5DD2289061D7428B8545 /* DiscourseAPICache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B268B9C966371B1B0F5147 /* DiscourseAPICache.swift */; };
 		06C2F55C9789C5969E8713A0 /* DiscourseAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51D8E74019BE15F0B2C9788 /* DiscourseAPIClient.swift */; };
@@ -75,6 +76,7 @@
 		22E2528065C2DFAD04684BEF /* DiscourseLocalLibraryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC925B010B5CB9013502A18A /* DiscourseLocalLibraryViewController.swift */; };
 		2663ACB422497D47000FBB95 /* VLCNetworkLoginTVViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 2663ACB322497D47000FBB95 /* VLCNetworkLoginTVViewController.xib */; };
 		27C57BA1697F70D81AE60B17 /* DiscourseDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6896B7F74FE5318C3C96E63D /* DiscourseDeepLink.swift */; };
+		27F38ED68AA837980023EA1E /* DiscourseVersionCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = E80F9BCA6FEA47EDB3D49B92 /* DiscourseVersionCheck.swift */; };
 		2915544317490D4A00B86CAD /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2915544217490D4A00B86CAD /* Security.framework */; };
 		29CCB46D26F6E74C4AF1A38B /* DiscoursePlaybackStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD9213A5F70177806448CF67 /* DiscoursePlaybackStore.swift */; };
 		2CF79CF035CED7617D87C27E /* DiscourseLocalLibraryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC925B010B5CB9013502A18A /* DiscourseLocalLibraryViewController.swift */; };
@@ -1177,6 +1179,7 @@
 		91562F5A2CAEBC1500D42986 /* PlayMediaIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91562F582CAEBC1500D42986 /* PlayMediaIntent.swift */; };
 		91C1BB8025EFD7A40096F97E /* ColorThemeExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91C1BB7F25EFD7A40096F97E /* ColorThemeExtension.swift */; };
 		91D33C7325E6B6E700CC49BE /* PlayerInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91D33C7225E6B6E700CC49BE /* PlayerInfoView.swift */; };
+		9295CB94F4EEC4FBC563ED65 /* DiscourseVersionCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = E80F9BCA6FEA47EDB3D49B92 /* DiscourseVersionCheck.swift */; };
 		95559AD002902488EE0C4ECF /* DiscoursePlaybackStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD9213A5F70177806448CF67 /* DiscoursePlaybackStore.swift */; };
 		95BC3776C58B9C37DFBDADD1 /* DiscourseClipSaveController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD5222A177803433320C4C46 /* DiscourseClipSaveController.swift */; };
 		9927B906DBB99B4AD53FC5E3 /* DiscourseAudioMixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90410F26FD9CACE357E7BED3 /* DiscourseAudioMixer.swift */; };
@@ -1354,6 +1357,7 @@
 		F3987638243BB013A00EAF72 /* DiscourseMixerFileImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 701E7B98BE6305539F259BFF /* DiscourseMixerFileImporter.swift */; };
 		F61DA0BAADDAB1613B6A7869 /* DiscourseAPIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = D76E000E6561FEB24318AFCE /* DiscourseAPIError.swift */; };
 		F6DF14A4F0C3B2CBA7DA01E0 /* VLCTransferStatusBannerController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7B996FC4922C6AC260C4683F /* VLCTransferStatusBannerController.m */; };
+		F7E7ECC4F8D7FE12FF22E26C /* DiscourseUpdateViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68D940115594F626CB7F6F1B /* DiscourseUpdateViewController.swift */; };
 		F7F65E1945B8A70A74135692 /* DiscoursePlaybackProgressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0CBD4AA3BD328D44F75546E /* DiscoursePlaybackProgressTests.swift */; };
 		F8DE18F9DB17A4FAFDDF7FAA /* DiscourseClipEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8865318F7237CE38E59F81E7 /* DiscourseClipEditor.swift */; };
 		FDF05AE454F4678DC1D0ACB3 /* DiscourseClipEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8865318F7237CE38E59F81E7 /* DiscourseClipEditor.swift */; };
@@ -1753,6 +1757,7 @@
 		6896B7F74FE5318C3C96E63D /* DiscourseDeepLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscourseDeepLink.swift; sourceTree = "<group>"; };
 		68C67166302D1C10008D6F2D /* Image+WidgetAccentedRenderingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Image+WidgetAccentedRenderingMode.swift"; sourceTree = "<group>"; };
 		68C6716A302D27E3008D6F2D /* MediaLibraryWidgetBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaLibraryWidgetBackgroundView.swift; sourceTree = "<group>"; };
+		68D940115594F626CB7F6F1B /* DiscourseUpdateViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscourseUpdateViewController.swift; sourceTree = "<group>"; };
 		6B7B338E137A884541BBB779 /* PodcastArtworkView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PodcastArtworkView.swift; sourceTree = "<group>"; };
 		6C5B0C9C27A43098005AE25B /* PlaybackServiceAdjustFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PlaybackServiceAdjustFilter.swift; path = Sources/Playback/Control/PlaybackServiceAdjustFilter.swift; sourceTree = SOURCE_ROOT; };
 		6CC3F6B22D230AEF00C15E33 /* PictureInPictureMediaController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureInPictureMediaController.swift; sourceTree = "<group>"; };
@@ -2557,6 +2562,7 @@
 		E521F1285D8C484BD6C7A8CD /* DiscourseNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscourseNotifications.swift; sourceTree = "<group>"; };
 		E5DAACD651DC32077D2F33EA /* DiscourseTrackProgressView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscourseTrackProgressView.swift; sourceTree = "<group>"; };
 		E7801CAF2B39DEDA9B125543 /* DiscourseHomeTrackCell.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscourseHomeTrackCell.swift; sourceTree = "<group>"; };
+		E80F9BCA6FEA47EDB3D49B92 /* DiscourseVersionCheck.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscourseVersionCheck.swift; sourceTree = "<group>"; };
 		E902177044EBF3EC167EA5FB /* libPods-VLC-iOSTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-VLC-iOSTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E98E893958B80FA3A0483ED0 /* DiscourseHomeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscourseHomeTests.swift; sourceTree = "<group>"; };
 		EA342D0C01512D2646834221 /* PodcastProgressBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PodcastProgressBar.swift; sourceTree = "<group>"; };
@@ -2871,6 +2877,7 @@
 				963371B16FB330F05873D128 /* DiscourseFloatingTabBar.swift */,
 				15E2EFA1622E98DC6B8D0501 /* DiscourseSegmentControl.swift */,
 				EC925B010B5CB9013502A18A /* DiscourseLocalLibraryViewController.swift */,
+				68D940115594F626CB7F6F1B /* DiscourseUpdateViewController.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -4893,6 +4900,7 @@
 				6FB3E6E949CB1D51D3019407 /* DeepLink */,
 				4AD2FD14DA648A7E94D5C76A /* Clips */,
 				D88FEDFDF292717E3557169D /* Captions */,
+				E80F9BCA6FEA47EDB3D49B92 /* DiscourseVersionCheck.swift */,
 			);
 			path = Discourse;
 			sourceTree = "<group>";
@@ -6662,6 +6670,8 @@
 				95BC3776C58B9C37DFBDADD1 /* DiscourseClipSaveController.swift in Sources */,
 				02C75D30AAFD50625E6626D3 /* DiscourseCaptions.swift in Sources */,
 				A63F0D181197B88F4BDAF759 /* DiscourseCaptionView.swift in Sources */,
+				9295CB94F4EEC4FBC563ED65 /* DiscourseVersionCheck.swift in Sources */,
+				F7E7ECC4F8D7FE12FF22E26C /* DiscourseUpdateViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6937,6 +6947,8 @@
 				A78218B6BD82E22889F0089C /* DiscourseClipSaveController.swift in Sources */,
 				063B76AAFE7CF0C383D5AD4A /* DiscourseCaptions.swift in Sources */,
 				EB64388343C2044A546038DB /* DiscourseCaptionView.swift in Sources */,
+				27F38ED68AA837980023EA1E /* DiscourseVersionCheck.swift in Sources */,
+				04445C50399BE461E2C7EF5B /* DiscourseUpdateViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

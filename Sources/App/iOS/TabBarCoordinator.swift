@@ -29,6 +29,11 @@ class TabBarCoordinator: NSObject {
     private var tabBarController: BottomTabBarController
     private var mediaLibraryService: MediaLibraryService
 
+    private var updateWindow: UIWindow?
+    private weak var previousKeyWindow: UIWindow?
+    private var checkingVersion = false
+    private var pendingUpdate: (policy: DiscourseVersionPolicy, url: URL)?
+
     private var editToolbar: EditToolbar?
     private var sideToolBar: EditToolbar?
 
@@ -84,6 +89,9 @@ class TabBarCoordinator: NSObject {
                                                name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(refreshDiscourseLikes),
                                                name: UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(checkDiscourseVersion),
+                                               name: UIApplication.didBecomeActiveNotification, object: nil)
+        checkDiscourseVersion()
         mediaLibraryService.observable.addObserver(self)
     }
 
@@ -100,6 +108,61 @@ class TabBarCoordinator: NSObject {
                                          context: "Likes")
             }
         }
+    }
+
+    @objc private func checkDiscourseVersion() {
+        presentPendingUpdate()
+        guard !checkingVersion else { return }
+        checkingVersion = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.checkingVersion = false }
+            do {
+                guard let policy = try await DiscourseVersionCheck.fetch() else { return }
+                let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+                guard policy.requiresUpdate(currentVersion: current) else {
+                    self.pendingUpdate = nil
+                    self.dismissUpdate()
+                    return
+                }
+                guard let url = URL(string: "https://apps.apple.com/app/id6827298757") else { return }
+                self.pendingUpdate = (policy, url)
+                self.dismissUpdate()
+                self.presentPendingUpdate()
+            } catch {
+                // An unavailable or malformed check must not lock an offline user out.
+            }
+        }
+    }
+
+    private func presentPendingUpdate() {
+        guard updateWindow == nil, let pending = pendingUpdate,
+              UIApplication.shared.applicationState == .active,
+              let scene = tabBarController.view.window?.windowScene else { return }
+        previousKeyWindow = scene.windows.first(where: { $0.isKeyWindow })
+        let window = UIWindow(windowScene: scene)
+        window.windowLevel = .alert + 1
+        window.rootViewController = DiscourseUpdateViewController(forceUpdate: pending.policy.forceUpdate, update: { [weak self] in
+            UIApplication.shared.open(pending.url)
+            if !pending.policy.forceUpdate {
+                self?.pendingUpdate = nil
+                self?.dismissUpdate()
+            }
+        }, skip: { [weak self] in
+            self?.pendingUpdate = nil
+            self?.dismissUpdate()
+        })
+        window.overrideUserInterfaceStyle = tabBarController.traitCollection.userInterfaceStyle
+        updateWindow = window
+        window.makeKeyAndVisible()
+    }
+
+    private func dismissUpdate() {
+        guard let window = updateWindow else { return }
+        window.isHidden = true
+        updateWindow = nil
+        previousKeyWindow?.makeKey()
+        previousKeyWindow = nil
     }
 
     // MARK: - Setup methods

@@ -191,11 +191,16 @@ Before changing persisted state, read the key/type/owner table in [AgentReferenc
 
 ## 8. Testing and verification
 
-Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseCastingTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseCaptionTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **229 unit tests** and **19 UI tests** (§3.5).
+Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseCastingTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseCaptionTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **231 unit tests** and **19 UI tests** (§3.5).
 
 Manual: clean build; local playback/playlists/background/lock screen; five tabs and branding; catalogue paging/filters/refresh; detail queue continuation; Home sections/states; like persistence and rollback; 60 s qualification and 24 h stats dedupe; downloads (progress/cancel/remove/offline); mixer add/select/reorder/remove/clear/follow/volume/relaunch; VoiceOver, Dynamic Type, light theme; offline, interruption, route change and media-services reset on a device. UI tests cover navigation, catalogue → detail, search, Home, the like round trip, the download round trip (skips on a slow CDN), the mixer picker, playback history, payload-less favourites, and clip preview progress and end stopping, and the clip editor/save drawer link sharing, video-picker cancellation and processed-audio Files saving.
 
 ## 9. Current status
+
+Every launch/foreground fetches the uncached CDN `app/version_check.json` iOS policy. Versions below the minimum
+prompt with App Store listing `6827298757`; forced updates block dismissal, optional updates offer Skip.
+Offline/malformed checks fail silently; `unstableVersions` alone never prompts. App Store round-trip acceptance
+remains manual.
 
 Privacy Policy is available from the main header dropdown and About's header menu, opening
 `https://rajneeshdiscourse.com/privacy` in the system browser.

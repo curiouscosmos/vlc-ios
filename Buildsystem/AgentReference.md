@@ -234,6 +234,17 @@ remote catalogue only, both discourses and tracks. Browse/Videos tabs, video bro
 extra file-menu items and player Incognito are gone. The system tab bar is theme-aware with the discourse accent (iOS
 26 floating capsule, classic bar on 15–18, iPad sidebar), and the mini player floats above it without overlapping.
 
+On launch and every foreground, `TabBarCoordinator` fetches `https://osho.b-cdn.net/app/version_check.json`
+without cache or API credentials, through `DiscourseVersionCheck`. Only `ios.minSupportedVersion` is compared
+against `CFBundleShortVersionString`, numerically with missing components treated as zero. Invalid versions,
+failed requests and malformed JSON show nothing. `unstableVersions` is ignored; equality/newer versions never prompt.
+For an older app, Update opens `https://apps.apple.com/app/id6827298757` (the supplied Rajneesh Discourses Originals
+listing). The CDN minimum is the source of truth; publish the update before raising it. `forceUpdate` removes Skip and
+VoiceOver escape; Update leaves the blocking alert-level window visible for required updates, including after returning
+from the store. Optional Update/Skip dismisses for that opening. An in-flight check is coalesced; pending UI waits
+for an active scene. No persisted dismissal/cache is added. The dialog reuses `DiscourseEmptyStateView`, supports
+light/dark and scrolls at accessibility sizes. Storefront routing and forced/optional store round trips still require device acceptance.
+
 ### 6.2 Discourse API integration
 
 Base `https://oshoapi-0i8tq.bunny.run/`, `x-api-key` on every request, JSON, snake_case fields matching `api/docs.md`
@@ -433,7 +444,7 @@ Fork touch points (upstream files we intentionally edit):
 - `Sources/Playback/Player/` — `PlayerViewController`, `AudioPlayerViewController`, `VideoPlayerViewController`,
   `AudioPlayerView`, `MediaMoreOptionsActionSheet` + subviews, `ActionSheetCell`: white spinner, noise switch, discourse heart, targeted player download updates, Share row, Clip editor integration, 168 pt Dynamic Type-scaled height and the scrub bar's captured seek intent with absolute audio seeks; restored-paused Clip eligibility and metadata-driven action refresh; CC action, portrait transcript artwork/metadata replacement and active clip-bracket caption selection.
 - `Sources/App/iOS/TabBarCoordinator.swift` — five tabs, index, accent, bar modes, local library, album/deep links,
-  tracker/mixer startup, likes refresh. `VLCAppDelegate.m` — defaults, background downloads, web-activity links.
+  tracker/mixer startup, likes refresh, launch/foreground version check and update window. `VLCAppDelegate.m` — defaults, background downloads, web-activity links.
   `Sources/App/VLCAppCoordinator.{h,m}`, `VLCAppSceneDelegate.m` — registration, deferred links, restoration.
 - `Sources/App/VLCAppCoordinator.{h,m}` — iOS omits upstream network/cloud/subscription/donation services;
   `VLCAppDelegate.m` and watch session delegate omit legacy Transfers reporting; OS remote commands remain.
