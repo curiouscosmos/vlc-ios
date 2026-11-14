@@ -145,15 +145,15 @@ final class DiscourseCardView: UIView {
         pills.spacing = 6
         pills.alignment = .leading
         pills.addArrangedSubview(language)
-        pills.addArrangedSubview(location)
+        pills.addArrangedSubview(tracks)
         pills.addArrangedSubview(pillSpacer)
         pillSpacer.setContentHuggingPriority(UILayoutPriority(1), for: .horizontal)
-        for item in [language, location] { item.setContentHuggingPriority(.required, for: .horizontal) }
+        for item in [language, tracks] { item.setContentHuggingPriority(.required, for: .horizontal) }
         language.setContentCompressionResistancePriority(.required, for: .horizontal)
         location.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         metadata.spacing = 8
         metadata.alignment = .leading
-        metadata.addArrangedSubview(tracks)
+        metadata.addArrangedSubview(location)
         metadata.addArrangedSubview(dateDivider)
         metadata.addArrangedSubview(date)
         date.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -183,7 +183,7 @@ final class DiscourseCardView: UIView {
         footer.addArrangedSubview(footerSpacer)
         footer.addArrangedSubview(actions)
         fullMetadataWidth = metadata.widthAnchor.constraint(equalTo: footer.widthAnchor)
-        let text = UIStackView(arrangedSubviews: [heading, pills, footer])
+        let text = UIStackView(arrangedSubviews: [heading, pills])
         text.axis = .vertical
         text.distribution = .equalSpacing
         text.spacing = 10
@@ -192,8 +192,11 @@ final class DiscourseCardView: UIView {
         mainStack.addArrangedSubview(artworkView)
         mainStack.addArrangedSubview(text)
         accessibleTextWidth = text.widthAnchor.constraint(equalTo: mainStack.widthAnchor)
-        mainStack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(mainStack)
+        let content = UIStackView(arrangedSubviews: [mainStack, footer])
+        content.axis = .vertical
+        content.spacing = 10
+        content.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(content)
 
         accessibilityButton.translatesAutoresizingMaskIntoConstraints = false
         accessibilityButton.onActivate = { [weak self] in
@@ -204,10 +207,10 @@ final class DiscourseCardView: UIView {
         accessibilityElements = [accessibilityButton, downloadStatus, likeControl]
         artworkWidth = artworkView.widthAnchor.constraint(equalToConstant: 88)
         NSLayoutConstraint.activate([
-            mainStack.topAnchor.constraint(equalTo: topAnchor, constant: 14),
-            mainStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -14),
-            mainStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            mainStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            content.topAnchor.constraint(equalTo: topAnchor, constant: 14),
+            content.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -14),
+            content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
             artworkWidth, artworkView.heightAnchor.constraint(equalTo: artworkView.widthAnchor),
             text.heightAnchor.constraint(greaterThanOrEqualTo: artworkView.heightAnchor),
             heightAnchor.constraint(greaterThanOrEqualToConstant: 132),
@@ -247,10 +250,10 @@ final class DiscourseCardView: UIView {
         artworkWidth.constant = max(72, min(160, width * 0.2))
         pills.axis = accessible ? .vertical : .horizontal
         pillSpacer.isHidden = accessible
-        metadata.axis = width >= 650 && !accessible ? .horizontal : .vertical
+        metadata.axis = accessible ? .vertical : .horizontal
         metadata.alignment = metadata.axis == .horizontal ? .center : .leading
-        dateDivider.isHidden = date.isHidden || metadata.axis == .vertical
-        footer.axis = width < 330 || accessible ? .vertical : .horizontal
+        dateDivider.isHidden = location.isHidden || date.isHidden || metadata.axis == .vertical
+        footer.axis = accessible ? .vertical : .horizontal
         footer.alignment = footer.axis == .vertical ? .trailing : .center
         footerSpacer.isHidden = footer.axis == .vertical
         fullMetadataWidth?.isActive = footer.axis == .vertical
@@ -264,9 +267,10 @@ final class DiscourseCardView: UIView {
         let dateText = DiscourseMetadataText.date(discourse.date)
         language.setText(languageText.isEmpty ? nil : languageText)
         location.setText(locationText)
-        pills.isHidden = language.isHidden && location.isHidden
         tracks.setText(DiscourseMetadataText.tracks(discourse.totalTracks))
         date.setText(dateText)
+        pills.isHidden = language.isHidden && tracks.isHidden
+        metadata.isHidden = location.isHidden && date.isHidden
         likeControl.configure(with: like, title: title)
         let label = [title, languageText.isEmpty ? nil : languageText, locationText, tracks.text, dateText,
                      DiscourseMetadataText.likes(like.count)].compactMap { $0 }.joined(separator: ", ")

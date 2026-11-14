@@ -173,6 +173,19 @@ final class DiscourseFormattingTests: XCTestCase {
                         XCTAssertLessThanOrEqual(rect.maxX, width + 0.5)
                         XCTAssertLessThanOrEqual(rect.maxY, size.height + 0.5)
                     }
+                    if !accessible {
+                        let metadata = descendants(in: card).compactMap { $0 as? DiscourseCardMetadata }
+                        let location = try XCTUnwrap(metadata.first { $0.text == "Pune" })
+                        let date = try XCTUnwrap(metadata.first { $0.text == DiscourseMetadataText.date("1974-06-10") })
+                        let heart = try XCTUnwrap(firstSubview(ofType: DiscourseLikeControl.self, in: card))
+                        let download = try XCTUnwrap(descendants(in: card).first {
+                            $0.accessibilityIdentifier == "discourseCardDownload"
+                        })
+                        let center = heart.convert(heart.bounds, to: card).midY
+                        for item in [location, date, download] {
+                            XCTAssertEqual(item.convert(item.bounds, to: card).midY, center, accuracy: 0.5)
+                        }
+                    }
                     let image = UIGraphicsImageRenderer(bounds: card.bounds).image { context in card.layer.render(in: context.cgContext) }
                     let name = "discourse-card-\(name)-\(Int(width))-\(accessible ? "accessible" : "regular")"
                     try image.pngData()?.write(to: FileManager.default.temporaryDirectory.appendingPathComponent(name + ".png"))
