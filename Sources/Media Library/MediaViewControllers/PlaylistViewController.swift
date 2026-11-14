@@ -71,6 +71,7 @@ class PlaylistViewController: MediaViewController {
         navigationController?.navigationBar.tintColor = DiscourseColors.current.accent
         favourites.tintColor = DiscourseColors.current.accent
         for button in favourites.arrangedSubviews {
+            (button as? FavouriteCollectionButton)?.updateTextColors()
             button.backgroundColor = DiscourseColors.current.trackSurface
             button.layer.cornerRadius = 12
             button.layer.borderWidth = 1
@@ -117,6 +118,7 @@ final class FavouriteCollectionButton: UIButton {
         config.image = UIImage(systemName: "heart.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 44))
         config.imagePadding = 12
         configuration = config
+        updateTextColors()
         contentHorizontalAlignment = .leading
         accessibilityIdentifier = collection.rawValue
         artworkTask = Task { @MainActor [weak self] in
@@ -131,6 +133,21 @@ final class FavouriteCollectionButton: UIButton {
                                       width: scaled.width, height: scaled.height))
             }
             self?.configuration?.image = artwork
+        }
+    }
+
+    func updateTextColors() {
+        let colors = DiscourseColors.current
+        configuration?.baseForegroundColor = colors.trackText
+        configuration?.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+            var result = attributes
+            result.foregroundColor = colors.trackText
+            return result
+        }
+        configuration?.subtitleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+            var result = attributes
+            result.foregroundColor = colors.trackSecondaryText
+            return result
         }
     }
 

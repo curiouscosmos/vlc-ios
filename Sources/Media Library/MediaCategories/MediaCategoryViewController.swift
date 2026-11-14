@@ -2238,7 +2238,10 @@ extension MediaCategoryViewController {
 
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, referenceSizeForHeaderInSection section: Int) -> CGSize {
 
-        if let favourites = (self as? PlaylistCategoryViewController)?.favouritesHeader {
+        if let category = self as? PlaylistCategoryViewController, let favourites = category.favouritesHeader {
+            let width = collectionView.safeAreaLayoutGuide.layoutFrame.width
+            category.favouritesWidthConstraint?.constant = MediaCollectionViewCell.cellSizeForWidth(width,
+                safeAreaInsets: collectionView.window?.safeAreaInsets ?? collectionView.safeAreaInsets).width
             return CGSize(width: collectionView.bounds.width, height: CGFloat(favourites.arrangedSubviews.count * 120))
         }
 
@@ -2432,9 +2435,14 @@ extension MediaCategoryViewController {
                 header.addSubview(favourites)
                 NSLayoutConstraint.activate([
                     favourites.topAnchor.constraint(equalTo: header.topAnchor),
-                    favourites.leadingAnchor.constraint(equalTo: header.safeAreaLayoutGuide.leadingAnchor, constant: 16),
-                    favourites.trailingAnchor.constraint(equalTo: header.safeAreaLayoutGuide.trailingAnchor, constant: -16)
+                    favourites.centerXAnchor.constraint(equalTo: header.safeAreaLayoutGuide.centerXAnchor)
                 ])
+                (self as? PlaylistCategoryViewController)?.favouritesWidthConstraint?.isActive = false
+                let width = MediaCollectionViewCell.cellSizeForWidth(collectionView.safeAreaLayoutGuide.layoutFrame.width,
+                    safeAreaInsets: collectionView.window?.safeAreaInsets ?? collectionView.safeAreaInsets).width
+                let widthConstraint = favourites.widthAnchor.constraint(equalToConstant: width)
+                (self as? PlaylistCategoryViewController)?.favouritesWidthConstraint = widthConstraint
+                widthConstraint.isActive = true
             }
             return header
         }
