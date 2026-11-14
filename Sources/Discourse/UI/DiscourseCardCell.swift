@@ -151,7 +151,7 @@ final class DiscourseCardView: UIView {
         chevron.heightAnchor.constraint(equalToConstant: 20).isActive = true
 
         pills.spacing = 6
-        pills.alignment = .leading
+        pills.alignment = .center
         pills.addArrangedSubview(language)
         pills.addArrangedSubview(tracks)
         pills.addArrangedSubview(pillSpacer)
@@ -262,6 +262,7 @@ final class DiscourseCardView: UIView {
         mainStack.alignment = accessible ? .leading : .top
         artworkWidth.constant = max(72, min(160, width * 0.2))
         pills.axis = accessible ? .vertical : .horizontal
+        pills.alignment = accessible ? .leading : .center
         pillSpacer.isHidden = accessible
         metadata.axis = accessible ? .vertical : .horizontal
         metadata.alignment = metadata.axis == .horizontal ? .center : .leading

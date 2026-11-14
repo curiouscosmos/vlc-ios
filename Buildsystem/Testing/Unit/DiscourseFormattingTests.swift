@@ -181,6 +181,10 @@ final class DiscourseFormattingTests: XCTestCase {
                         let download = try XCTUnwrap(descendants(in: card).first {
                             $0.accessibilityIdentifier == "discourseCardDownload"
                         })
+                        let language = try XCTUnwrap(metadata.first { $0.text == DiscourseMetadataText.language("english") })
+                        let tracks = try XCTUnwrap(metadata.first { $0.text == DiscourseMetadataText.tracks(11) })
+                        XCTAssertEqual(language.convert(language.bounds, to: card).midY,
+                                       tracks.convert(tracks.bounds, to: card).midY, accuracy: 0.5)
                         let center = heart.convert(heart.bounds, to: card).midY
                         for item in [location, date, download] {
                             XCTAssertEqual(item.convert(item.bounds, to: card).midY, center, accuracy: 0.5)
