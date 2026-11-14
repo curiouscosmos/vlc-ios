@@ -159,7 +159,7 @@ Before changing navigation, theming, playback, API/stores, UI, downloads or the 
 
 Before changing observable behaviour, read the corresponding §6 contract in [AgentReference.md](Buildsystem/AgentReference.md#6-product-requirements), including exact copy, defaults and thresholds.
 
-- Five tabs: Home, Discourses, Search, Playlists, Mixer. Home drops empty sections; history-off hides track history.
+- Five tabs: Home, Discourses, Search, Playlists, Mixer. Home discourse carousels reserve equal card heights for two-line titles and optional metadata; Home drops empty sections; history-off hides track history.
 - Qualify history/stats after 60 s of actual playback; stats dedupe is 24 h; likes refresh is seven days.
 - Successful like responses preserve the tap’s count direction; optimistic likes roll back on failure; confirmed counts survive stale catalogue payloads for the session.
 - Completing a download switches an actively streaming track to its verified local file at the current position; paused tracks never auto-start.

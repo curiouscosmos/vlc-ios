@@ -191,6 +191,19 @@ final class DiscourseFormattingTests: XCTestCase {
                     try image.pngData()?.write(to: FileManager.default.temporaryDirectory.appendingPathComponent(name + ".png"))
                     let attachment = XCTAttachment(image: image)
                     attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+                    card.usesUniformHeight = true
+                    let target = CGSize(width: width, height: 0)
+                    let uniformSize = card.systemLayoutSizeFitting(target,
+                        withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel)
+                    for title in ["Short", "A much longer discourse title that wraps onto two lines"] {
+                        card.configure(with: Discourse(id: "empty", title: title),
+                            like: DiscourseLikeState(isLiked: false, count: 0, isPending: false),
+                            downloads: DiscourseDownloadSummary(downloaded: 0, active: 0, total: 0))
+                        let missingMetadataSize = card.systemLayoutSizeFitting(target,
+                            withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel)
+                        XCTAssertEqual(missingMetadataSize.height, uniformSize.height, accuracy: 0.5,
+                                       "Home cards must keep equal heights with short/long titles and absent metadata")
+                    }
                 }
             }
         }

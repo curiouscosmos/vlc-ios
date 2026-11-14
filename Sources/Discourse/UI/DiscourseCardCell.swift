@@ -17,6 +17,10 @@ final class DiscourseCardCell: UICollectionViewCell {
     static let reuseIdentifier = "DiscourseCardCell"
     private let card = DiscourseCardView()
 
+    var usesUniformHeight = false {
+        didSet { card.usesUniformHeight = usesUniformHeight }
+    }
+
     var isPlaybackAvailable: Bool {
         get { card.isPlaybackAvailable }
         set { card.isPlaybackAvailable = newValue }
@@ -90,6 +94,10 @@ final class DiscourseCardView: UIView {
     private let footerSpacer = UIView()
     private let metadata = UIStackView()
     private let footer = UIStackView()
+    var usesUniformHeight = false {
+        didSet { updateLayout() }
+    }
+    private var uniformHeightConstraints: [NSLayoutConstraint] = []
     private var artworkWidth: NSLayoutConstraint!
     private var accessibleTextWidth: NSLayoutConstraint!
     private var fullMetadataWidth: NSLayoutConstraint!
@@ -225,6 +233,11 @@ final class DiscourseCardView: UIView {
             accessibilityButton.leadingAnchor.constraint(equalTo: leadingAnchor),
             accessibilityButton.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
+        uniformHeightConstraints = [
+            titleLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 0),
+            pills.heightAnchor.constraint(greaterThanOrEqualToConstant: 0),
+            footer.heightAnchor.constraint(greaterThanOrEqualToConstant: 0)
+        ]
         updateLayout()
         updateTheme()
     }
@@ -257,6 +270,18 @@ final class DiscourseCardView: UIView {
         footer.alignment = footer.axis == .vertical ? .trailing : .center
         footerSpacer.isHidden = footer.axis == .vertical
         fullMetadataWidth?.isActive = footer.axis == .vertical
+        // Carousels reserve the same space for two-line titles and optional metadata.
+        let captionHeight = ceil(UIFont.preferredFont(forTextStyle: .caption1, compatibleWith: traitCollection).lineHeight) + 1
+        let actionHeight = max(24, ceil(UIFont.preferredFont(forTextStyle: .subheadline, compatibleWith: traitCollection).lineHeight) + 1)
+        let heights = [
+            2 * (ceil(UIFont.preferredFont(forTextStyle: .headline, compatibleWith: traitCollection).lineHeight) + 1),
+            accessible ? 2 * captionHeight + 16 : captionHeight + 10,
+            accessible ? 2 * captionHeight + 28 + actionHeight : max(captionHeight + 10, actionHeight)
+        ]
+        for (constraint, height) in zip(uniformHeightConstraints, heights) {
+            constraint.constant = ceil(height)
+            constraint.isActive = usesUniformHeight
+        }
     }
 
     func configure(with discourse: Discourse, like: DiscourseLikeState, downloads: DiscourseDownloadSummary) {

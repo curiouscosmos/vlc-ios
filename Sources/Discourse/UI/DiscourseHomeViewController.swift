@@ -339,6 +339,7 @@ final class DiscourseHomeViewController: UIViewController {
         let item = sections[indexPath.section].items[indexPath.item]
         switch (item, cell) {
         case (.discourse(let discourse), let card as DiscourseCardCell):
+            card.usesUniformHeight = true
             card.configure(with: discourse,
                            like: likeState(for: discourse),
                            downloads: downloadState(for: discourse))
@@ -579,6 +580,7 @@ extension DiscourseHomeViewController: UICollectionViewDataSource {
             guard let card = cell as? DiscourseCardCell else {
                 return cell
             }
+            card.usesUniformHeight = true
             card.configure(with: discourse,
                            like: likeState(for: discourse),
                            downloads: downloadState(for: discourse))
