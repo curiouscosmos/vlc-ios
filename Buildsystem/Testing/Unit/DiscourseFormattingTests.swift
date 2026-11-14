@@ -219,6 +219,20 @@ final class DiscourseFormattingTests: XCTestCase {
                     XCTAssertEqual(date.text, DiscourseMetadataText.date(discourse.date))
                     let title = try XCTUnwrap(allLabels(in: header).first { $0.text == discourse.title })
                     let titleFrame = title.convert(title.bounds, to: header)
+                    let summary = try XCTUnwrap(allLabels(in: header).first {
+                        $0.text == DiscourseMetadataText.summary(language: discourse.language,
+                                                               tracks: discourse.totalTracks, likes: 0)
+                    })
+                    let summaryFrame = summary.convert(summary.bounds, to: header)
+                    let heartFrame = header.likeControl.convert(header.likeControl.bounds, to: header)
+                    let playFrame = header.playAllButton.convert(header.playAllButton.bounds, to: header)
+                    XCTAssertGreaterThanOrEqual(summaryFrame.minY, titleFrame.maxY)
+                    XCTAssertGreaterThanOrEqual(heartFrame.minY, summaryFrame.maxY)
+                    XCTAssertGreaterThanOrEqual(playFrame.minY, heartFrame.maxY)
+                    if !accessible {
+                        XCTAssertEqual(city.convert(city.bounds, to: header).midY, playFrame.midY, accuracy: 0.5)
+                        XCTAssertEqual(date.convert(date.bounds, to: header).midY, playFrame.midY, accuracy: 0.5)
+                    }
                     for chip in [city, date] {
                         XCTAssertFalse(chip.isHidden)
                         XCTAssertEqual(chip.accessibilityLabel, chip.text)

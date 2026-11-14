@@ -21,6 +21,7 @@ final class DiscourseDetailHeaderView: UIView {
     private let locationChip = DiscourseCardMetadata(symbol: "mappin.and.ellipse", pill: true)
     private let dateChip = DiscourseCardMetadata(symbol: "calendar", pill: true)
     private let chips = UIStackView()
+    private let actionsStack = UIStackView()
     private let textStack = UIStackView()
     private let stack = UIStackView()
     private var accessibleTextWidth: NSLayoutConstraint?
@@ -70,7 +71,8 @@ final class DiscourseDetailHeaderView: UIView {
         configuration.image = UIImage(systemName: "play.fill")
         configuration.imagePadding = 8
         configuration.cornerStyle = .capsule
-        configuration.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20)
+        configuration.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
+        configuration.titleLineBreakMode = .byClipping
         playAllButton.configuration = configuration
         playAllButton.translatesAutoresizingMaskIntoConstraints = false
         playAllButton.accessibilityIdentifier = "discoursePlayAll"
@@ -78,13 +80,16 @@ final class DiscourseDetailHeaderView: UIView {
         likeControl.translatesAutoresizingMaskIntoConstraints = false
         likeControl.accessibilityIdentifier = "discourseDetailLike"
 
-        let actionsStack = UIStackView(arrangedSubviews: [playAllButton, likeControl])
+        actionsStack.addArrangedSubview(chips)
+        actionsStack.addArrangedSubview(UIView())
+        actionsStack.addArrangedSubview(playAllButton)
+        playAllButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         actionsStack.axis = .horizontal
         actionsStack.alignment = .center
-        actionsStack.spacing = 12
+        actionsStack.spacing = 8
 
-        chips.axis = .vertical
-        chips.alignment = .leading
+        chips.axis = .horizontal
+        chips.alignment = .center
         chips.spacing = 6
         chips.addArrangedSubview(locationChip)
         chips.addArrangedSubview(dateChip)
@@ -95,7 +100,7 @@ final class DiscourseDetailHeaderView: UIView {
         locationChip.accessibilityIdentifier = "discourseDetailLocation"
         dateChip.accessibilityIdentifier = "discourseDetailDate"
 
-        for view in [titleLabel, chips, metadataLabel, actionsStack] { textStack.addArrangedSubview(view) }
+        for view in [titleLabel, metadataLabel, likeControl] { textStack.addArrangedSubview(view) }
         textStack.translatesAutoresizingMaskIntoConstraints = false
         textStack.axis = .vertical
         textStack.alignment = .leading
@@ -107,13 +112,17 @@ final class DiscourseDetailHeaderView: UIView {
         stack.axis = .horizontal
         stack.alignment = .top
         stack.spacing = 16
-        addSubview(stack)
+        let contentStack = UIStackView(arrangedSubviews: [stack, actionsStack])
+        contentStack.translatesAutoresizingMaskIntoConstraints = false
+        contentStack.axis = .vertical
+        contentStack.spacing = 16
+        addSubview(contentStack)
 
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: topAnchor, constant: 16),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
+            contentStack.topAnchor.constraint(equalTo: topAnchor, constant: 16),
+            contentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            contentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            contentStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
 
             artworkView.widthAnchor.constraint(equalToConstant: 128),
             artworkView.heightAnchor.constraint(equalTo: artworkView.widthAnchor)
@@ -134,6 +143,10 @@ final class DiscourseDetailHeaderView: UIView {
         stack.axis = accessible ? .vertical : .horizontal
         stack.alignment = accessible ? .leading : .top
         accessibleTextWidth?.isActive = accessible
+        actionsStack.axis = accessible ? .vertical : .horizontal
+        actionsStack.alignment = accessible ? .leading : .center
+        chips.axis = accessible ? .vertical : .horizontal
+        chips.alignment = accessible ? .leading : .center
     }
 
     // MARK: - Content
@@ -148,7 +161,7 @@ final class DiscourseDetailHeaderView: UIView {
         chips.isHidden = locationChip.isHidden && dateChip.isHidden
         metadataLabel.text = DiscourseMetadataText.summary(language: discourse.language,
                                                            tracks: discourse.totalTracks,
-                                                           likes: like.count)
+                                                           likes: 0)
         likeControl.configure(with: like, title: title)
 
         let url = DiscourseURLResolver.resolve(discourse.thumbnailURLString)
