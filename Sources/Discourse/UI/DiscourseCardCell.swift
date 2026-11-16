@@ -191,10 +191,12 @@ final class DiscourseCardView: UIView {
         footer.addArrangedSubview(footerSpacer)
         footer.addArrangedSubview(actions)
         fullMetadataWidth = metadata.widthAnchor.constraint(equalTo: footer.widthAnchor)
-        let text = UIStackView(arrangedSubviews: [heading, pills])
+        let text = UIStackView(arrangedSubviews: [heading, pills, UIView()])
         text.axis = .vertical
-        text.distribution = .equalSpacing
         text.spacing = 10
+        text.setCustomSpacing(0, after: pills)
+        heading.setContentHuggingPriority(.required, for: .vertical)
+        pills.setContentHuggingPriority(.required, for: .vertical)
         mainStack.alignment = .top
         mainStack.spacing = 12
         mainStack.addArrangedSubview(artworkView)
@@ -220,7 +222,6 @@ final class DiscourseCardView: UIView {
             content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
             content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
             artworkWidth, artworkView.heightAnchor.constraint(equalTo: artworkView.widthAnchor),
-            text.heightAnchor.constraint(greaterThanOrEqualTo: artworkView.heightAnchor),
             heightAnchor.constraint(greaterThanOrEqualToConstant: 132),
             downloadIcon.widthAnchor.constraint(equalToConstant: 22),
             downloadIcon.heightAnchor.constraint(equalToConstant: 22),
@@ -234,7 +235,7 @@ final class DiscourseCardView: UIView {
             accessibilityButton.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
         uniformHeightConstraints = [
-            titleLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 0),
+            mainStack.heightAnchor.constraint(greaterThanOrEqualToConstant: 0),
             pills.heightAnchor.constraint(greaterThanOrEqualToConstant: 0),
             footer.heightAnchor.constraint(greaterThanOrEqualToConstant: 0)
         ]
@@ -275,7 +276,9 @@ final class DiscourseCardView: UIView {
         let captionHeight = ceil(UIFont.preferredFont(forTextStyle: .caption1, compatibleWith: traitCollection).lineHeight) + 1
         let actionHeight = max(24, ceil(UIFont.preferredFont(forTextStyle: .subheadline, compatibleWith: traitCollection).lineHeight) + 1)
         let heights = [
-            2 * (ceil(UIFont.preferredFont(forTextStyle: .headline, compatibleWith: traitCollection).lineHeight) + 1),
+            2 * (ceil(UIFont.preferredFont(forTextStyle: .headline, compatibleWith: traitCollection).lineHeight) + 1)
+                + 10 + (accessible ? 2 * captionHeight + 16 : captionHeight + 10)
+                + (accessible ? artworkWidth.constant + mainStack.spacing : 0),
             accessible ? 2 * captionHeight + 16 : captionHeight + 10,
             accessible ? 2 * captionHeight + 28 + actionHeight : max(captionHeight + 10, actionHeight)
         ]
