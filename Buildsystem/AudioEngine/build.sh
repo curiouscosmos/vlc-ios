@@ -7,7 +7,7 @@ unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS CPATH LIBRARY_PATH PKG_CONFIG_PATH
 export MAKEFLAGS=-j4 MESONCOMPILEFLAGS=-j4 CMAKE_BUILD_PARALLEL_LEVEL=4
 script_dir=$(cd "$(dirname "$0")" && pwd)
 repo_dir=$(cd "$script_dir/../.." && pwd)
-work_dir="$repo_dir/build/rnnoise"
+work_dir="$repo_dir/build/audio-engine"
 mkdir -p "$work_dir"
 
 # Each source checkout is isolated from Xcode's generated package checkouts.
@@ -21,26 +21,33 @@ if [[ ! -d "$work_dir/vlc" ]]; then
 fi
 [[ $(git -C "$work_dir/VLCKit" rev-parse HEAD) == 8f5ce02f09a7da5d061a24ddac3cb432f2a9b332 ]]
 [[ $(git -C "$work_dir/vlc" rev-parse HEAD) == 005e69e67a8730f128e44bde68437fbb048cf45f ]]
-patch_fingerprint=$(shasum -a 256 "$script_dir/libvlc.patch" "$script_dir/vlckit.patch" "$script_dir/rnnoise.patch")
+patch_fingerprint=$(shasum -a 256 "$script_dir/audio-output.patch" "$script_dir/ios-audio.patch")
 if [[ -f "$work_dir/.patched" ]]; then
     if [[ $(cat "$work_dir/.patched") != "$patch_fingerprint" ]]; then
-        echo 'Native patches changed. Move build/rnnoise aside and run this script again.' >&2
+        echo 'Native patches changed. Move build/audio-engine aside and run this script again.' >&2
         exit 1
     fi
 else
     git -C "$work_dir/vlc" apply "$work_dir/VLCKit"/libvlc/patches/*.patch
-    git -C "$work_dir/vlc" apply "$script_dir/libvlc.patch"
-    git -C "$work_dir/VLCKit" apply "$script_dir/vlckit.patch"
+    git -C "$work_dir/vlc" apply "$script_dir/audio-output.patch" "$script_dir/ios-audio.patch"
     printf '%s\n' "$patch_fingerprint" > "$work_dir/.patched"
 fi
-cp "$script_dir/rnnoise.patch" "$work_dir/vlc/contrib/src/rnnoise/rd-reset.patch"
-cp "$script_dir/native/rnnoise_frame.h" "$work_dir/vlc/modules/audio_filter/"
 # VLCKit's Xcode project resolves headers and static archives through this path.
 if [[ ! -e "$work_dir/VLCKit/libvlc/vlc" ]]; then
     ln -s "$work_dir/vlc" "$work_dir/VLCKit/libvlc/vlc"
 fi
 [[ $(cd "$work_dir/VLCKit/libvlc/vlc" && pwd -P) == $(cd "$work_dir/vlc" && pwd -P) ]]
 cd "$work_dir/VLCKit"
+# Only the iOS wrapper is built here. Keep its dependency list in sync with the linked codecs.
+ruby -rxcodeproj -e '
+    project = Xcodeproj::Project.open("VLCKit.xcodeproj")
+    project.targets.each do |target|
+        target.frameworks_build_phase.files.select do |file|
+            file.file_ref&.display_name == "VideoToolbox.framework"
+        end.each(&:remove_from_project)
+    end
+    project.save
+'
 printf 'CODE_SIGNING_ALLOWED = NO\nCODE_SIGNING_REQUIRED = NO\n' > "$work_dir/Unsigned.xcconfig"
 export XCODE_XCCONFIG_FILE="$work_dir/Unsigned.xcconfig"
 ./compileAndBuildVLCKit.sh -f -a all -r -e "$work_dir/vlc"
@@ -52,5 +59,8 @@ if [[ ! -f "$archive" ]]; then
     mv "$archive.partial" "$archive"
 fi
 echo "f37c8dbdd4427d1a3f5d75dc4b8bd1ae863cef4426f9a405a2fd1c5c9012f1fb  $archive" | shasum -a 256 -c -
+for slice in "$work_dir/VLCKit/build/iOS/VLCKit.xcframework"/ios-*/VLCKit.framework/VLCKit; do
+    "$script_dir/check-slice.sh" "$slice"
+done
 python3 "$script_dir/package.py" "$work_dir" "$script_dir/Artifacts"
-echo 'Native artifact built. Activate it with: ruby Buildsystem/RNNoise/activate.rb'
+echo 'Audio-only iOS artifact built.'

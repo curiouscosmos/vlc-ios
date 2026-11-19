@@ -42,10 +42,6 @@ class PlayerController: NSObject {
         return UserDefaults.standard.bool(forKey: kVLCSettingPlayPauseGesture)
     }
 
-    var isBrightnessGestureEnabled: Bool {
-        return UserDefaults.standard.bool(forKey: kVLCSettingBrightnessGesture)
-    }
-
     var isSwipeSeekGestureEnabled: Bool {
         return UserDefaults.standard.bool(forKey: kVLCSettingSeekGesture)
     }
@@ -70,10 +66,6 @@ class PlayerController: NSObject {
 
     var isRememberStateEnabled: Bool {
         return UserDefaults.standard.bool(forKey: kVLCPlayerShouldRememberState)
-    }
-
-    var isRememberBrightnessEnabled: Bool {
-        return UserDefaults.standard.bool(forKey: kVLCPlayerShouldRememberBrightness)
     }
 
     @objc override init() {

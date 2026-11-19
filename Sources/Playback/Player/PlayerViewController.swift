@@ -16,9 +16,7 @@ import MediaPlayer
 fileprivate enum PlayerPanType {
     case none
 #if os(iOS)
-    case brightness
     case volume
-    case frame
 #endif
     case seek
     case projection
@@ -32,7 +30,7 @@ fileprivate enum PlayerSeekGestureType {
 class PlayerViewController: UIViewController {
     // MARK: - Slider Gesture Contol
 
-    /* This struct is a small data container used for brightness and volume
+    /* This struct is a small data container used for volume
      * gesture value persistance
      * It helps to keep their values around when they can't be get from/set to APIs
      * unavailable on simulator
@@ -190,30 +188,7 @@ class PlayerViewController: UIViewController {
         return externalOutputView
     }()
 
-    private lazy var contentOutputView: UIView = {
-        var contentOutputView = UIView()
-        contentOutputView.backgroundColor = .clear
-        contentOutputView.isUserInteractionEnabled = false
-        contentOutputView.translatesAutoresizingMaskIntoConstraints = false
-        contentOutputView.accessibilityIgnoresInvertColors = true
-
-        contentOutputView.accessibilityIdentifier = "Video Player Title"
-        contentOutputView.accessibilityLabel = NSLocalizedString("VO_VIDEOPLAYER_TITLE",
-                                                                 comment: "")
-        contentOutputView.accessibilityHint = NSLocalizedString("VO_VIDEOPLAYER_DOUBLETAP",
-                                                                comment: "")
-        return contentOutputView
-    }()
-
 #if os(iOS)
-    lazy var brightnessControl: SliderGestureControl = {
-        return SliderGestureControl { [weak self] value in
-            self?.playerScreen?.brightness = CGFloat(value)
-        } deviceGetter: { [weak self] in
-            return Float(self?.playerScreen?.brightness ?? 0)
-        }
-    }()
-
     lazy var volumeControl: SliderGestureControl = {
         return SliderGestureControl { [weak self] value in
             self?.volumeView.setVolume(value)
@@ -236,36 +211,13 @@ class PlayerViewController: UIViewController {
         return volumeBackGroundGradientLayer
     }()
 
-    lazy var brightnessBackgroundGradientLayer: CAGradientLayer = {
-        let brightnessGroundGradientLayer = CAGradientLayer()
-
-        brightnessGroundGradientLayer.frame = self.view.bounds
-        brightnessGroundGradientLayer.colors = [UIColor.clear.cgColor,
-                                                UIColor.clear.cgColor,
-                                                UIColor.clear.cgColor,
-                                                UIColor.black.cgColor]
-        brightnessGroundGradientLayer.locations = [0, 0.2, 0.8, 1]
-        brightnessGroundGradientLayer.transform = CATransform3DMakeRotation(CGFloat.pi / 2, 0, 0, 1)
-        brightnessGroundGradientLayer.isHidden = true
-        return brightnessGroundGradientLayer
-    }()
-
     lazy var sideBackgroundGradientView: UIView = {
         let backgroundGradientView = UIView()
         backgroundGradientView.frame = self.view.bounds
         backgroundGradientView.autoresizingMask = [.flexibleHeight, .flexibleWidth]
 
-        backgroundGradientView.layer.addSublayer(brightnessBackgroundGradientLayer)
         backgroundGradientView.layer.addSublayer(volumeBackgroundGradientLayer)
         return backgroundGradientView
-    }()
-
-    lazy var brightnessControlView: BrightnessControlView = {
-        let vc = BrightnessControlView()
-        vc.updateIcon(level: brightnessControl.fetchAndGetDeviceValue())
-        vc.translatesAutoresizingMaskIntoConstraints = false
-        vc.alpha = 0
-        return vc
     }()
 
     lazy var volumeControlView: VolumeControlView = {
@@ -312,8 +264,6 @@ class PlayerViewController: UIViewController {
     private var isOverlayCardLaidOutForLandscape = false
     private var gesturesEnabledBeforeOverlayCard = true
 
-    private let isBrightnessControlAvailable: Bool
-
     private(set) var isGestureActive: Bool = false
 
     private var currentPanType: PlayerPanType = .none
@@ -331,12 +281,6 @@ class PlayerViewController: UIViewController {
         return deviceMotion
     }()
     #endif
-
-    private var systemBrightness: Double?
-
-#if os(iOS)
-    private var playerScreen: UIScreen?
-#endif
 
     private let notificationCenter = NotificationCenter.default
 
@@ -396,12 +340,10 @@ class PlayerViewController: UIViewController {
 #if os(iOS)
     init(mediaLibraryService: MediaLibraryService,
          rendererDiscovererManager: VLCRendererDiscovererManager,
-         playerController: PlayerController,
-         isBrightnessControlAvailable: Bool) {
+         playerController: PlayerController) {
         self.mediaLibraryService = mediaLibraryService
         self.rendererDiscovererManager = rendererDiscovererManager
         self.playerController = playerController
-        self.isBrightnessControlAvailable = isBrightnessControlAvailable
 
         super.init(nibName: nil, bundle: nil)
 
@@ -412,8 +354,6 @@ class PlayerViewController: UIViewController {
     init(mediaLibraryService: MediaLibraryService, playerController: PlayerController) {
         self.mediaLibraryService = mediaLibraryService
         self.playerController = playerController
-        self.isBrightnessControlAvailable = false
-        self.systemBrightness = 1.0
 
         super.init(nibName: nil, bundle: nil)
 
@@ -461,33 +401,6 @@ class PlayerViewController: UIViewController {
         view.transform = .identity
     }
 
-#if os(iOS)
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-
-        guard isBrightnessControlAvailable else {
-            return
-        }
-
-        // The window is only attached once the presentation finished, so the
-        // screen cannot be resolved any earlier than this.
-        if let screen = screenForCurrentWindow() {
-            playerScreen = screen
-            systemBrightness = screen.brightness
-        }
-
-        if playerController.isRememberBrightnessEnabled,
-           let brightness = userDefaults.value(forKey: KVLCPlayerBrightness) as? CGFloat {
-            animateBrightness(to: brightness)
-            brightnessControl.value = Float(brightness)
-        } else {
-            brightnessControlView.updateIcon(level: brightnessControl.fetchAndGetDeviceValue())
-        }
-
-        addPlayerBrightnessObservers()
-    }
-#endif
-
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
 
@@ -499,28 +412,6 @@ class PlayerViewController: UIViewController {
         super.viewDidLayoutSubviews()
         layoutOverlayCardIfNeeded()
     }
-
-#if os(iOS)
-    override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidDisappear(animated)
-
-        if playerController.isRememberBrightnessEnabled && isBrightnessControlAvailable,
-           let currentBrightness = playerScreen?.brightness {
-            self.brightnessControl.value = Float(currentBrightness) // helper in indicating change in the system brightness
-            userDefaults.set(currentBrightness, forKey: KVLCPlayerBrightness)
-        }
-        //set the value of system brightness after closing the app
-        //even if the Player Should Remember Brightness option is disabled
-        if let systemBrightness = systemBrightness {
-            animateBrightness(to: systemBrightness, duration: 0.35)
-        }
-
-        // remove the observer when the view disappears to avoid breaking the brightness view value
-        // when the player is not shown to save the persisted values
-        removePlayerBrightnessObservers()
-
-    }
-#endif
 
     // MARK: - Public methods
 
@@ -642,7 +533,7 @@ class PlayerViewController: UIViewController {
     func applyCornerRadius() {
         var cornerRadius: CGFloat
 #if os(iOS)
-        cornerRadius = screenForCurrentWindow()?.displayCornerRadius ?? 0.0
+        cornerRadius = view.window?.windowScene?.screen.displayCornerRadius ?? 0.0
 #else
         cornerRadius = 5.0
 #endif
@@ -828,7 +719,11 @@ class PlayerViewController: UIViewController {
             if card is EqualizerView {
                 landscapeWidth = traitCollection.verticalSizeClass == .regular ? 480 : 380
             } else {
+                #if os(iOS)
+                landscapeWidth = 340
+                #else
                 landscapeWidth = card is TrackSelectorView ? 380 : 340
+                #endif
             }
             let preferredWidth = card.widthAnchor.constraint(equalToConstant: landscapeWidth)
             preferredWidth.priority = .defaultHigh
@@ -856,7 +751,12 @@ class PlayerViewController: UIViewController {
 
     @objc func updatePlaybackSpeedIcon() {
         let isSpeedModified = abs(playbackService.playbackRate - 1) > 0.001
-        if isSpeedModified || playbackService.audioDelay != 0 || playbackService.subtitleDelay != 0 {
+        #if os(iOS)
+        let hasDelay = playbackService.audioDelay != 0
+        #else
+        let hasDelay = playbackService.audioDelay != 0 || playbackService.subtitleDelay != 0
+        #endif
+        if isSpeedModified || hasDelay {
             showIcon(button: optionsNavigationBar.playbackSpeedButton)
         } else {
             hideIcon(button: optionsNavigationBar.playbackSpeedButton)
@@ -866,7 +766,9 @@ class PlayerViewController: UIViewController {
     private func resetPlaybackSpeed() {
         playbackService.playbackRate = 1
         playbackService.audioDelay = 0
+        #if !os(iOS)
         playbackService.subtitleDelay = 0
+        #endif
         hideIcon(button: optionsNavigationBar.playbackSpeedButton)
     }
 
@@ -930,9 +832,11 @@ class PlayerViewController: UIViewController {
             return .none
         }
 
+        #if !os(iOS)
         guard !playbackService.currentMediaIs360Video else {
             return .projection
         }
+        #endif
         
         let angle = atan2(abs(velocity.y), abs(velocity.x))
         let angleThreshold = CGFloat.pi / 4
@@ -942,17 +846,9 @@ class PlayerViewController: UIViewController {
 
 #if os(iOS)
         if isHorizontalSwipe && playerController.isSwipeSeekGestureEnabled {
-            if playbackService.isPlaying {
-                panType = .seek
-            } else {
-                panType = .frame
-            }
-        } else if !isHorizontalSwipe {
-            if location.x < windowWidth / 2 && playerController.isBrightnessGestureEnabled && isBrightnessControlAvailable {
-                panType = .brightness
-            } else if location.x > windowWidth / 2 && playerController.isVolumeGestureEnabled {
-                panType = .volume
-            }
+            panType = .seek
+        } else if !isHorizontalSwipe && location.x > windowWidth / 2 && playerController.isVolumeGestureEnabled {
+            panType = .volume
         }
 #endif
 
@@ -1035,97 +931,6 @@ class PlayerViewController: UIViewController {
         }
     }
 
-    // MARK: - Observers
-
-#if os(iOS)
-    private func addPlayerBrightnessObservers() {
-        notificationCenter.addObserver(self,
-                                       selector: #selector(systemBrightnessChanged),
-                                       name: UIApplication.didBecomeActiveNotification,
-                                       object: nil)
-
-        notificationCenter.addObserver(self,
-                                       selector: #selector(playerWillResignActive),
-                                       name: UIApplication.willResignActiveNotification,
-                                       object: nil)
-
-        notificationCenter.addObserver(self,
-                                       selector: #selector(playerWillEnterForeground),
-                                       name: UIApplication.willEnterForegroundNotification,
-                                       object: nil)
-    }
-
-    private func removePlayerBrightnessObservers() {
-        notificationCenter.removeObserver(self,
-                                          name: UIApplication.didBecomeActiveNotification,
-                                          object: nil)
-
-        notificationCenter.removeObserver(self,
-                                          name: UIApplication.willResignActiveNotification,
-                                          object: nil)
-
-        notificationCenter.removeObserver(self,
-                                          name: UIApplication.willEnterForegroundNotification,
-                                          object: nil
-        )
-    }
-
-    private func screenForCurrentWindow() -> UIScreen? {
-        return view.window?.windowScene?.screen
-    }
-
-    func animateBrightness(to value: CGFloat, duration: CGFloat = 0.3) {
-        playerScreen?.animateBrightnessChange(to: value, duration: duration)
-    }
-
-    @objc func systemBrightnessChanged() {
-        guard let screen = playerScreen, let systemBrightness = self.systemBrightness else {
-            return
-        }
-
-        let conversionThreshold: Float = 0.03 // threshold for conversion error value
-
-        //incase the control center is opened without any changes in the brightness.
-        //except setting the brightness value to the system one by the willResignActiveNotification observer.
-        //reseting the value of brightness to the player one.
-        if abs(Float(screen.brightness - systemBrightness)) <= conversionThreshold {
-            animateBrightness(to: CGFloat(self.brightnessControl.value))
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: {
-            // Compare the current screen brightness with the value from the brightness control.
-            // If they are different, the value is changed to the control center value.
-            // This is important to ensure we do not lose track of the actual system brightness setting
-
-            if abs(Float(screen.brightness) - self.brightnessControl.value) > conversionThreshold {
-                let brightness = screen.brightness
-                self.systemBrightness = brightness
-                self.brightnessControl.value = Float(brightness)
-                self.brightnessControlView.updateIcon(level: Float(brightness))
-            }
-        })
-    }
-
-    @objc func playerWillResignActive() {
-        guard let systemBrightness = systemBrightness else {
-            return
-        }
-
-        animateBrightness(to: systemBrightness)
-    }
-
-    @objc func playerWillEnterForeground() {
-        //updates the value of system brightness
-        //if the brightness is changed when the player was in the background
-        guard let brightness = playerScreen?.brightness else {
-            return
-        }
-
-        self.systemBrightness = brightness
-        animateBrightness(to: brightness)
-    }
-#endif
-
     // MARK: - Gesture handlers
 
     @objc func handlePlayPauseGesture() {
@@ -1140,8 +945,6 @@ class PlayerViewController: UIViewController {
         let verticalPanVelocity: Float = Float(recognizer.velocity(in: view).y)
         let horizontalPanVelocity: Float = Float(recognizer.velocity(in: view).x)
 
-        let currentPos = recognizer.location(in: view)
-
         let panType = detectPanType(recognizer)
         if panType == .none {
             return handleMinimizeGesture(recognizer)
@@ -1151,8 +954,6 @@ class PlayerViewController: UIViewController {
         guard panType == .projection
                 || (panType == .seek && playerController.isSwipeSeekGestureEnabled)
                 || (panType == .volume && playerController.isVolumeGestureEnabled)
-                || (panType == .brightness && playerController.isBrightnessGestureEnabled)
-                || panType == .frame
         else {
             return
         }
@@ -1171,13 +972,6 @@ class PlayerViewController: UIViewController {
             case .seek:
                 seekStartPosition = playbackService.playbackPosition
                 accumulatedSeekTime = 0
-            case .brightness:
-                brightnessBackgroundGradientLayer.isHidden = false
-                brightnessControl.fetchDeviceValue()
-                animations = { [brightnessControlView, sideBackgroundGradientView] in
-                    brightnessControlView.alpha = 1
-                    sideBackgroundGradientView.alpha = 1
-                }
             case .volume:
                 volumeBackgroundGradientLayer.isHidden = false
                 volumeControl.fetchDeviceValue()
@@ -1194,12 +988,12 @@ class PlayerViewController: UIViewController {
                                options: .beginFromCurrentState, animations: animations,
                                completion: nil)
             }
+            #if !os(iOS)
             if playbackService.currentMediaIs360Video {
-                projectionLocation = currentPos
-                #if !os(iOS)
+                projectionLocation = recognizer.location(in: view)
                 deviceMotion.stopDeviceMotion()
-                #endif
             }
+            #endif
         }
 
         switch currentPanType {
@@ -1250,21 +1044,6 @@ class PlayerViewController: UIViewController {
                 volumeControlView.updateIcon(level: volumeControl.value)
             }
             break
-        case .brightness:
-            if recognizer.state == .changed || recognizer.state == .ended {
-                let newValue = brightnessControl.value - (verticalPanVelocity * brightnessControl.speed)
-                brightnessControl.value = min(max(newValue, 0), 1)
-                brightnessControl.applyValueToDevice()
-                brightnessControlView.updateIcon(level: brightnessControl.value)
-            }
-        case .frame:
-            if recognizer.state == .changed || recognizer.state == .ended {
-                if horizontalPanVelocity > 0 {
-                    playbackService.nextFrame()
-                } else {
-                    playbackService.previousFrame()
-                }
-            }
 #endif
         case .projection:
             updateProjection(with: recognizer)
@@ -1276,23 +1055,7 @@ class PlayerViewController: UIViewController {
             var animations : (() -> Void)?
 
 #if os(iOS)
-            // Check if both of the sliders are visible to hide them at the same time
-            if currentPanType == .brightness && volumeControlView.alpha == 1 ||
-                currentPanType == .volume && brightnessControlView.alpha == 1 {
-                animations = { [brightnessControlView,
-                                volumeControlView,
-                                sideBackgroundGradientView] in
-                    brightnessControlView.alpha = 0
-                    volumeControlView.alpha = 0
-                    sideBackgroundGradientView.alpha = 0
-                }
-            } else if currentPanType == .brightness {
-                animations = { [brightnessControlView,
-                                sideBackgroundGradientView] in
-                    brightnessControlView.alpha = 0
-                    sideBackgroundGradientView.alpha = 0
-                }
-            } else if currentPanType == .volume {
+            if currentPanType == .volume {
                 animations = { [volumeControlView,
                                 sideBackgroundGradientView] in
                     volumeControlView.alpha = 0
@@ -1305,9 +1068,7 @@ class PlayerViewController: UIViewController {
             if let animations = animations {
                 UIView.animate(withDuration: 0.2, delay: 0.5,
                                options: .beginFromCurrentState, animations: animations, completion: {
-                    [brightnessBackgroundGradientLayer,
-                     volumeBackgroundGradientLayer] _ in
-                    brightnessBackgroundGradientLayer.isHidden = true
+                    [volumeBackgroundGradientLayer] _ in
                     volumeBackgroundGradientLayer.isHidden = true
                     self.isGestureActive = false
                     self.setControlsHidden(true, animated: true)
@@ -1321,11 +1082,11 @@ class PlayerViewController: UIViewController {
 #endif
 
             currentPanType = .none
+            #if !os(iOS)
             if playbackService.currentMediaIs360Video {
-                #if !os(iOS)
                 deviceMotion.startDeviceMotion()
-                #endif
             }
+            #endif
         }
     }
 
@@ -1831,7 +1592,7 @@ extension PlayerViewController: DeviceMotionDelegate {
 #if os(iOS)
 extension PlayerViewController: VLCRendererDiscovererManagerDelegate {
     func removedCurrentRendererItem(_ item: VLCRendererItem) {
-        changeOutputView(to: contentOutputView)
+        changeOutputView(to: nil)
         mediaNavigationBar.updateDeviceButton(with: UIImage(named: "renderer"), color: .white)
     }
 }
@@ -1907,6 +1668,7 @@ extension PlayerViewController {
         keyNumber(0)
     }
 
+#if !os(iOS)
     @objc func nextFrame() {
         playbackService.nextFrame()
         mediaScrubProgressBar.updateProgressValues()
@@ -1916,6 +1678,7 @@ extension PlayerViewController {
         playbackService.previousFrame()
         mediaScrubProgressBar.updateProgressValues()
     }
+#endif
 
     @objc func keyEscape() {
         guard overlayCardView == nil else {
@@ -1967,17 +1730,20 @@ extension PlayerViewController {
         let rightBracketCommand = UIKeyCommand(input: "]", modifierFlags: [], action: #selector(keyRightBracket))
         rightBracketCommand.discoverabilityTitle = NSLocalizedString("KEY_INCREASE_PLAYBACK_SPEED", comment: "")
 
-        let eCommand = UIKeyCommand(input: "e", modifierFlags: [], action: #selector(nextFrame))
-        eCommand.discoverabilityTitle = NSLocalizedString("KEY_NEXT_FRAME", comment: "")
-
-        let zCommand = UIKeyCommand(input: "e", modifierFlags: [.shift], action: #selector(previousFrame))
-
         let escapeCommand = UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(keyEscape))
         escapeCommand.discoverabilityTitle = NSLocalizedString("BUTTON_CLOSE", comment: "")
 
         var commands: [UIKeyCommand] = [
-            spaceCommand, returnCommand, leftArrowCommand, rightArrowCommand, leftBracketCommand, rightBracketCommand, eCommand, zCommand, escapeCommand
+            spaceCommand, returnCommand, leftArrowCommand, rightArrowCommand, leftBracketCommand, rightBracketCommand, escapeCommand
         ]
+
+        #if !os(iOS)
+        let eCommand = UIKeyCommand(input: "e", modifierFlags: [], action: #selector(nextFrame))
+        eCommand.discoverabilityTitle = NSLocalizedString("KEY_NEXT_FRAME", comment: "")
+
+        let zCommand = UIKeyCommand(input: "e", modifierFlags: [.shift], action: #selector(previousFrame))
+        commands.insert(contentsOf: [eCommand, zCommand], at: commands.count - 1)
+        #endif
 
         let numberCommands = (0...9).map { number -> UIKeyCommand in
             let input = "\(number)"

@@ -74,7 +74,10 @@ protocol MediaMoreOptionsActionSheetDelegate {
         }
     }
 
+#if !os(iOS)
     private(set) lazy var videoFiltersPlaceholderView = UIView()
+#endif
+
 
     private(set) lazy var playbackSpeedPlaceholderView = UIView()
 
@@ -114,16 +117,6 @@ protocol MediaMoreOptionsActionSheetDelegate {
         super.init()
         mediaPlayerActionSheetDelegate = self
         mediaPlayerActionSheetDataSource = self
-        NotificationCenter.default.addObserver(self, selector: #selector(refreshNoiseReduction),
-                                               name: NSNotification.Name(rawValue: VLCPlaybackServiceNoiseReductionDidChange),
-                                               object: nil)
-    }
-
-    @objc private func refreshNoiseReduction() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self, self.isViewLoaded else { return }
-            self.collectionView.reloadData()
-        }
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -302,10 +295,10 @@ extension MediaMoreOptionsActionSheet {
             moreOptionsDelegate?.mediaMoreOptionsActionSheetPresentPlaybackSpeed()
         case .sleepTimer:
             moreOptionsDelegate?.mediaMoreOptionsActionSheetPresentSleepTimer()
+#if !os(iOS)
         case .filter:
-            #if !os(iOS)
             moreOptionsDelegate?.mediaMoreOptionsActionSheetPresentVideoFilters()
-            #endif
+#endif
         case .equalizer:
             moreOptionsDelegate?.mediaMoreOptionsActionSheetPresentEqualizer()
         default:
@@ -333,16 +326,7 @@ extension MediaMoreOptionsActionSheet: MediaPlayerActionSheetDelegate {
             return
         }
 
-        if identifier == .noiseReduction {
-            let service = PlaybackService.sharedInstance()
-            let succeeded = service.setNoiseReduction(enabled: state)
-            cell.setToggleSwitch(state: service.noiseReductionEnabled)
-            if !succeeded, let player = moreOptionsDelegate as? AudioPlayerViewController {
-                let message = NSLocalizedString("NOISE_REDUCTION_FAILED", comment: "")
-                player.showStatusMessage(message)
-                UIAccessibility.post(notification: .announcement, argument: message)
-            }
-        } else if identifier == .interfaceLock {
+        if identifier == .interfaceLock {
             moreOptionsDelegate.mediaMoreOptionsActionSheetDidToggleInterfaceLock(state: state)
             interfaceDisabled = state
         }
@@ -354,8 +338,10 @@ extension MediaMoreOptionsActionSheet: MediaPlayerActionSheetDataSource {
 
     private func selectViewToPresent(for cell: ActionSheetCellIdentifier) -> UIView {
         switch cell {
+#if !os(iOS)
         case .filter:
             return videoFiltersPlaceholderView
+#endif
         case .playback:
             return playbackSpeedPlaceholderView
         case .sleepTimer:
@@ -390,8 +376,6 @@ extension MediaMoreOptionsActionSheet: MediaPlayerActionSheetDataSource {
                 return
             }
 
-            if $0 == .noiseReduction && !isAudioPlayer { return }
-
             if $0 == .share {
                 // The share action only exists for the audio player and only
                 // while a discourse track with a known identity is playing.
@@ -401,11 +385,12 @@ extension MediaMoreOptionsActionSheet: MediaPlayerActionSheetDataSource {
                 }
             }
 
+#if !os(iOS)
             if $0 == .filter && isAudioPlayer {
                 // Do not show the video filters category when the audio player is shown.
                 return
             }
-
+#endif
             let cellModel = ActionSheetCellModel(
                 title: String(describing: $0),
                 imageIdentifier: $0.rawValue,
@@ -417,10 +402,6 @@ extension MediaMoreOptionsActionSheet: MediaPlayerActionSheetDataSource {
                 cellModel.accessoryType = .none
                 cellModel.viewToPresent = sharePlaceholderView
                 cellModel.iconImage = UIImage(systemName: "square.and.arrow.up")
-            } else if $0 == .noiseReduction {
-                cellModel.accessoryType = .toggleSwitch
-                cellModel.viewToPresent = nil
-                cellModel.iconImage = UIImage(systemName: "waveform")
             } else if $0 == .interfaceLock {
                 cellModel.accessoryType = .toggleSwitch
                 cellModel.viewToPresent = nil

@@ -2,7 +2,6 @@
 import XCTest
 import AVFoundation
 import UIKit
-import Darwin
 import ImageIO
 @testable import VLC
 
@@ -132,13 +131,13 @@ final class DiscourseClipTests: XCTestCase {
                 let cell = controller.tableView(controller.tableView, cellForRowAt: IndexPath(row: row, section: section))
                 return try XCTUnwrap(cell.accessoryView as? UISwitch)
             }
-            let captions = try toggle(controller, section: 1, row: 2)
+            let captions = try toggle(controller, section: 1, row: 1)
             XCTAssertEqual(captions.isEnabled, track.captionURL != nil)
             XCTAssertFalse(captions.isOn)
             if track.captionURL != nil {
                 captions.isOn = true; captions.sendActions(for: .valueChanged)
-                XCTAssertTrue(try toggle(controller, section: 1, row: 2).isOn)
-                XCTAssertFalse(try toggle(drawer(), section: 1, row: 2).isOn)
+                XCTAssertTrue(try toggle(controller, section: 1, row: 1).isOn)
+                XCTAssertFalse(try toggle(drawer(), section: 1, row: 1).isOn)
             }
             for row in 0..<2 {
                 let fade = try toggle(controller, section: 2, row: row)
@@ -147,19 +146,17 @@ final class DiscourseClipTests: XCTestCase {
                 XCTAssertFalse(try toggle(controller, section: 2, row: row).isOn)
                 XCTAssertTrue(try toggle(drawer(), section: 2, row: row).isOn)
             }
-            let noise = try toggle(controller, section: 1, row: 0)
-            XCTAssertEqual(noise.isOn, PlaybackService.sharedInstance().noiseReductionEnabled)
-            XCTAssertEqual(noise.isEnabled, PlaybackService.sharedInstance().noiseReductionAvailable)
+            XCTAssertEqual(controller.tableView(controller.tableView, numberOfRowsInSection: 1), 2)
             let mixer = DiscourseAudioMixer.shared
             let original = mixer.isEnabled
             defer { mixer.setEnabled(original) }
             mixer.setEnabled(!original)
             NotificationCenter.default.post(name: .discourseMixerDidChange, object: mixer)
-            let music = try toggle(controller, section: 1, row: 1)
+            let music = try toggle(controller, section: 1, row: 0)
             XCTAssertEqual(music.isOn, !original)
             XCTAssertEqual(music.isEnabled, mixer.selectedURL != nil)
             if mixer.selectedURL == nil {
-                let cell = controller.tableView(controller.tableView, cellForRowAt: IndexPath(row: 1, section: 1))
+                let cell = controller.tableView(controller.tableView, cellForRowAt: IndexPath(row: 0, section: 1))
                 XCTAssertEqual(cell.detailTextLabel?.text, "Add music in Mixer first")
             }
             for (row, title) in ["Share clip link", "Download clip audio", "Create video from clip"].enumerated() {
@@ -260,13 +257,12 @@ final class DiscourseClipTests: XCTestCase {
         }
         let source = try tone("speech", seconds: 3, amplitude: 0.8)
         let music = try tone("music", seconds: 0.5, amplitude: 0.8)
-        let noiseOptions = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "rnnoise_reset") == nil ? [false] : [false, true]
-        for (loops, noise) in noiseOptions.flatMap({ noise in [false, true].map { ($0, noise) } }) {
+        for loops in [false, true] {
             let exporter = DiscourseClipExporter()
             defer { exporter.clean() }
             let captions = [DiscourseCaption(start: 0, end: 3, text: "ध्यान")]
             var request = DiscourseClipExportRequest(source: source, sourceExtension: "wav", title: "Mixed",
-                range: DiscourseClipRange(duration: 2, position: 0), noise: noise, music: music, musicEnabled: true,
+                range: DiscourseClipRange(duration: 2, position: 0), music: music, musicEnabled: true,
                 musicVolume: 0.5, musicLoops: loops, captions: captions)
             let done = expectation(description: "Mixed export")
             exporter.export(request) { result in
@@ -284,14 +280,12 @@ final class DiscourseClipTests: XCTestCase {
                     let channel = try XCTUnwrap(buffer.floatChannelData)[0]
                     let peak = (0..<Int(buffer.frameLength)).map { abs(channel[$0]) }.max() ?? 0
                     XCTAssertLessThan(peak, 1.08, "Allow AAC reconstruction overshoot")
-                    XCTAssertGreaterThan(peak, noise ? 0.1 : 0.7)
-                    if !noise {
-                        let tailStart = Int(buffer.frameLength) / 2
-                        let energy = (tailStart..<Int(buffer.frameLength)).reduce(Float(0)) { $0 + channel[$1] * channel[$1] }
-                        let rms = sqrt(energy / Float(Int(buffer.frameLength) - tailStart))
-                        XCTAssertEqual(rms, loops ? 0.707 : 0.471, accuracy: 0.06,
-                                       "Music volume and loop setting must preserve the shared gain")
-                    }
+                    XCTAssertGreaterThan(peak, 0.7)
+                    let tailStart = Int(buffer.frameLength) / 2
+                    let energy = (tailStart..<Int(buffer.frameLength)).reduce(Float(0)) { $0 + channel[$1] * channel[$1] }
+                    let rms = sqrt(energy / Float(Int(buffer.frameLength) - tailStart))
+                    XCTAssertEqual(rms, loops ? 0.707 : 0.471, accuracy: 0.06,
+                                   "Music volume and loop setting must preserve the shared gain")
                 } catch { XCTFail("Export failed: \(error)") }
                 done.fulfill()
             }
@@ -357,29 +351,26 @@ final class DiscourseClipTests: XCTestCase {
         XCTAssertEqual(DiscourseClipExporter.fadeGain(frame: 24000, frames: 48000, fadeIn: true, fadeOut: true), 1, accuracy: 0.0001)
     }
 
-    func testNoiseWithoutMusicRetainsFractionalRange() throws {
+    func testAudioOnlyExportRetainsFractionalRange() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
         defer { try? FileManager.default.removeItem(at: url) }
-        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
-        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 48000 * 3))
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 44_100 * 3))
         buffer.frameLength = buffer.frameCapacity
         let channels = try XCTUnwrap(buffer.floatChannelData)
         for channel in 0..<2 {
             for index in 0..<Int(buffer.frameLength) { channels[channel][index] = sin(Float(index) * 0.1) * 0.2 }
         }
         do { let file = try AVAudioFile(forWriting: url, settings: format.settings); try file.write(from: buffer) }
-        var range = DiscourseClipRange(duration: 3, position: 0.375)
-        range.moveEnd(to: 2.125)
+        let range = DiscourseClipRange(duration: 3, position: 1.25)
         let exporter = DiscourseClipExporter()
         defer { exporter.clean() }
-        let available = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "rnnoise_reset") != nil
-        let done = expectation(description: "Noise only")
-        exporter.export(DiscourseClipExportRequest(source: url, sourceExtension: "wav", title: "Noise", range: range, noise: true)) { result in
+        let done = expectation(description: "Audio-only export")
+        exporter.export(DiscourseClipExportRequest(source: url, sourceExtension: "wav", title: "Audio", range: range)) { result in
             switch result {
             case .success(let urls):
-                XCTAssertTrue(available)
                 XCTAssertEqual(CMTimeGetSeconds(AVURLAsset(url: urls[0]).duration), 1.75, accuracy: 0.025)
-            case .failure(let error): if available { XCTFail("Noise rendering failed: \(error)") }
+            case .failure(let error): XCTFail("Export failed: \(error)")
             }
             done.fulfill()
         }

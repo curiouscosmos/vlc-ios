@@ -690,19 +690,24 @@ private extension MediaLibraryService {
         mlMedia.isNew = false
         mlMedia.progress = player.playbackPosition
         mlMedia.audioTrackIndex = Int64(player.indexOfCurrentAudioTrack)
+        #if !os(iOS)
         mlMedia.primarySubtitleTrackIndex = Int64(player.indexOfCurrentPrimaryVideoSubtitleTrack)
         mlMedia.secondarySubtitleTrackIndex = Int64(player.indexOfCurrentSecondaryVideoSubtitleTrack)
+        #endif
         mlMedia.chapterIndex = Int64(player.indexOfCurrentChapter)
         mlMedia.titleIndex = Int64(player.indexOfCurrentTitle)
         let defaults = UserDefaults.standard
         if !defaults.bool(forKey: kVLCSettingPlaybackSpeedAppliesToAll) {
             mlMedia.setMetadataOf(VLCMLMetadataType.speed, intValue: Int64((player.playbackRate * 100).rounded()))
         }
+        #if !os(iOS)
         mlMedia.setMetadataOf(VLCMLMetadataType.subtitleDelay, intValue: Int64(player.subtitleDelay))
+        #endif
         if defaults.bool(forKey: kVLCSettingSaveAudioDelay) {
             mlMedia.setMetadataOf(VLCMLMetadataType.audioDelay, intValue: Int64(player.audioDelay))
         }
 
+        #if !os(iOS)
         if mlMedia.type() != .audio {
             if let thumbnailURL = mlMedia.thumbnail() {
                 if mlMedia.progress < 0.90 {
@@ -713,6 +718,7 @@ private extension MediaLibraryService {
             mlMedia.requestThumbnail(of: .thumbnail, desiredWidth: desiredThumbnailWidth,
                                      desiredHeight: desiredThumbnailHeight, atPosition: player.playbackPosition)
         }
+        #endif
     }
 
     func savePlaybackState(of media: VLCMedia, from player: PlaybackService) {

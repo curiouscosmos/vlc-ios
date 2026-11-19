@@ -270,7 +270,6 @@ final class DiscourseAudioMixer: NSObject {
 
     private func play() {
         guard playback.isPlaying,
-              playback.numberOfVideoTracks == 0 || playback.playAsAudio,
               let url = selectedURL else {
             return
         }
@@ -320,7 +319,6 @@ final class DiscourseAudioMixer: NSObject {
     /// changes while playing.
     private func restart(resetVolume: Bool) {
         guard playback.isPlaying,
-              playback.numberOfVideoTracks == 0 || playback.playAsAudio,
               let url = selectedURL else {
             return
         }
@@ -482,11 +480,6 @@ final class DiscourseAudioMixer: NSObject {
 
     @objc private func mainPlaybackStarted() {
         guard isEnabled else {
-            return
-        }
-        if playback.numberOfVideoTracks > 0, !playback.playAsAudio {
-            // The second channel must never play over a video (AGENTS 6.7).
-            stop(reason: .followed)
             return
         }
         scheduleStart()

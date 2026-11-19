@@ -1,7 +1,6 @@
 /* Copyright (c) 2026 Sandalbar Enterprises, Inc. GPLv2 or later; see COPYING. */
 import AVFoundation
 import UIKit
-import Darwin
 
 struct DiscourseClipExportRequest {
     let source: URL
@@ -11,7 +10,6 @@ struct DiscourseClipExportRequest {
     enum VideoRatio: CaseIterable { case original, mobile, desktop }
     var videoRatio: VideoRatio = .original
     var visual: URL?
-    var noise = false
     var music: URL?
     var musicEnabled = false
     var musicVolume: Float = 0.5
@@ -32,7 +30,6 @@ final class DiscourseClipExporter {
         let message: String
         switch key {
         case "CLIP_MUSIC_MISSING": message = NSLocalizedString("CLIP_MUSIC_MISSING", comment: "")
-        case "CLIP_NOISE_MISSING": message = NSLocalizedString("CLIP_NOISE_MISSING", comment: "")
         case "CLIP_SOURCE_SHORT": message = NSLocalizedString("CLIP_SOURCE_SHORT", comment: "")
         case "CLIP_VISUAL_FAILED": message = NSLocalizedString("CLIP_VISUAL_FAILED", comment: "")
         case "CLIP_CC_FAILED": message = NSLocalizedString("CLIP_CC_FAILED", comment: "")
@@ -108,11 +105,7 @@ final class DiscourseClipExporter {
         let frames = Int64(((end - start) * 48000).rounded())
         let assetDuration = CMTimeGetSeconds(AVURLAsset(url: input).duration)
         guard assetDuration.isFinite, end <= assetDuration + 1 / 48000 else { throw error("CLIP_SOURCE_SHORT") }
-        // Warm the sample-rate converter too; trim output rather than truncating its input.
-        let preroll = min(start, 1)
-        let decoder = try PCMReader(url: input, start: start - preroll, duration: nil)
-        let noise = request.noise ? try Noise() : nil
-        let skip = Int64((preroll * 48000).rounded()) + (request.noise ? 960 : 0)
+        let decoder = try PCMReader(url: input, start: start, duration: nil)
         let music: PCMReader?
         if request.musicEnabled {
             guard let url = request.music else { throw error("CLIP_MUSIC_MISSING") }
@@ -123,7 +116,6 @@ final class DiscourseClipExporter {
         var peak: Float = 1
         do {
             let spool = try AVAudioFile(forWriting: spoolURL, settings: format.settings)
-            var consumed: Int64 = 0
             var written: Int64 = 0
             var drained = false
             var lastProgress = -1
@@ -134,24 +126,19 @@ final class DiscourseClipExporter {
                 else if !drained {
                     // AVAssetReader's rate converter may withhold its final filter samples at EOF.
                     // The validated source covers the range; pad at most 128 converter-tail frames.
-                    let tail = (request.noise ? 960 : 0) + 128
-                    samples = [Float](repeating: 0, count: tail * 2)
+                    samples = [Float](repeating: 0, count: 128 * 2)
                     drained = true
                 }
                 else { throw error("CLIP_SOURCE_SHORT") }
-                try noise?.process(&samples)
-                let blockFrames = Int64(samples.count / 2)
-                let drop = Int(min(blockFrames, max(0, skip - consumed)))
-                consumed += blockFrames
-                let count = Int(min(Int64(samples.count / 2 - drop), frames - written))
+                let count = Int(min(Int64(samples.count / 2), frames - written))
                 if count == 0 { continue }
                 guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count)),
                       let channels = buffer.floatChannelData else { throw error("CLIP_FAILED") }
                 buffer.frameLength = AVAudioFrameCount(count)
                 for index in 0..<count {
                     let bed = try music?.frame(loop: request.musicLoops) ?? (0, 0)
-                    let left = samples[(drop + index) * 2] + bed.0 * request.musicVolume
-                    let right = samples[(drop + index) * 2 + 1] + bed.1 * request.musicVolume
+                    let left = samples[index * 2] + bed.0 * request.musicVolume
+                    let right = samples[index * 2 + 1] + bed.1 * request.musicVolume
                     guard left.isFinite, right.isFinite else { throw error("CLIP_FAILED") }
                     peak = max(peak, abs(left), abs(right))
                     channels[0][index] = left
@@ -326,80 +313,6 @@ final class DiscourseClipExporter {
             return (block[index], block[index + 1])
         }
         deinit { reader?.cancelReading() }
-    }
-
-    // RNNoise's exported C API keeps upstream VLCKit linkable without this capability.
-    // Match Buildsystem/RNNoise/native/rnnoise_frame.h, including the startup crossfade.
-    private final class Noise {
-        typealias Create = @convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?
-        typealias Process = @convention(c) (UnsafeMutableRawPointer, UnsafeMutablePointer<Float>, UnsafePointer<Float>) -> Float
-        typealias Destroy = @convention(c) (UnsafeMutableRawPointer) -> Void
-        typealias FrameSize = @convention(c) () -> Int32
-        private var states: [UnsafeMutableRawPointer] = []
-        private let processFunction: Process
-        private let destroy: Destroy
-        private var input = [Float](repeating: 0, count: 960)
-        private var wet = [Float](repeating: 0, count: 960)
-        private var dry = [Float](repeating: 0, count: 1920)
-        private var cursor = 0
-        private var mix: Float = 0
-        init() throws {
-            let handle = UnsafeMutableRawPointer(bitPattern: -2)
-            guard let create = dlsym(handle, "rnnoise_create"), let process = dlsym(handle, "rnnoise_process_frame"),
-                  let destroy = dlsym(handle, "rnnoise_destroy"), let reset = dlsym(handle, "rnnoise_reset"),
-                  let size = dlsym(handle, "rnnoise_get_frame_size"),
-                  unsafeBitCast(size, to: FrameSize.self)() == 480 else { throw error("CLIP_NOISE_MISSING") }
-            processFunction = unsafeBitCast(process, to: Process.self)
-            self.destroy = unsafeBitCast(destroy, to: Destroy.self)
-            for _ in 0..<2 {
-                guard let state = unsafeBitCast(create, to: Create.self)(nil) else {
-                    for state in states { self.destroy(state) }
-                    states = []
-                    throw error("CLIP_NOISE_MISSING")
-                }
-                states.append(state)
-            }
-            // Warm shared FFT tables, then reset without reallocating recurrent buffers.
-            for state in states {
-                input.withUnsafeBufferPointer { source in
-                    wet.withUnsafeMutableBufferPointer { target in
-                        if let source = source.baseAddress, let target = target.baseAddress {
-                            _ = processFunction(state, target, source)
-                        }
-                    }
-                }
-                unsafeBitCast(reset, to: Destroy.self)(state)
-            }
-            wet = [Float](repeating: 0, count: 960)
-        }
-        func process(_ samples: inout [Float]) throws {
-            for index in 0..<(samples.count / 2) {
-                let frame = cursor % 480
-                mix = min(1, mix + 1 / 480)
-                for channel in 0..<2 {
-                    let sample = index * 2 + channel
-                    let delay = cursor * 2 + channel
-                    let channelFrame = channel * 480 + frame
-                    let original = samples[sample]
-                    samples[sample] = dry[delay] * (1 - mix) + wet[channelFrame] * mix / 32768
-                    dry[delay] = original
-                    input[channelFrame] = original * 32768
-                }
-                cursor = (cursor + 1) % 960
-                if cursor % 480 == 0 {
-                    input.withUnsafeBufferPointer { source in
-                        wet.withUnsafeMutableBufferPointer { target in
-                            if let source = source.baseAddress, let target = target.baseAddress {
-                                for channel in 0..<2 {
-                                    _ = processFunction(states[channel], target + channel * 480, source + channel * 480)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        deinit { for state in states { destroy(state) } }
     }
 
     private final class Visual {

@@ -40,7 +40,9 @@ extension SirikitIntentCoordinator: INPlayMediaIntentHandling {
             return INPlayMediaIntentResponse(code: .failure, userActivity: nil)
         }
 
+        #if !os(iOS)
         playbackService.fullscreenSessionRequested = true
+        #endif
         // playbackService runs UI code, hence run on main thread
         DispatchQueue.main.async {
             if let isShuffle = intent.playShuffled {
@@ -73,10 +75,12 @@ extension SirikitIntentCoordinator: INPlayMediaIntentHandling {
             }()
         }
 
+        #if !os(iOS)
         if media.first?.type() == VLCMLMediaType.video {
             // Opens application for video content
             return INPlayMediaIntentResponse(code: .continueInApp, userActivity: nil)
         }
+        #endif
         // Successful background playback for audio content
         return INPlayMediaIntentResponse(code: .success, userActivity: nil)
     }
@@ -128,16 +132,25 @@ private extension SirikitIntentCoordinator {
             return .genre
         case .playlist, .podcastPlaylist:
             return .playlist
+        #if !os(iOS)
         case .movie, .tvShow, .tvShowEpisode, .musicVideo:
             return .video
+        #endif
         case .unknown:
+            #if os(iOS)
+            return .song
+            #else
             return .any
+            #endif
         default:
             return nil
         }
     }
 
     private func getIntentMedia(searchItem: INMediaSearch) -> INMediaItem? {
+        #if os(iOS)
+        guard mediaKind(for: searchItem.mediaType) != nil else { return nil }
+        #endif
         guard let searchText = searchItem.mediaName else {
             guard let recommended = resolver.recommendedAudio()?.randomElement() else {
                 return nil
@@ -156,8 +169,10 @@ private extension SirikitIntentCoordinator {
             return resolver.genres(matching: searchText)?.first.map { mediaItem(for: $0) }
         case .playlist, .podcastPlaylist:
             return resolver.playlists(matching: searchText)?.first.map { mediaItem(for: $0) }
+        #if !os(iOS)
         case .movie, .tvShow, .tvShowEpisode, .musicVideo:
             return resolver.videoGroups(matching: searchText)?.first.map { mediaItem(for: $0) }
+        #endif
         case .unknown:
             return aggregateMediaItem(matching: searchText)
         default:
@@ -180,12 +195,18 @@ private extension SirikitIntentCoordinator {
         if let genre = searchGeneral.genres?.first {
             return mediaItem(for: genre)
         }
+        #if os(iOS)
+        if let song = searchGeneral.media?.first(where: { $0.type() == .audio }) {
+            return mediaItem(for: song)
+        }
+        #else
         if let song = searchGeneral.media?.first {
             if let group = song.group() {
                 return mediaItem(for: group)
             }
             return mediaItem(for: song)
         }
+        #endif
         return nil
     }
 
@@ -226,10 +247,12 @@ private extension SirikitIntentCoordinator {
                      artwork: nil)
     }
 
+    #if !os(iOS)
     private func mediaItem(for group: VLCMLMediaGroup) -> INMediaItem {
         return .init(identifier: String(group.identifier()),
                      title: group.title(),
                      type: .movie,
                      artwork: nil)
     }
+    #endif
 }

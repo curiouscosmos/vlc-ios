@@ -1,0 +1,47 @@
+--- a/extras/tools/tools.mak
++++ b/extras/tools/tools.mak
+@@ -197,8 +197,8 @@
+ 	$(MOVE)
+ 
+ .buildzstd: zstd
+-	+$(MAKE) -C $</programs
+-	+$(MAKE) -C $</programs install prefix=$(PREFIX)
++	+$(MAKE) -C $</programs HAVE_LZ4=0 HAVE_LZMA=0
++	+$(MAKE) -C $</programs HAVE_LZ4=0 HAVE_LZMA=0 install prefix=$(PREFIX)
+ 	touch $@
+ 
+ CLEAN_PKG += zstd
+--- a/contrib/src/main.mak
++++ b/contrib/src/main.mak
+@@ -520,7 +520,7 @@
+ # When using a single command, make might take a shortcut and fork/exec
+ # itself instead of relying on a shell, but a bug in gnulib ends up
+ # trying to execute a cmake folder when one is found in the PATH
+-CMAKEBUILD = env cmake --build $(BUILD_DIR)
++CMAKEBUILD = env cmake --build $(BUILD_DIR) --parallel 4
+ CMAKEINSTALL = env cmake --install $(BUILD_DIR)
+ CMAKECLEAN = rm -f $(BUILD_DIR)/CMakeCache.txt
+ CMAKECONFIG = cmake -S $< -B $(BUILD_DIR) \
+@@ -621,7 +621,7 @@
+ 	-Dc_args="$(BUILDCFLAGS)" -Dc_link_args="$(BUILDLDFLAGS)" -Dcpp_args="$(BUILDCXXFLAGS)" -Dcpp_link_args="$(BUILDLDFLAGS)"
+ 
+ MESONCLEAN = rm -rf $(BUILD_DIR)/meson-private
+-MESONBUILD = meson compile -C $(BUILD_DIR) $(MESON_BUILD) $(MESONCOMPILEFLAGS) && meson install -C $(BUILD_DIR)
++MESONBUILD = meson compile -j4 -C $(BUILD_DIR) $(MESON_BUILD) $(MESONCOMPILEFLAGS) && meson install --no-rebuild -C $(BUILD_DIR)
+ 
+ # shared Qt config
+ ifeq ($(call system_tool_majmin, qmake6 -query QT_VERSION 2>/dev/null),$(QTBASE_VERSION_MAJOR))
+--- a/src/audio_output/filters.c
++++ b/src/audio_output/filters.c
+@@ -307,5 +307,11 @@
+          * shall be set by the filter plug-in. */
+         block = filter->ops->filter_audio (filter, block);
++        /* Resamplers may buffer all input during startup. */
++        if (block != NULL && block->i_nb_samples == 0)
++        {
++            block_Release(block);
++            block = NULL;
++        }
+     }
+     return block;
+ }

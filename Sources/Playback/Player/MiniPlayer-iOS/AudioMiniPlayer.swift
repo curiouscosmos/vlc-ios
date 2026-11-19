@@ -406,10 +406,12 @@ extension AudioMiniPlayer: VLCPlaybackServiceDelegate {
         updateShuffleButton()
         playbackService.delegate = self
         playbackService.recoverDisplayedMetadata()
+        #if !os(iOS)
         // For now, AudioMiniPlayer will be used for all media
         if !playbackService.isPlayingOnExternalScreen() && !playbackService.playAsAudio {
             playbackService.videoOutputView = artworkImageView
         }
+        #endif
     }
 
     func mediaPlayerStateChanged(_ currentState: VLCMediaPlayerState,
@@ -490,6 +492,9 @@ private extension AudioMiniPlayer {
             dismissPlayqueue(with: nil)
         }
 
+        #if os(iOS)
+        let selector = #selector(VLCPlayerDisplayController.showAudioPlayer)
+        #else
         let currentMedia: VLCMedia? = playbackService.currentlyPlayingMedia
         let mlMedia: VLCMLMedia? = VLCMLMedia.init(forPlaying: currentMedia)
         let isStream: Bool = mlMedia == nil || mlMedia?.isExternalMedia() == true
@@ -501,6 +506,8 @@ private extension AudioMiniPlayer {
         } else {
             selector = #selector(VLCPlayerDisplayController.showFullscreenPlayback)
         }
+
+        #endif
 
         UIApplication.shared.sendAction(selector,
                                         to: nil,
@@ -734,6 +741,11 @@ private extension AudioMiniPlayer {
         }
         artistLabel.text = metadata.artist
         artistLabel.isHidden = artistLabel.text?.isEmpty ?? true
+        #if os(iOS)
+        artworkImageView.setImage(metadata.artworkImage, placeholderName: metadata.placeholderName)
+        artworkBlurImageView?.image = metadata.artworkImage
+        artworkBlurView?.isHidden = false
+        #else
         if (!UIAccessibility.isReduceTransparencyEnabled && metadata.isAudioOnly) ||
             playbackService.playAsAudio {
             artworkImageView.setImage(metadata.artworkImage, placeholderName: metadata.placeholderName)
@@ -746,6 +758,7 @@ private extension AudioMiniPlayer {
             artworkBlurView?.isHidden = true
             playbackService.videoOutputView = artworkImageView
         }
+        #endif
     }
 }
 

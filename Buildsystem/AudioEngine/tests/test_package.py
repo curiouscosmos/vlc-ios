@@ -1,7 +1,5 @@
 """Exercise artifact merging without downloading or compiling VLCKit."""
 import plistlib
-import json
-import shutil
 import stat
 import subprocess
 import sys
@@ -12,39 +10,6 @@ from pathlib import Path
 
 
 class PackageTests(unittest.TestCase):
-    def test_activation_replaces_the_remote_package(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            script_dir = root / "Buildsystem/RNNoise"
-            (script_dir / "Artifacts/VLCKit.xcframework").mkdir(parents=True)
-            shutil.copy(Path(__file__).parents[1] / "activate.rb", script_dir)
-            lock = root / "VLC.xcworkspace/xcshareddata/swiftpm/Package.resolved"
-            lock.parent.mkdir(parents=True)
-            lock.write_text(json.dumps(dict(version=3, pins=[dict(identity="vlckit"), dict(identity="other")])))
-            fixture = """
-require 'xcodeproj'
-project = Xcodeproj::Project.new(ARGV[0])
-remote = project.new(Xcodeproj::Project::Object::XCRemoteSwiftPackageReference)
-remote.repositoryURL = 'https://code.videolan.org/videolan/VLCKit.git'
-remote.requirement = { 'kind' => 'exactVersion', 'version' => '4.0.0-a25' }
-project.root_object.package_references << remote
-target = project.new_target(:application, 'App', :ios, '15.0')
-product = project.new(Xcodeproj::Project::Object::XCSwiftPackageProductDependency)
-product.product_name = 'VLCKit'
-product.package = remote
-target.package_product_dependencies << product
-project.save
-"""
-            subprocess.run(["ruby", "-e", fixture, str(root / "VLC.xcodeproj")], check=True)
-            subprocess.run(["ruby", str(script_dir / "activate.rb")], check=True, capture_output=True)
-            project = (root / "VLC.xcodeproj/project.pbxproj").read_text()
-            self.assertIn("XCLocalSwiftPackageReference", project)
-            self.assertNotIn("XCRemoteSwiftPackageReference", project)
-            self.assertIn("relativePath = Buildsystem/RNNoise;", project)
-            self.assertEqual(json.loads(lock.read_text())["pins"], [dict(identity="other")])
-            subprocess.run(["ruby", str(script_dir / "activate.rb")], check=True, capture_output=True)
-            self.assertEqual((root / "VLC.xcodeproj/project.pbxproj").read_text(), project)
-
     def test_replaces_both_ios_slices_and_preserves_watch(self):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)

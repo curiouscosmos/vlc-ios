@@ -269,16 +269,6 @@
 			<key>DefaultValue</key>
 			<true/>
 			<key>Key</key>
-			<string>EnableBrightnessGesture</string>
-			<key>Title</key>
-			<string>SETTINGS_GESTURES_BRIGHTNESS</string>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-		</dict>
-		<dict>
-			<key>DefaultValue</key>
-			<true/>
-			<key>Key</key>
 			<string>EnableSeekGesture</string>
 			<key>Title</key>
 			<string>SETTINGS_GESTURES_SEEK</string>

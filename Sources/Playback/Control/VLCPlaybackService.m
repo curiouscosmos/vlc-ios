@@ -40,14 +40,6 @@
 #import "VLC-Swift.h"
 #import "VLCMediaList+M3U.h"
 
-// Public selectors supplied by the pinned RNNoise-enabled VLCKit build.
-// Runtime checks keep upstream VLCKit usable while rebuilding native artifacts.
-@interface VLCMediaPlayer (RDNoiseReduction)
-- (BOOL)prepareNoiseReduction;
-- (BOOL)noiseReductionReady;
-- (BOOL)applyNoiseReductionEnabled:(BOOL)enabled;
-@end
-
 NSString *const VLCPlaybackServicePlaybackDidStart = @"VLCPlaybackServicePlaybackDidStart";
 NSString *const VLCPlaybackServicePlaybackDidPause = @"VLCPlaybackServicePlaybackDidPause";
 NSString *const VLCPlaybackServicePlaybackDidResume = @"VLCPlaybackServicePlaybackDidResume";
@@ -62,8 +54,6 @@ NSString *const VLCPlaybackServiceShuffleModeUpdated = @"VLCPlaybackServiceShuff
 NSString *const VLCPlaybackServicePlaybackDidMoveOnToNextItem = @"VLCPlaybackServicePlaybackDidMoveOnToNextItem";
 NSString *const VLCPlaybackServiceSleepTimerDidChange = @"VLCPlaybackServiceSleepTimerDidChange";
 NSString *const VLCLastPlaylistPlayedMedia = @"LastPlaylistPlayedMedia";
-NSString *const VLCPlaybackServiceNoiseReductionDidChange = @"VLCPlaybackServiceNoiseReductionDidChange";
-static NSString *const kRDNoiseReductionEnabled = @"RDNoiseReductionEnabled";
 
 static const float kVLCPlaybackRateMinimum = 0.25f;
 static const float kVLCPlaybackRateMaximum = 8.0f;
@@ -83,21 +73,23 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     VLCMediaPlayer *_mediaPlayer;
     VLCMediaListPlayer *_listPlayer;
     BOOL _shouldResumePlaying;
-    BOOL _noiseReductionPrepared;
     BOOL _sessionWillRestart;
     VLCMedia *_openedMedia;
-    VLCMediaPlayerTrack *videoTrack;
 
+#if !TARGET_OS_IOS
     NSString *_pathToExternalSubtitlesFile;
+#endif
     int _itemInMediaListToBePlayedFirst;
     NSTimer *_sleepTimer;
 
+#if !TARGET_OS_IOS
     BOOL _isInFillToScreen;
     NSInteger _previousAspectRatio;
 
     UIView *_videoOutputViewWrapper API_UNAVAILABLE(watchos);
     UIView *_actualVideoOutputView API_UNAVAILABLE(watchos);
     UIView *_preBackgroundWrapperView API_UNAVAILABLE(watchos);
+#endif
 
     int _majorPositionChangeInProgress;
     float _positionToRestore;
@@ -135,8 +127,10 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     NSDictionary *_lastReadySnapshot;
     NSUInteger _playbackGeneration;
 #endif
+#if !TARGET_OS_IOS
     NSInteger _primaryVideoSubtitleTrackIndex;
     NSInteger _secondaryVideoSubtitleTrackIndex;
+#endif
 }
 
 #if !TARGET_OS_WATCH && !TARGET_OS_IOS
@@ -242,8 +236,10 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
         _mediaList = [[VLCMediaList alloc] init];
 
+#if !TARGET_OS_IOS
         _primaryVideoSubtitleTrackIndex = -1;
         _secondaryVideoSubtitleTrackIndex = -1;
+#endif
         
         _openedLocalURLs = [[NSMutableArray alloc] init];
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -260,10 +256,12 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     [_mediaPlayer addPlaybackSlave:audioURL type:VLCMediaPlaybackSlaveTypeAudio enforce:YES];
 }
 
+#if !TARGET_OS_IOS
 - (void)addSubtitlesToCurrentPlaybackFromURL:(NSURL *)subtitleURL
 {
     [_mediaPlayer addPlaybackSlave:subtitleURL type:VLCMediaPlaybackSlaveTypeSubtitle enforce:YES];
 }
+#endif
 
 - (void)playMediaList:(VLCMediaList *)mediaList firstIndex:(NSInteger)index subtitlesFilePath:(NSString * _Nullable)subsFilePath
 {
@@ -284,7 +282,9 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 #endif
     self.mediaList = mediaList;
     _itemInMediaListToBePlayedFirst = (int)index;
+#if !TARGET_OS_IOS
     _pathToExternalSubtitlesFile = subsFilePath;
+#endif
 
     _sessionWillRestart = _playerIsSetup;
     _playerIsSetup ? [self stopPlayback] : [self startPlayback];
@@ -388,6 +388,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         return;
     }
 
+#if !TARGET_OS_IOS
     /* video decoding permanently fails if we don't provide a UIView to draw into on init
      * hence we provide one which is not attached to any view controller for off-screen drawing
      * and disable video decoding once playback started */
@@ -395,7 +396,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 #if TARGET_OS_VISION
     defaultVoutFrame = [[[[UIApplication sharedApplication] delegate] window] bounds];
     
-#elif TARGET_OS_IOS || TARGET_OS_TV
+#elif TARGET_OS_TV
     /* TODO: Modernization - UIScreen.mainScreen assumes a single display and is read before any window
      * exists. The off-screen vout view only needs a non-degenerate size, so this should take the bounds
      * of the window the player will be presented in: add a -setupVideoOutputWithBounds: entry point and
@@ -408,6 +409,8 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         _actualVideoOutputView.autoresizesSubviews = YES;
     }
 #endif
+#endif
+
     /* the chromecast and audio options cannot be set per media, so we need to set it per
      * media player instance however, potentially initialising an additional library instance
      * for this is costly, so this should be done only if needed */
@@ -418,8 +421,6 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     NSMutableArray *libVLCOptions = [NSMutableArray array];
 #if TARGET_OS_IOS
     [libVLCOptions addObjectsFromArray:@[@"--no-video", @"--no-spu"]];
-#endif
-#if TARGET_OS_IOS
     BOOL chromecastPassthrough = [[userDefaults objectForKey:kVLCSettingCastingAudioPassthrough] boolValue];
     int chromecastQuality = [[userDefaults objectForKey:kVLCSettingCastingConversionQuality] intValue];
     if (chromecastPassthrough) {
@@ -434,6 +435,9 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     }
 
     if (!_listPlayer) {
+#if TARGET_OS_IOS
+        _listPlayer = [[VLCMediaListPlayer alloc] initWithOptions:libVLCOptions andDrawable:nil];
+#else
         NSUInteger optionCount = libVLCOptions.count;
         APLog(@"no list player found, creating with %lu options", optionCount);
         if (optionCount > 0) {
@@ -442,20 +446,8 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         } else {
             _listPlayer = [[VLCMediaListPlayer alloc] initWithDrawable:self];
         }
-        _mediaPlayer = _listPlayer.mediaPlayer;
-#if TARGET_OS_IOS
-        _noiseReductionPrepared = [_mediaPlayer respondsToSelector:@selector(prepareNoiseReduction)]
-            && [_mediaPlayer respondsToSelector:@selector(noiseReductionReady)]
-            && [_mediaPlayer respondsToSelector:@selector(applyNoiseReductionEnabled:)]
-            && [_mediaPlayer prepareNoiseReduction];
-        if (_noiseReductionPrepared) {
-            BOOL enabled = !_renderer && [userDefaults boolForKey:kRDNoiseReductionEnabled];
-            if (![_mediaPlayer applyNoiseReductionEnabled:enabled]) {
-                _noiseReductionPrepared = NO;
-                APLog(@"RNNoise initialization failed");
-            }
-        }
 #endif
+        _mediaPlayer = _listPlayer.mediaPlayer;
         [_mediaPlayer addObserver:self forKeyPath:@"time" options:0 context:nil];
     } else {
         APLog(@"Reusing exising list player %@ with media player %@", _listPlayer, _mediaPlayer);
@@ -502,7 +494,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     }
     [_listPlayer.mediaPlayer.libraryInstance setLoggers:debugLoggers];
 
-#if !TARGET_OS_WATCH
+#if !TARGET_OS_WATCH && !TARGET_OS_IOS
     /// watchOS doesn't need an adjust filter since it doesn't support video playback.
     id<VLCFilter> newFilter = _listPlayer.mediaPlayer.adjustFilter;
     [newFilter applyParametersFrom:_adjustFilter.mediaPlayerAdjustFilter];
@@ -515,8 +507,10 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         [self setPlaybackRate:defaultPlaybackSpeed];
     else
         [self setPlaybackRate:1.0];
+#if !TARGET_OS_IOS
     int deinterlace = [[defaults objectForKey:kVLCSettingDeinterlace] intValue];
     [_mediaPlayer setDeinterlace:deinterlace withFilter:@"blend"];
+#endif
 
     [_listPlayer setMediaList:self.mediaList];
     if ([defaults boolForKey:kVLCPlayerShouldRememberState]) {
@@ -600,6 +594,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         [media addOptions:self.mediaOptionsDictionary];
     }
 
+#if !TARGET_OS_IOS
     if (_pathToExternalSubtitlesFile) {
         /* this could be a path or an absolute string - let's see */
         NSURL *subtitleURL = [NSURL URLWithString:_pathToExternalSubtitlesFile];
@@ -610,12 +605,15 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
             [media addOptions:@{ kVLCSettingSubtitlesFilePath : subtitleURL.absoluteString }];
         }
     }
+#endif
 
     if ([self.delegate respondsToSelector:@selector(prepareForMediaPlayback:)])
         [self.delegate prepareForMediaPlayback:self];
 
+#if !TARGET_OS_IOS
     _currentAspectRatio = VLCAspectRatioDefault;
     _mediaPlayer.videoAspectRatio = NULL;
+#endif
 
     _playerIsSetup = YES;
 
@@ -670,7 +668,9 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     _metadataMediaURL = nil;
 
     if (_playerIsSetup) {
+#if !TARGET_OS_IOS
         _isInFillToScreen = NO; // reset _isInFillToScreen after playback is finished
+#endif
 
         if (_mediaPlayer) {
             if (_mediaPlayer.media) {
@@ -731,7 +731,10 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 - (void)restoreDelaysForMedia:(VLCMLMedia *)media
 {
     BOOL saveAudioDelay = [[NSUserDefaults standardUserDefaults] boolForKey:kVLCSettingSaveAudioDelay];
+#if !TARGET_OS_IOS
     self.subtitleDelay = [media metadataOfType:VLCMLMetadataTypeSubtitleDelay].integer;
+#endif
+
     self.audioDelay = saveAudioDelay ? [media metadataOfType:VLCMLMetadataTypeAudioDelay].integer : 0;
 }
 
@@ -745,11 +748,15 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
     if (media) {
         if (media.isNew) {
+#if !TARGET_OS_IOS
             [self disableSubtitlesIfNeeded];
+#endif
             return;
         }
 
+#if !TARGET_OS_IOS
         BOOL disableSubtitles = [[NSUserDefaults standardUserDefaults] boolForKey:kVLCSettingDisableSubtitles];
+#endif
 
         NSArray *audioTracks = _mediaPlayer.audioTracks;
         if (media.audioTrackIndex < audioTracks.count) {
@@ -757,6 +764,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
             track.selectedExclusively = YES;
         }
 
+#if !TARGET_OS_IOS
         if (disableSubtitles) {
             _primaryVideoSubtitleTrackIndex = -1;
             _secondaryVideoSubtitleTrackIndex = -1;
@@ -767,6 +775,8 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
             [self selectPrimaryVideoSubtitleAtIndex:media.primarySubtitleTrackIndex];
             [self selectSecondaryVideoSubtitleAtIndex:media.secondarySubtitleTrackIndex];
         }
+#endif
+
     }
 }
 
@@ -860,9 +870,13 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
 - (BOOL)currentMediaHasTrackToChooseFrom
 {
+#if TARGET_OS_IOS
+    return _mediaPlayer.audioTracks.count > 2;
+#else
     /* allow track selection if there is more than 1 audio track or if there is video because even if
      * there is only video, there will always be the option to download additional subtitles */
     return [[_mediaPlayer audioTracks] count] > 2 || [[_mediaPlayer videoTracks] count] >= 1;
+#endif
 }
 
 - (BOOL)isSeekable
@@ -1010,6 +1024,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     [_mediaPlayer resetABLoop];
 }
 
+#if !TARGET_OS_IOS
 - (void)setSubtitleDelay:(float)subtitleDeleay
 {
     _mediaPlayer.currentVideoSubTitleDelay = 1000.*subtitleDeleay;
@@ -1019,6 +1034,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 {
     return _mediaPlayer.currentVideoSubTitleDelay/1000.;
 }
+#endif
 
 - (void)toggleRepeatMode
 {
@@ -1043,6 +1059,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     return -1;
 }
 
+#if !TARGET_OS_IOS
 - (NSInteger)indexOfCurrentPrimaryVideoSubtitleTrack {
     return _primaryVideoSubtitleTrackIndex;
 }
@@ -1050,6 +1067,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 - (NSInteger)indexOfCurrentSecondaryVideoSubtitleTrack {
     return _secondaryVideoSubtitleTrackIndex;
 }
+#endif
 
 - (VLCMediaPlayerChapterDescription *)currentChapterDescription
 {
@@ -1071,30 +1089,36 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     return _mediaPlayer.currentTitleIndex;
 }
 
+#if !TARGET_OS_IOS
 - (NSInteger)numberOfVideoTracks
 {
     return [[_mediaPlayer videoTracks] count];
 }
+#endif
 
 - (NSInteger)numberOfAudioTracks
 {
     return [[_mediaPlayer audioTracks] count] + 2;
 }
 
+#if !TARGET_OS_IOS
 - (NSInteger)numberOfVideoSubtitlesIndexes
 {
     return [[_mediaPlayer textTracks] count] + 3;
 }
+#endif
 
 - (NSArray<VLCMediaPlayerTrack *> *)audioTracks
 {
     return [_mediaPlayer audioTracks];
 }
 
+#if !TARGET_OS_IOS
 - (NSArray<VLCMediaPlayerTrack *> *)textTracks
 {
     return [_mediaPlayer textTracks];
 }
+#endif
 
 - (NSInteger)numberOfTitles
 {
@@ -1106,6 +1130,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     return [_mediaPlayer numberOfChaptersForTitle:_mediaPlayer.currentTitleIndex];
 }
 
+#if !TARGET_OS_IOS
 - (NSString *)videoSubtitleNameAtIndex:(NSInteger)index
 {
     NSArray *textTracks = [_mediaPlayer textTracks];
@@ -1119,6 +1144,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     }
     return @"";
 }
+#endif
 
 - (NSString *)audioTrackNameAtIndex:(NSInteger)index
 {
@@ -1159,6 +1185,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     [_mediaPlayer deselectAllAudioTracks];
 }
 
+#if !TARGET_OS_IOS
 - (void)selectPrimaryVideoSubtitleAtIndex:(NSInteger)index {
     NSArray *textTracks = [_mediaPlayer textTracks];
     
@@ -1211,6 +1238,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     _secondaryVideoSubtitleTrackIndex = -1;
     [self syncVideoSubtitleState];
 }
+#endif
 
 - (void)selectTitleAtIndex:(NSInteger)index
 {
@@ -1274,6 +1302,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
                 /* attach delegate */
                 self->_mediaPlayer.media.delegate = self;
 
+#if !TARGET_OS_IOS
                 /* on-the-fly values through hidden API */
                 NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
 #pragma clang diagnostic push
@@ -1283,6 +1312,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
                 [self->_mediaPlayer performSelector:@selector(setTextRendererFontColor:) withObject:[defaults objectForKey:kVLCSettingSubtitlesFontColor]];
                 [self->_mediaPlayer performSelector:@selector(setTextRendererFontForceBold:) withObject:[defaults objectForKey:kVLCSettingSubtitlesBoldFont]];
 #pragma clang diagnostic pop
+#endif
 
                 if (![self _applyStartPositionIfNeeded]) {
 #if !TARGET_OS_TV
@@ -1304,23 +1334,6 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
             case VLCMediaPlayerStatePlaying: {
                 APLog(@"%s: playing", __func__);
-#if TARGET_OS_IOS
-                BOOL hasAudio = NO;
-                BOOL hasVideo = NO;
-                for (VLCMediaTrack *track in self->_mediaPlayer.media.tracksInformation) {
-                    hasAudio |= track.type == VLCMediaTrackTypeAudio;
-                    hasVideo |= track.type == VLCMediaTrackTypeVideo;
-                }
-                if (hasVideo && !hasAudio) {
-                    NSString *message = NSLocalizedString(@"AUDIO_ONLY_NO_AUDIO", nil);
-                    [[NSNotificationCenter defaultCenter] postNotificationName:VLCPlaybackServicePlaybackDidFail
-                                                                        object:self
-                                                                      userInfo:@{NSLocalizedDescriptionKey: message}];
-                    self->_sessionWillRestart = NO;
-                    [self stopPlayback];
-                    return;
-                }
-#endif
                 [[NSNotificationCenter defaultCenter] postNotificationName:VLCPlaybackServicePlaybackDidResume object:self];
 #if TARGET_OS_IOS
                 [self saveMediaForWidget];
@@ -1335,8 +1348,21 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
             case VLCMediaPlayerStateError: {
                 APLog(@"%s: playback failed", __func__);
-                dispatch_async(dispatch_get_main_queue(),^{
-                    [[NSNotificationCenter defaultCenter] postNotificationName:VLCPlaybackServicePlaybackDidFail object:self];
+                NSDictionary *details = nil;
+#if TARGET_OS_IOS
+                BOOL hasAudio = NO;
+                BOOL hasVideo = NO;
+                for (VLCMediaTrack *track in self->_mediaPlayer.media.tracksInformation) {
+                    hasAudio |= track.type == VLCMediaTrackTypeAudio;
+                    hasVideo |= track.type == VLCMediaTrackTypeVideo;
+                }
+                if (hasVideo && !hasAudio)
+                    details = @{NSLocalizedDescriptionKey: NSLocalizedString(@"AUDIO_ONLY_NO_AUDIO", nil)};
+#endif
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [[NSNotificationCenter defaultCenter] postNotificationName:VLCPlaybackServicePlaybackDidFail
+                                                                        object:self
+                                                                      userInfo:details];
                 });
                 self->_sessionWillRestart = NO;
                 [self stopPlayback];
@@ -1685,6 +1711,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     [_mediaPlayer jumpBackward:interval];
 }
 
+#if !TARGET_OS_IOS
 - (void)nextFrame
 {
     [_mediaPlayer gotoNextFrame];
@@ -1837,7 +1864,6 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     }
     return [_mediaPlayer updateViewpoint:yaw pitch:pitch roll:roll fov:fov absolute:absolute];
 }
-
 - (CGFloat)yaw
 {
     return _mediaPlayer.yaw;
@@ -1878,32 +1904,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
     }
     return -1;
 }
-
-#pragma mark - Noise reduction
-
-- (BOOL)noiseReductionAvailable
-{
-#if TARGET_OS_IOS
-    return _noiseReductionPrepared && _renderer == nil && [_mediaPlayer noiseReductionReady];
-#else
-    return NO;
 #endif
-}
-
-- (BOOL)noiseReductionEnabled
-{
-    return self.noiseReductionAvailable && [[NSUserDefaults standardUserDefaults] boolForKey:kRDNoiseReductionEnabled];
-}
-
-- (BOOL)applyNoiseReductionEnabled:(BOOL)enabled
-{
-    NSAssert([NSThread isMainThread], @"Noise reduction is controlled on the main thread");
-    if (!self.noiseReductionAvailable || ![_mediaPlayer applyNoiseReductionEnabled:enabled])
-        return NO;
-    [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:kRDNoiseReductionEnabled];
-    [[NSNotificationCenter defaultCenter] postNotificationName:VLCPlaybackServiceNoiseReductionDidChange object:self];
-    return YES;
-}
 
 #pragma mark - equalizer
 
@@ -2427,7 +2428,12 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
             }
             continuePlayback = [[[NSUserDefaults standardUserDefaults] objectForKey:kVLCSettingContinueAudioPlayback] integerValue];
         } else {
+#if TARGET_OS_IOS
+            // Resume audio in mixed containers from their saved library position.
+            continuePlayback = 1;
+#else
             continuePlayback = [[[NSUserDefaults standardUserDefaults] objectForKey:kVLCSettingContinuePlayback] integerValue];
+#endif
         }
 
         #if TARGET_OS_IOS
@@ -2480,6 +2486,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 }
 #endif
 
+#if !TARGET_OS_IOS
 - (void)_findCachedSubtitlesForMedia:(VLCMedia *)media
 {
     /* if we already enforce a subtitle e.g. through Google Drive, don't try to find another */
@@ -2519,6 +2526,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         }
     }
 }
+#endif
 
 - (void)recoverDisplayedMetadata
 {
@@ -2543,6 +2551,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         [self.delegate prepareForMediaPlayback:self];
 }
 
+#if !TARGET_OS_IOS
 - (void)disableSubtitlesIfNeeded
 {
     if ([[NSUserDefaults standardUserDefaults] boolForKey:kVLCSettingDisableSubtitles]) {
@@ -2551,6 +2560,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
         _secondaryVideoSubtitleTrackIndex = -1;
     }
 }
+#endif
 
 - (void)scheduleSleepTimerWithInterval:(NSTimeInterval)timeInterval
 {
@@ -2659,15 +2669,13 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 - (void)applicationDidEnterBackground:(NSNotification *)notification
 {
 #if !TARGET_OS_WATCH
-    _preBackgroundWrapperView = _videoOutputViewWrapper;
-
 #if TARGET_OS_IOS
     _castingInBackground = YES;
     [self updateCastingBackgroundKeepalive];
-#endif
+#else
+    _preBackgroundWrapperView = _videoOutputViewWrapper;
 #endif
 
-#if !TARGET_OS_WATCH
     [self saveCurrentMediaList];
 #endif
 }
@@ -2675,14 +2683,14 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 - (void)applicationWillEnterForeground:(NSNotification *)notification
 {
 #if !TARGET_OS_WATCH
+#if TARGET_OS_IOS
+    _castingInBackground = NO;
+    [self stopCastingBackgroundKeepalive];
+#else
     if (_preBackgroundWrapperView) {
         [self setVideoOutputView:_preBackgroundWrapperView];
         _preBackgroundWrapperView = nil;
     }
-
-#if TARGET_OS_IOS
-    _castingInBackground = NO;
-    [self stopCastingBackgroundKeepalive];
 #endif
 
     if (_shouldResumePlaying) {
@@ -2860,9 +2868,11 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
               @"no-spu" : @YES,
 #endif
               kVLCSettingNetworkCaching : [defaults objectForKey:kVLCSettingNetworkCaching],
+#if !TARGET_OS_IOS
               kVLCSettingTextEncoding : [defaults objectForKey:kVLCSettingTextEncoding],
               kVLCSettingSkipLoopFilter : [defaults objectForKey:kVLCSettingSkipLoopFilter],
               kVLCSettingHardwareDecoding : [defaults objectForKey:kVLCSettingHardwareDecoding],
+#endif
               kVLCSettingNetworkRTSPTCP : [defaults objectForKey:kVLCSettingNetworkRTSPTCP],
               kVLCSettingNetworkRTSPHTTP : [defaults objectForKey:kVLCSettingNetworkRTSPHTTP]
     };
@@ -2948,11 +2958,6 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 {
     _renderer = renderer;
     [_mediaPlayer setRendererItem:_renderer];
-    if (_noiseReductionPrepared) {
-        BOOL enabled = !_renderer && [[NSUserDefaults standardUserDefaults] boolForKey:kRDNoiseReductionEnabled];
-        if (![_mediaPlayer applyNoiseReductionEnabled:enabled]) APLog(@"RNNoise renderer transition failed");
-    }
-    [[NSNotificationCenter defaultCenter] postNotificationName:VLCPlaybackServiceNoiseReductionDidChange object:self];
     [self updateCastingBackgroundKeepalive];
 }
 #endif
@@ -2986,7 +2991,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
             return;
         }
 
-#if !TARGET_OS_TV && !TARGET_OS_WATCH
+#if !TARGET_OS_TV && !TARGET_OS_WATCH && !TARGET_OS_IOS
         [self _findCachedSubtitlesForMedia:media];
 #endif
 
@@ -3018,7 +3023,7 @@ static const NSInteger kVLCPreampLevelMinimum = -12;
 
 #pragma mark - VLCDrawable
 
-#if !TARGET_OS_WATCH
+#if !TARGET_OS_WATCH && !TARGET_OS_IOS
 - (void)addSubview:(UIView *)view {
     [_actualVideoOutputView addSubview:view];
     view.frame = _actualVideoOutputView.bounds;

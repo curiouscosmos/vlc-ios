@@ -400,8 +400,4 @@ private final class DiscourseMixerStubPlayback: PlaybackService {
     override var isPlaying: Bool {
         return true
     }
-
-    override var numberOfVideoTracks: Int {
-        return 0
-    }
 }

@@ -316,11 +316,6 @@ enum GestureControlOptions {
                 preferenceKey: kVLCSettingPlayPauseGesture)
     }
 
-    static var swipeUpDownForBrightness: SettingsItem {
-        .toggle(title: "SETTINGS_GESTURES_BRIGHTNESS",
-                preferenceKey: kVLCSettingBrightnessGesture)
-    }
-
     static var swipeRightLeftToSeek: SettingsItem {
         .toggle(title: "SETTINGS_GESTURES_SEEK",
                 preferenceKey: kVLCSettingSeekGesture)
@@ -392,7 +387,6 @@ enum GestureControlOptions {
         .init(title: "SETTINGS_GESTURES", items: [
             swipeUpDownForVolume,
             twoFingerTap,
-            swipeUpDownForBrightness,
             swipeRightLeftToSeek,
             pinchToClose,
             forwardBackwardEqual,

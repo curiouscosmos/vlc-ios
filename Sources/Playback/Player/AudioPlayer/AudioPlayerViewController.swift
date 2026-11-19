@@ -78,13 +78,12 @@ class AudioPlayerViewController: PlayerViewController {
     // MARK: - Init
 
 #if os(iOS)
-    @objc init(mediaLibraryService: MediaLibraryService,
-               rendererDiscovererManager: VLCRendererDiscovererManager,
-               playerController: PlayerController) {
+    @objc override init(mediaLibraryService: MediaLibraryService,
+                        rendererDiscovererManager: VLCRendererDiscovererManager,
+                        playerController: PlayerController) {
         super.init(mediaLibraryService: mediaLibraryService,
                    rendererDiscovererManager: rendererDiscovererManager,
-                   playerController: playerController,
-                   isBrightnessControlAvailable: false)
+                   playerController: playerController)
 
         self.playerController.delegate = self
         mediaNavigationBar.addMoreOptionsButton(moreOptionsButton)
@@ -319,7 +318,6 @@ class AudioPlayerViewController: PlayerViewController {
     private lazy var discourseButton = playerAction(symbol: "text.bubble", action: #selector(openDiscourse))
     private lazy var playlistButton = playerAction(symbol: "text.badge.plus", action: #selector(addCurrentTrackToPlaylist))
     private let playerDownloadControl = DiscourseDownloadControl(iconSize: 28, highContrastIcon: true)
-    private lazy var noiseButton = playerAction(symbol: "waveform.slash", action: #selector(toggleNoise))
 
     private func playerAction(symbol: String, action: Selector) -> UIButton {
         let button = UIButton(type: .system)
@@ -379,28 +377,9 @@ class AudioPlayerViewController: PlayerViewController {
                                         title: track?.title ?? "")
     }
 
-    @objc private func toggleNoise() {
-        _ = playbackService.setNoiseReduction(enabled: !playbackService.noiseReductionEnabled)
-        refreshNoiseButton()
-    }
-
-    /// The prepared RNNoise filter only reports readiness once the audio output
-    /// exists, which can happen after `PlaybackDidStart` (and again whenever the
-    /// output is rebuilt). Re-check on the player's position ticks so the button
-    /// stops being disabled as soon as the filter is live.
-    private func refreshNoiseButton() {
-        let available = playbackService.noiseReductionAvailable
-        let enabled = playbackService.noiseReductionEnabled
-        noiseButton.isEnabled = available
-        noiseButton.configuration?.baseForegroundColor = enabled ? DiscourseColors.current.accent : .white
-        noiseButton.accessibilityValue = enabled ? "On" : "Off"
-    }
-
     private func setupDiscourseLikeButton() {
         _ = Self.clipCleanup
         NotificationCenter.default.addObserver(self, selector: #selector(clipEnteredBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
-        noiseButton.accessibilityIdentifier = "noiseReduction"
-        noiseButton.accessibilityLabel = NSLocalizedString("NOISE_REDUCTION", comment: "")
         discourseLikeButton.contentHorizontalAlignment = .center
         audioPlayerView.actionStackView.addArrangedSubview(discourseLikeButton)
         clipButton.accessibilityLabel = NSLocalizedString("CLIP_BUTTON", comment: "")
@@ -416,7 +395,6 @@ class AudioPlayerViewController: PlayerViewController {
         playerDownloadControl.accessibilityIdentifier = "discoursePlayerDownload"
         playerDownloadControl.addTarget(self, action: #selector(togglePlayerDownload), for: .touchUpInside)
         audioPlayerView.actionStackView.addArrangedSubview(playerDownloadControl)
-        audioPlayerView.actionStackView.addArrangedSubview(noiseButton)
         captionButton.accessibilityLabel = NSLocalizedString("CC_BUTTON", comment: "Closed captions")
         captionButton.accessibilityIdentifier = "discourseCC"
         audioPlayerView.actionStackView.addArrangedSubview(captionButton)
@@ -430,14 +408,8 @@ class AudioPlayerViewController: PlayerViewController {
         ])
         captionView.phraseTapped = { [weak self] phrase in self?.clipEditor?.selectPhrase(phrase) }
         captionView.retry = { [weak self] in self?.loadCaptions(forceRefresh: true) }
-        NSLayoutConstraint.activate([
-            discourseLikeButton.widthAnchor.constraint(equalTo: audioPlayerView.actionStackView.widthAnchor,
-                                                       multiplier: 0.20)
-        ])
-
         let center = NotificationCenter.default
-        for name in [VLCPlaybackServiceNoiseReductionDidChange,
-                     VLCPlaybackServicePlaybackDidStart,
+        for name in [VLCPlaybackServicePlaybackDidStart,
                      VLCPlaybackServicePlaybackDidMoveOnToNextItem,
                      VLCPlaybackServicePlaybackWillStop,
                      VLCPlaybackServicePlaybackDidStop,
@@ -484,7 +456,6 @@ class AudioPlayerViewController: PlayerViewController {
             endClipEditing()
         }
         refreshPlayerDownload()
-        refreshNoiseButton()
         guard let track = currentDiscourseTrack() else {
             discourseLikeButton.isHidden = true
             return
@@ -776,12 +747,9 @@ class AudioPlayerViewController: PlayerViewController {
 
 #if os(iOS)
     private func setupSliders() {
-        audioPlayerView.setupSliders(with: brightnessControlView, and: volumeControlView)
+        audioPlayerView.setupVolumeSlider(volumeControlView)
 
-        NSLayoutConstraint.activate([
-            brightnessControlView.topAnchor.constraint(greaterThanOrEqualTo: optionsNavigationBar.bottomAnchor),
-            volumeControlView.topAnchor.constraint(greaterThanOrEqualTo: optionsNavigationBar.bottomAnchor)
-        ])
+        volumeControlView.topAnchor.constraint(greaterThanOrEqualTo: optionsNavigationBar.bottomAnchor).isActive = true
     }
 #endif
 
@@ -948,7 +916,6 @@ extension AudioPlayerViewController {
     override func playbackPositionUpdated(_ playbackService: PlaybackService) {
         super.playbackPositionUpdated(playbackService)
 #if os(iOS)
-        refreshNoiseButton()
         clipButton.isEnabled = Self.clipDuration(for: currentDiscourseTrack(), playbackService: playbackService) != nil
         updateClipPreview()
         updateCaptions()
@@ -964,7 +931,6 @@ extension AudioPlayerViewController {
                                       currentMediaHasChapters: currentMediaHasChapters,
                                       for: playbackService)
 #if os(iOS)
-        refreshNoiseButton()
 #endif
 
         audioPlayerView.updatePlayButton(isPlaying: isPlaying)

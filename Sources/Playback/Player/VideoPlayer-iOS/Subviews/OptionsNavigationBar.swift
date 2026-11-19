@@ -9,10 +9,12 @@
  * Refer to the COPYING file of the official project for license.
  *****************************************************************************/
 
-import AVKit
+import UIKit
 
 @objc enum OptionsNavigationBarIdentifier: Int {
+    #if !os(iOS)
     case videoFilters
+    #endif
     case playbackSpeed
     case sleepTimer
     case abRepeat

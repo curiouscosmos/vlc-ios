@@ -1138,7 +1138,6 @@
       "license": "3-clause BSD License",
       "anchor": "bsd3clause",
       "platforms": [
-        "ios",
         "tvos"
       ],
       "source": {

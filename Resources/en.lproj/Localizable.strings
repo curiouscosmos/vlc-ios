@@ -1026,14 +1026,8 @@
 "MIXER_CLEAR_CONFIRM" = "Remove every track from the Audio Mixer?"; /* Confirmation before removing every Audio Mixer track */
 "MIXER_CLEAR_ACTION" = "Remove all"; /* Confirm removing every Audio Mixer track */
 
-/* Speech noise reduction */
-"NOISE_REDUCTION" = "Noise reduction";
-"NOISE_REDUCTION_HINT" = "Reduce background noise in speech. May affect music.";
-"NOISE_REDUCTION_FAILED" = "Could not change noise reduction. Please try again.";
 
 /* New strings */
-"NOISE_REDUCTION_RENDERER_HINT" = "NOISE_REDUCTION_RENDERER_HINT";
-"NOISE_REDUCTION_UNAVAILABLE_HINT" = "NOISE_REDUCTION_UNAVAILABLE_HINT";
 
 /* Audio Mixer control card */
 "MIXER_PANEL_TITLE" = "Background Music Mixer"; /* Mixer card heading */
@@ -1109,7 +1103,6 @@
 /* New strings */
 "CLIP_CC_FAILED" = "Captions could not be exported for this range. Retry or turn Export CC off.";
 "CLIP_MUSIC_MISSING" = "Background music is unavailable. Choose a local mixer file or turn the mixer off, then retry.";
-"CLIP_NOISE_MISSING" = "Noise cancellation is unavailable for export. Install the RNNoise engine or turn noise cancellation off, then retry.";
 "CLIP_SOURCE_SHORT" = "The downloaded audio does not cover this selection. Download it again and retry.";
 "CLIP_VISUAL_FAILED" = "Could not read this photo or video. Choose another item and retry.";
 
@@ -1121,7 +1114,6 @@
 
 /* Clip export drawer */
 "CLIP_EXPORT_TITLE" = "Export Clip";
-"CLIP_NOISE" = "Noise cancellation";
 "CLIP_MUSIC" = "Background music";
 "CLIP_ADD_MUSIC" = "Add music in Mixer first";
 "CLIP_UNAVAILABLE" = "Not available for this track";

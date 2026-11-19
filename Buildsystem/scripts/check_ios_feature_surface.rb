@@ -13,12 +13,19 @@ retired_files = %w[CarPlayPodcastsController.swift VLCCarPlayOnAirController.m C
                    Reachability.m VLCActivityManager.m VideoViewController.swift VideoPreviewController.swift
                    VideoPlayerViewController.swift VideoPlayerViewController+ControlsDelegate.swift
                    VideoPlayerControls.swift VideoPlayerControls.xib VideoFiltersControlsView.swift PictureInPictureMediaController.swift
+                   PlaybackServiceAdjustFilter.swift TrackSelectorView.swift TrackSelectorCell.swift PlaybackDelayView.swift
+                   AspectRatio.swift UIScreen+Brightness.swift VideoPlayback.xcassets
                    DeviceMotion.swift VLCNonInteractiveWindowSceneDelegate.m VLCExternalDisplayController.m]
 errors = []
 
 %w[VLC-iOS VLC-iOS-no-watch].each do |name|
   target = project.targets.find { |item| item.name == name }
   abort "Missing target #{name}" unless target
+
+  engine = target.frameworks_build_phase.files.filter_map(&:product_ref).find { |product| product.product_name == 'VLCKit' }&.package
+  unless engine&.isa == 'XCLocalSwiftPackageReference' && engine.relative_path == 'Buildsystem/AudioEngine'
+    errors << "#{name} must link the local audio engine"
+  end
 
   [target.source_build_phase, target.resources_build_phase].each do |phase|
     phase.files.each do |file|
@@ -30,8 +37,8 @@ errors = []
   end
 
   target.frameworks_build_phase.files.each do |file|
-    product = file.product_ref&.product_name
-    errors << "#{name} still links #{product}" if %w[PCloudSDKSwift CocoaHTTPServer].include?(product)
+    product = file.product_ref&.product_name || file.file_ref&.display_name
+    errors << "#{name} still links #{product}" if %w[PCloudSDKSwift CocoaHTTPServer VideoToolbox.framework].include?(product)
   end
 end
 
@@ -40,9 +47,20 @@ schemes = REXML::XPath.match(info, '/plist/dict/key[text()="CFBundleURLTypes"]/f
 errors << 'Legacy custom URL schemes are registered' unless schemes.empty?
 scenes = REXML::XPath.match(info, '//key[starts-with(text(), "UIWindowSceneSessionRoleExternalDisplay")]')
 errors << 'External video-display scenes are registered' unless scenes.empty?
+siri = REXML::XPath.match(info, '//string[text()="INMediaCategoryVideo"]')
+errors << 'Siri advertises video playback' unless siri.empty?
+movie_types = REXML::XPath.match(info, '//string[text()="public.movie" or text()="public.video"]')
+errors << 'The iOS app advertises movie types' unless movie_types.empty?
+%w[Root Root.inApp].each do |name|
+  settings = REXML::Document.new(File.read(File.join(root, "Resources/iOS/Settings.bundle/#{name}.plist")))
+  retired_keys = /video|subtitle|deinterlac|hardware.?decod|skip.?loop.?filter|brightness|noise.?reduction/i
+  REXML::XPath.match(settings, '//key[text()="Key"]/following-sibling::string[1]').each do |key|
+    errors << "#{name} exposes retired preference #{key.text}" if retired_keys.match?(key.text.to_s)
+  end
+end
 share = REXML::Document.new(File.read(File.join(root, 'Sources/ShareExtension/Info.plist')))
 movies = REXML::XPath.match(share, '//key[text()="NSExtensionActivationSupportsMovieWithMaxCount"]')
 errors << 'The share extension advertises movie import' unless movies.empty?
 
 abort errors.join("\n") unless errors.empty?
-puts 'Both iOS targets exclude retired integrations, video playback screens, SDKs and URL schemes.'
+puts 'Both iOS targets exclude retired integrations, video controls, retired settings, SDKs and URL schemes.'

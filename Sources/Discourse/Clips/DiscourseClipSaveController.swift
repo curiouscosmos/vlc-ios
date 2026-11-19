@@ -52,8 +52,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         tableView.estimatedRowHeight = 86
         navigationItem.rightBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "xmark"), style: .plain, target: self, action: #selector(cancel))
         navigationItem.rightBarButtonItem?.accessibilityLabel = NSLocalizedString("BUTTON_CLOSE", comment: "")
-        for name in [Notification.Name(rawValue: VLCPlaybackServiceNoiseReductionDidChange), .discourseMixerDidChange,
-                     .VLCThemeDidChangeNotification] {
+        for name in [Notification.Name.discourseMixerDidChange, .VLCThemeDidChangeNotification] {
             NotificationCenter.default.addObserver(self, selector: #selector(refreshSettings), name: name, object: nil)
         }
         NotificationCenter.default.addObserver(self, selector: #selector(background), name: UIApplication.didEnterBackgroundNotification, object: nil)
@@ -65,7 +64,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
     }
     override func numberOfSections(in tableView: UITableView) -> Int { 4 }
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        [1, 3, 2, 3][section]
+        [1, 2, 2, 3][section]
     }
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
@@ -74,7 +73,6 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         cell.detailTextLabel?.textColor = DiscourseColors.current.primaryText.withAlphaComponent(0.65)
         cell.selectionStyle = .none
         let row = indexPath.row
-        let service = PlaybackService.sharedInstance()
         let mixer = DiscourseAudioMixer.shared
         if indexPath.section == 0 {
             let artwork = VLCNetworkImageView()
@@ -114,18 +112,18 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         } else if indexPath.section == 1 || indexPath.section == 2 {
             let settings = indexPath.section == 1
             let titles = settings
-                ? [NSLocalizedString("CLIP_NOISE", comment: ""), NSLocalizedString("CLIP_MUSIC", comment: ""),
+                ? [NSLocalizedString("CLIP_MUSIC", comment: ""),
                    NSLocalizedString("CLIP_EXPORT_CC", comment: "")]
                 : [NSLocalizedString("CLIP_FADE_IN", comment: ""), NSLocalizedString("CLIP_FADE_OUT", comment: "")]
             cell.textLabel?.text = titles[row]
             let toggle = UISwitch()
             toggle.onTintColor = DiscourseColors.current.accent
-            toggle.tag = settings ? row : row + 3
-            toggle.isOn = settings ? [service.noiseReductionEnabled, mixer.isEnabled, exportCC][row] : [fadeIn, fadeOut][row]
-            let available = !settings || (row == 0 ? service.noiseReductionAvailable : row == 1 ? mixer.selectedURL != nil : track.captionURL != nil)
+            toggle.tag = settings ? row + 1 : row + 3
+            toggle.isOn = settings ? [mixer.isEnabled, exportCC][row] : [fadeIn, fadeOut][row]
+            let available = !settings || (row == 0 ? mixer.selectedURL != nil : track.captionURL != nil)
             toggle.isEnabled = !busy && available
             if !available {
-                cell.detailTextLabel?.text = row == 1 ? NSLocalizedString("CLIP_ADD_MUSIC", comment: "") : NSLocalizedString("CLIP_UNAVAILABLE", comment: "")
+                cell.detailTextLabel?.text = row == 0 ? NSLocalizedString("CLIP_ADD_MUSIC", comment: "") : NSLocalizedString("CLIP_UNAVAILABLE", comment: "")
             }
             toggle.accessibilityLabel = cell.textLabel?.text
             toggle.accessibilityHint = cell.detailTextLabel?.text
@@ -201,7 +199,6 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
     @objc private func settingChanged(_ sender: UISwitch) {
         guard !busy else { return }
         switch sender.tag {
-        case 0: _ = PlaybackService.sharedInstance().setNoiseReduction(enabled: sender.isOn)
         case 1: DiscourseAudioMixer.shared.setEnabled(sender.isOn)
         case 2: exportCC = sender.isOn
         case 3: fadeIn = sender.isOn
@@ -246,7 +243,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
         requestedCC = exportCC
         let mixer = DiscourseAudioMixer.shared
         request = DiscourseClipExportRequest(source: URL(fileURLWithPath: "/"), sourceExtension: track.audioURL?.pathExtension,
-            title: track.title, range: range, noise: PlaybackService.sharedInstance().noiseReductionEnabled,
+            title: track.title, range: range,
             music: mixer.selectedURL, musicEnabled: mixer.isEnabled && mixer.selectedURL != nil,
             musicVolume: Float(mixer.volume) / 100, musicLoops: mixer.isLooping, fadeIn: fadeIn, fadeOut: fadeOut)
     }
@@ -291,7 +288,7 @@ final class DiscourseClipSaveController: UITableViewController, UIDocumentPicker
                     try Task.checkCancellation()
                     guard self.operation == token else { return }
                     let request = DiscourseClipExportRequest(source: source, sourceExtension: snapshot.sourceExtension,
-                        title: snapshot.title, range: snapshot.range, videoRatio: snapshot.videoRatio, visual: snapshot.visual, noise: snapshot.noise,
+                        title: snapshot.title, range: snapshot.range, videoRatio: snapshot.videoRatio, visual: snapshot.visual,
                         music: snapshot.music, musicEnabled: snapshot.musicEnabled, musicVolume: snapshot.musicVolume,
                         musicLoops: snapshot.musicLoops, captions: captions, fadeIn: snapshot.fadeIn, fadeOut: snapshot.fadeOut)
                     self.exporter.export(request, progress: { [weak self] fraction in

@@ -511,10 +511,11 @@ class VLCTestMenu: XCTestCase {
 
         // Starting a track presents the upstream full-screen audio player.
         XCTAssertTrue(app.buttons[VLCAccessibilityIdentifier.moreOptions].waitForExistence(timeout: 30))
-        let noise = app.buttons["noiseReduction"]
-        XCTAssertTrue(noise.waitForExistence(timeout: 5))
-        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: noise)
-        wait(for: [enabled], timeout: 10)
+        XCTAssertFalse(app.buttons["noiseReduction"].exists)
+        app.buttons[VLCAccessibilityIdentifier.moreOptions].tap()
+        XCTAssertTrue(app.staticTexts["Equalizer"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Noise reduction"].exists)
+        XCTAssertFalse(app.staticTexts["Video Filters"].exists)
     }
 
     func testHomeShowsRecentlyPlayedDiscourse() {

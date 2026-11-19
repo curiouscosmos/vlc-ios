@@ -41,7 +41,7 @@ Xcode 26.4.1 (17E202; CI tag `macos-xcode26`), CocoaPods 1.16.2, Swift 5.0 langu
 
 ```bash
 export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
-Buildsystem/RNNoise/build.sh   # local VLCKit artifact (long first build)
+Buildsystem/AudioEngine/build.sh   # required local audio-only iOS VLCKit (long first build)
 pod install                    # Pods/ + VLC.xcworkspace
 ```
 
@@ -97,7 +97,7 @@ xcodebuild ... -scheme VLC-iOS-UITests -destination ... test
 ```
 
 Unit suites (`Buildsystem/Testing/Unit/`): API, stores, formatting, playback, playback progress, search, home,
-downloads, mixer, casting lifecycle (ObjC), clips, captions, deep links, RNNoise (ObjC), launch screen. UI (`Buildsystem/Testing/UI/VLCTestMenu.swift`): one test
+downloads, mixer, casting lifecycle (ObjC), clips, captions, deep links, launch screen. UI (`Buildsystem/Testing/UI/VLCTestMenu.swift`): one test
 per tab, catalogue → detail, search, Home, like round trip, download, mixer picker, playback-history setting.
 Screenshots use `Buildsystem/Testing/Screenshots/` (`VLC_SCREENSHOTS_OUTPUT`).
 
@@ -113,16 +113,15 @@ acceptance remains required.
 ### 3.6 Lint & CI
 
 `Buildsystem/swiftlint.yml` (small explicit rule set; one space around `=`); `swiftlint` is installed by CI, not
-locally. CI is `Buildsystem/gitlab-ci.yml` (lint, build; **no test stage**); when the local RNNoise package is active
-it runs `Buildsystem/RNNoise/build.sh` before resolving packages.
-Run `ruby Buildsystem/scripts/check_ios_feature_surface.rb` after changing iOS target membership or upstream integrations.
+locally. CI is `Buildsystem/gitlab-ci.yml` (lint, feature-surface check and build; **no test stage**). It builds the local
+audio engine before resolving packages. Run `ruby Buildsystem/scripts/check_ios_feature_surface.rb` after changing iOS target membership,
+settings, or upstream integrations.
 
-### 3.7 RNNoise
+### 3.7 Audio engine
 
-Read `Buildsystem/RNNoise/README.md`. `build.sh` builds pinned patched VLCKit/libvlc; `ruby
-Buildsystem/RNNoise/activate.rb` switches the project to the local binary package. A clean checkout must build that
-ignored artifact; upstream VLCKit still builds with noise reduction unavailable. Never patch Xcode's dependency
-checkouts.
+Read [Buildsystem/AudioEngine/README.md](Buildsystem/AudioEngine/README.md) before changing the engine or auditing a
+release. Both iOS targets require the ignored local VLCKit artifact. Other platforms use the pinned upstream slices
+in that package. Never patch Xcode's dependency checkouts.
 
 ### 3.8 Universal Links
 
@@ -149,7 +148,7 @@ Before changing navigation, theming, playback, API/stores, UI, downloads or the 
   `VLCNetworkImageView.h`; honour `NS_ASSUME_NONNULL_*`.
 - Upstream types keep their names; fork types use the `Discourse` prefix.
 - Every user-facing string via `NSLocalizedString` and added to `en.lproj`; every control has an
-  `accessibilityLabel`; support Dynamic Type.
+  `accessibilityLabel`; support Dynamic Type. iOS builds validate and copy the checked-in English strings.
 - New images go in `Resources/iOS/Images.xcassets`; theme colours are code, not colour sets. Do not add a third-party
   dependency — the fork uses URLSession, Codable, UserDefaults/Keychain and existing VLC types.
 - One coherent change per commit, prefixed by area and describing why; never commit artefacts, `Pods/`,
@@ -169,7 +168,7 @@ Before changing observable behaviour, read the corresponding §6 contract in [Ag
 - Favourite collections and manually created playlists scroll together; favourites use a non-pinned collection header.
 - Favourite collection cards match ordinary playlist card widths and primary/secondary text colors. Playlist list cards use 112 × 88 pt aspect-fill artwork, at least 112 pt height and a track count (details in reference §4.6).
 - Clip stays available for restored paused tracks with a known duration; recovered track metadata refreshes player actions without requiring playback or a track change.
-- Clip Share supports discourse tracks: draggable range defaults to current time + 10 min, minimum 1 s, no maximum beyond the track. Entering the editor pauses playback; Bracket drags, endpoint +/− controls and caption selections immediately move the preview playhead: start edits use the start time; end edits use max(start, end − 10 s). Edits never start paused playback; the next Play starts at that preview position and stops at the end. Preview uses a one-shot absolute-time seek after resume; position ticks never re-arm it. Discourse streams and verified local files use the bundled avformat demuxer for accurate seeking, including restored queues. Cut opens the large Export Clip drawer with artwork, range, live noise/mixer settings, always-visible optional captions, and independent two-second fade switches (both on for each session); Share clip link (subtitle “Share clip link with anyone”) opens the system share sheet with the track title and `/discourses/{discourseID}/tracks/{audioID}?start={seconds}&end={seconds}`; Clip requires a verified download; missing sources show a dismissible download prompt. The action row has the track-card download control (green when complete); Add to Playlist precedes Discourse in the top bar. Download clip audio exports processed 48 kHz stereo AAC/M4A; Create video from clip offers Default (Original ratio), 9:16 — Mobile and 16:9 — Desktop before picking one photo/video and exporting H.264/MP4; fixed ratios center crop without stretching. Ratio and settings are captured before Photos; no ratio preference is persisted. Enabled noise cancellation and mixer settings are captured at export start; mixer audio starts at zero, with its volume/loop setting. Export closed captions defaults off per drawer and saves a clip-timed UTF-8 SRT beside the media through Files. Exports show a full-screen audio/video progress modal with Cancel; cancellation returns to Export Clip and leaves source downloads running. Minimizing keeps the export session and progress screen; exports request iOS background execution time, retain work across suspension, and defer Files until the app is active.
+- Clip Share supports discourse tracks: draggable range defaults to current time + 10 min, minimum 1 s, no maximum beyond the track. Entering the editor pauses playback; Bracket drags, endpoint +/− controls and caption selections immediately move the preview playhead: start edits use the start time; end edits use max(start, end − 10 s). Edits never start paused playback; the next Play starts at that preview position and stops at the end. Preview uses a one-shot absolute-time seek after resume; position ticks never re-arm it. Discourse streams and verified local files use the bundled avformat demuxer for accurate seeking, including restored queues. Cut opens the large Export Clip drawer with artwork, range, live mixer settings, always-visible optional captions, and independent two-second fade switches (both on for each session); Share clip link (subtitle “Share clip link with anyone”) opens the system share sheet with the track title and `/discourses/{discourseID}/tracks/{audioID}?start={seconds}&end={seconds}`; Clip requires a verified download; missing sources show a dismissible download prompt. The action row has the track-card download control (green when complete); Add to Playlist precedes Discourse in the top bar. Download clip audio exports processed 48 kHz stereo AAC/M4A; Create video from clip offers Default (Original ratio), 9:16 — Mobile and 16:9 — Desktop before picking one photo/video and exporting H.264/MP4; fixed ratios center crop without stretching. Ratio and settings are captured before Photos; no ratio preference is persisted. Mixer settings are captured at export start; mixer audio starts at zero, with its volume/loop setting. Export closed captions defaults off per drawer and saves a clip-timed UTF-8 SRT beside the media through Files. Exports show a full-screen audio/video progress modal with Cancel; cancellation returns to Export Clip and leaves source downloads running. Minimizing keeps the export session and progress screen; exports request iOS background execution time, retain work across suspension, and defer Files until the app is active.
 - Clip panel has separate one-second start/end adjustment buttons, disabled at range limits; full-track edge labels, a floating playhead time, and Selected duration beside Cut. Base height is 168 pt with Dynamic Type scaling; transport alignment stays fixed, and portrait artwork shrinks as needed to keep the bottom controls visible.
 - Captions: `discourse_audio.has_cc` plus a valid `cc_path` enables CC in the expanded player. CC replaces portrait artwork and title/artist/discourse metadata with the full scrolling SRT transcript as one flowing paragraph, highlighting the current phrase (not estimated words). The highlight persists through gaps until the next phrase starts; before the first phrase and after the last, the first/last phrase stays highlighted. Opening Clip shows available captions; start is initially active. Tap/drag a bracket or use its adjustment buttons to activate it; phrase taps keep setting that bracket to phrase start/end respectively, clamped by existing one-second range rules. Playback never starts from a caption tap.
 - Expanded-player hearts match the action icons at zero likes; positive counts keep the compact heart.
@@ -182,7 +181,9 @@ Before changing observable behaviour, read the corresponding §6 contract in [Ag
   interruption, renderer disconnection, foregrounding, paused restoration and shutdown stop and release it.
 - iOS playback is audio-only, including mixed containers and files with embedded artwork. Use the audio player and
   existing queue/mini-player; video screens, Picture in Picture and external video scenes are excluded from shipping
-  targets. Audio casting/AirPlay and AVFoundation clip-to-video export remain available.
+  targets. The native build excludes VLC video codecs, output modules, subtitle rendering and video thumbnail generation.
+  Video-only items report a playback error before VLC advances the queue. Text captions, audio casting/AirPlay and
+  AVFoundation clip-to-video export remain available.
 - Dark is the default; light, Dynamic Type, accessibility and localisation must work.
 
 ## 7. Local persistence contract
@@ -191,7 +192,7 @@ Before changing persisted state, read the key/type/owner table in [AgentReferenc
 
 ## 8. Testing and verification
 
-Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseCastingTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseCaptionTests`, `DiscourseLaunchScreenTests`, `DiscourseNoiseReductionTests` (ObjC, needs RNNoise), plus upstream URL/preference tests — currently **231 unit tests** and **19 UI tests** (§3.5).
+Automated: `DiscourseAPITests`, `DiscourseStoresTests`, `DiscourseFormattingTests`, `DiscoursePlaybackTests`, `DiscoursePlaybackProgressTests`, `DiscourseSearchTests`, `DiscourseHomeTests`, `DiscourseDownloadTests`, `DiscourseMixerTests`, `DiscourseCastingTests`, `DiscourseDeepLinkTests`, `DiscourseClipTests`, `DiscourseCaptionTests`, `DiscourseLaunchScreenTests`, plus upstream URL/preference tests (§3.5). All 224 unit tests passed on iOS 26.4, including both opt-in HTTPS seek tests.
 
 Manual: clean build; local playback/playlists/background/lock screen; five tabs and branding; catalogue paging/filters/refresh; detail queue continuation; Home sections/states; like persistence and rollback; 60 s qualification and 24 h stats dedupe; downloads (progress/cancel/remove/offline); mixer add/select/reorder/remove/clear/follow/volume/relaunch; VoiceOver, Dynamic Type, light theme; offline, interruption, route change and media-services reset on a device. UI tests cover navigation, catalogue → detail, search, Home, the like round trip, the download round trip (skips on a slow CDN), the mixer picker, playback history, payload-less favourites, and clip preview progress and end stopping, and the clip editor/save drawer link sharing, video-picker cancellation and processed-audio Files saving.
 
@@ -209,7 +210,7 @@ iOS shipping targets exclude upstream network/cloud browsing, Wi-Fi upload/web c
 donations, onboarding, legacy Transfers and radio/video App Intents. CarPlay retains library/playlists. Cloud SDKs
 and CocoaHTTPServer are unlinked from iOS. iOS uses the existing audio player for every track; video playback screens,
 previews, Picture in Picture, subtitle downloading and external video scenes are excluded from both shipping targets.
-The main VLC engine disables video/subpicture output; the audio mixer and AVFoundation clip-video exports remain.
+The local iOS VLC engine omits video playback and RNNoise. The audio mixer and AVFoundation clip-video exports remain.
 
 Playback performance: five-second checkpoints reuse queue metadata and write on the snapshot queue; lifecycle saves drain writes synchronously. Queue identity records persist in batches, and identity/progress indexes stay in memory under their existing serial owners. Download progress is coalesced and targets affected controls; Home reuses local history until the library changes and skips unchanged sections; detail cache reads/sorting run off-main and unchanged track lists skip registration/rendering.
 
@@ -217,7 +218,7 @@ Phases 1–15 are implemented, in delivery order: docs, branding, API/cache/iden
 
 Captions explicitly use TextKit 1 on iOS 16+ (the existing initializer remains on iOS 15), avoiding main-thread TextKit 2 fragment-drawing stalls with long continuous transcripts; see reference §4.8.2 for measurements.
 
-Open: caption scrolling responsiveness on the affected iPhone, caption synchronization/VoiceOver and caption clip selection need physical-device acceptance; captions are opportunistically cached, not bundled with audio downloads. Clip Share iCloud/HDR/audio-sync and Files physical-device acceptance is pending; automated clip/caption suites pass 28 tests on the simulator and 22 on iPhone 14 Pro (iOS 26.6.1), excluding the existing panel-bounds assertion that fails on that device; `POST /favourites/resolve` is implemented in `api/edge.ts` but not deployed (no command/credentials here); the AASA is unpublished; RNNoise device acceptance is pending; tests need a watchOS runtime; physical-device audio and passcode UI are manual checks.
+Open: caption scrolling responsiveness on the affected iPhone, caption synchronization/VoiceOver and caption clip selection need physical-device acceptance; captions are opportunistically cached, not bundled with audio downloads. Clip Share iCloud/HDR/audio-sync and Files physical-device acceptance is pending; the latest simulator run passes all 28 clip/caption tests. Before the engine change, 22 passed on iPhone 14 Pro (iOS 26.6.1), with the existing panel-bounds failure excluded; `POST /favourites/resolve` is implemented in `api/edge.ts` but not deployed (no command/credentials here); the AASA is unpublished; physical-device casting, audio routes, interruptions, background playback and export synchronization must pass before resubmission; tests need a watchOS runtime; physical-device audio and passcode UI are manual checks.
 
 ## 10. Known gaps and intentional deviations
 

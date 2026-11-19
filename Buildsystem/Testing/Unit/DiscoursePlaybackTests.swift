@@ -155,8 +155,18 @@ final class DiscoursePlaybackTests: XCTestCase {
         }
         defer { NotificationCenter.default.removeObserver(observer) }
         let media = try XCTUnwrap(VLCMedia(url: silent))
-        service.playMediaList(VLCMediaList(array: [media]), firstIndex: 0, subtitlesFilePath: nil)
+        let next = try XCTUnwrap(VLCMedia(url: mixed))
+        let advanced = expectation(description: "Rejected video does not advance to the next track")
+        advanced.isInverted = true
+        advanced.assertForOverFulfill = false
+        let nextObserver = NotificationCenter.default.addObserver(forName: Notification.Name(VLCPlaybackServicePlaybackDidMoveOnToNextItem),
+                                                                  object: service, queue: .main) { _ in
+            if service.currentlyPlayingMedia?.url == mixed { advanced.fulfill() }
+        }
+        defer { NotificationCenter.default.removeObserver(nextObserver) }
+        service.playMediaList(VLCMediaList(array: [media, next]), firstIndex: 0, subtitlesFilePath: nil)
         wait(for: [failed], timeout: 10)
+        wait(for: [advanced], timeout: 1)
         XCTAssertEqual(media.statistics.decodedVideo, 0)
     }
 

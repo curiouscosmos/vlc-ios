@@ -13,12 +13,14 @@
 
 enum ActionSheetCellIdentifier: String, CustomStringConvertible, CaseIterable {
     case repeatShuffle
+#if !os(iOS)
     case filter
+#endif
+
     case playback
     case sleepTimer
     case share
     case equalizer
-    case noiseReduction
     case chapters
     case bookmarks
     case addBookmarks
@@ -29,12 +31,12 @@ enum ActionSheetCellIdentifier: String, CustomStringConvertible, CaseIterable {
 
     var description: String {
         switch self {
+#if !os(iOS)
         case .filter:
             return NSLocalizedString("VIDEO_FILTER", comment: "")
+#endif
         case .playback:
             return NSLocalizedString("PLAYBACK_SPEED", comment: "")
-        case .noiseReduction:
-            return NSLocalizedString("NOISE_REDUCTION", comment: "")
         case .equalizer:
             return NSLocalizedString("EQUALIZER_CELL_TITLE", comment: "")
         case .sleepTimer:
@@ -62,16 +64,16 @@ enum ActionSheetCellIdentifier: String, CustomStringConvertible, CaseIterable {
 
     var accessibilityHint: String {
         switch self {
+#if !os(iOS)
         case .filter:
             return NSLocalizedString("VIDEO_FILTERS_HINT", comment: "")
+#endif
         case .playback:
             return NSLocalizedString("PLAYBACK_SPEED_HINT", comment: "")
         case .sleepTimer:
             return NSLocalizedString("SLEEP_TIMER_HINT", comment: "")
         case .share:
             return NSLocalizedString("SHARE_HINT", comment: "")
-        case .noiseReduction:
-            return NSLocalizedString("NOISE_REDUCTION_HINT", comment: "")
         case .equalizer:
             return NSLocalizedString("EQUALIZER_HINT", comment: "")
         case .chapters:
@@ -264,6 +266,12 @@ class MediaPlayerActionSheet: ActionSheet {
                       item != actionSheet.mockView else {
                     return
                 }
+                #if !os(iOS)
+                if item == actionSheet.videoFiltersPlaceholderView {
+                    actionSheet.closeAndPresentCard(for: .filter)
+                    return
+                }
+                #endif
                 if item == actionSheet.sharePlaceholderView {
                     actionSheet.requestShare()
                 } else if let abRepeatView = item as? ABRepeatView {
@@ -273,8 +281,6 @@ class MediaPlayerActionSheet: ActionSheet {
                     actionSheet.closeAndPresentCard(for: .playback)
                 } else if item == actionSheet.sleepTimerPlaceholderView {
                     actionSheet.closeAndPresentCard(for: .sleepTimer)
-                } else if item == actionSheet.videoFiltersPlaceholderView {
-                    actionSheet.closeAndPresentCard(for: .filter)
                 } else if item == actionSheet.equalizerPlaceholderView {
                     actionSheet.closeAndPresentCard(for: .equalizer)
                 } else {
@@ -360,19 +366,6 @@ extension MediaPlayerActionSheet: ActionSheetDataSource {
 
         sheetCell.accessoryView.tintColor = PresentationTheme.currentExcludingWhite.colors.cellDetailTextColor
         sheetCell.delegate = self
-        if sheetCell.identifier == .noiseReduction {
-            let service = PlaybackService.sharedInstance()
-            let hint: String
-            if service.renderer != nil {
-                hint = NSLocalizedString("NOISE_REDUCTION_RENDERER_HINT", comment: "")
-            } else if service.noiseReductionAvailable {
-                hint = NSLocalizedString("NOISE_REDUCTION_HINT", comment: "")
-            } else {
-                hint = NSLocalizedString("NOISE_REDUCTION_UNAVAILABLE_HINT", comment: "")
-            }
-            sheetCell.setToggleSwitch(state: service.noiseReductionEnabled,
-                                      isEnabled: service.noiseReductionAvailable, hint: hint)
-        }
         return sheetCell
     }
 }

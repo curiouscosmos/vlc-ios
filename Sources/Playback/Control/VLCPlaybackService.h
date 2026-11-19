@@ -29,7 +29,6 @@ extern NSString *const VLCPlaybackServiceShuffleModeUpdated;
 extern NSString *const VLCPlaybackServicePlaybackDidMoveOnToNextItem;
 extern NSString *const VLCPlaybackServiceSleepTimerDidChange;
 extern NSString *const VLCLastPlaylistPlayedMedia;
-extern NSString *const VLCPlaybackServiceNoiseReductionDidChange;
 
 @class VLCPlaybackService;
 @class VLCMetaData;
@@ -74,7 +73,9 @@ NS_SWIFT_NAME(PlaybackService)
 - (void)configureReadyPlayback:(NSDictionary *)snapshot;
 #endif
 
+#if !TARGET_OS_IOS
 @property (nonatomic, strong, nullable) UIView *videoOutputView API_UNAVAILABLE(watchos);
+#endif
 
 @property (nonatomic, retain) VLCMediaList *mediaList;
 @property (nonatomic, retain) VLCMediaList *shuffledList;
@@ -99,37 +100,46 @@ NS_SWIFT_NAME(PlaybackService)
 @property (nonatomic, assign, getter=isShuffleMode) BOOL shuffleMode;
 @property (nonatomic, readwrite) float playbackRate; // default = 1.0
 @property (nonatomic, readonly) CGFloat defaultPlaybackRate; // user-configured default speed
-@property (nonatomic, readonly) BOOL noiseReductionAvailable;
-@property (nonatomic, readonly) BOOL noiseReductionEnabled;
-- (BOOL)applyNoiseReductionEnabled:(BOOL)enabled NS_SWIFT_NAME(setNoiseReduction(enabled:));
 @property (nonatomic, readwrite) float audioDelay; // in milliseconds, default = 0.0
 @property (nonatomic, readwrite) float playbackPosition; // in seconds, default = 0.0
 @property (nonatomic, readwrite) float startPosition; // [0;1] applied when the next media opens, negative to enforce none
+#if !TARGET_OS_IOS
 @property (nonatomic, readwrite) float subtitleDelay; // in milliseconds, default = 0.0
 @property (nonatomic, readonly) VLCPlaybackServiceAdjustFilter *adjustFilter;
 @property (nonatomic, readonly) CGFloat yaw; //  between ]-180;180]
 @property (nonatomic, readonly) CGFloat pitch; // ]-90;90]
 @property (nonatomic, readonly) CGFloat roll; // ]-180;180]
 @property (nonatomic, readonly) CGFloat fov; // ]0;180[ (default 80.)
+#endif
 
 @property (readonly) NSInteger indexOfCurrentAudioTrack;
+#if !TARGET_OS_IOS
 @property (readonly) NSInteger indexOfCurrentPrimaryVideoSubtitleTrack;
 @property (readonly) NSInteger indexOfCurrentSecondaryVideoSubtitleTrack;
+#endif
 @property (readonly) NSInteger indexOfCurrentTitle;
 @property (readonly, nullable) VLCMediaPlayerTitleDescription *currentTitleDescription;
 @property (readonly) NSInteger indexOfCurrentChapter;
 @property (readonly, nullable) VLCMediaPlayerChapterDescription *currentChapterDescription;
+#if !TARGET_OS_IOS
 @property (readonly) NSInteger numberOfVideoTracks;
+#endif
 @property (readonly) NSInteger numberOfAudioTracks;
+#if !TARGET_OS_IOS
 @property (readonly) NSInteger numberOfVideoSubtitlesIndexes;
+#endif
 @property (nonatomic, readonly) NSArray<VLCMediaPlayerTrack *> *audioTracks;
+#if !TARGET_OS_IOS
 @property (nonatomic, readonly) NSArray<VLCMediaPlayerTrack *> *textTracks;
+#endif
 @property (readonly) NSInteger numberOfTitles;
 @property (readonly) NSInteger numberOfChaptersForCurrentTitle;
 @property (assign, readonly) BOOL currentMediaHasTrackToChooseFrom;
 @property (assign, readwrite) BOOL fullscreenSessionRequested;
 @property (assign, readonly) BOOL isSeekable;
+#if !TARGET_OS_IOS
 @property (assign, readonly) BOOL currentMediaIs360Video;
+#endif
 @property (readonly) BOOL isNextMediaAvailable;
 @property (readonly) NSNumber *playbackTime;
 @property (nonatomic, readonly) NSDictionary *mediaOptionsDictionary;
@@ -143,7 +153,9 @@ NS_SWIFT_NAME(PlaybackService)
 @property (nonatomic, nullable) VLCRendererItem *renderer;
 #endif
 
+#if !TARGET_OS_IOS
 @property (nonatomic, readonly) NSInteger currentAspectRatio;
+#endif
 
 @property (nonatomic, readonly) VLCPlayerDisplayController *playerDisplayController;
 
@@ -166,8 +178,10 @@ NS_SWIFT_NAME(PlaybackService)
 - (BOOL)previous;
 - (void)jumpForward:(int)interval;
 - (void)jumpBackward:(int)interval;
+#if !TARGET_OS_IOS
 - (void)nextFrame;
 - (void)previousFrame;
+#endif
 - (void)toggleRepeatMode;
 - (void)changePlaybackRateByFactor:(float)factor;
 - (float)restorePlaybackRateForCurrentMedia;
@@ -178,32 +192,41 @@ NS_SWIFT_NAME(PlaybackService)
 - (VLCTime *)remainingTime;
 
 - (NSString *)audioTrackNameAtIndex:(NSInteger)index;
+#if !TARGET_OS_IOS
 - (NSString *)videoSubtitleNameAtIndex:(NSInteger)index;
+#endif
 - (nullable VLCMediaPlayerTitleDescription *)titleDescriptionAtIndex:(NSInteger)index;
 - (nullable VLCMediaPlayerChapterDescription *)chapterDescriptionAtIndex:(NSInteger)index;
 - (void)selectAudioTrackAtIndex:(NSInteger)index;
 - (void)disableAudio;
+#if !TARGET_OS_IOS
 - (void)selectPrimaryVideoSubtitleAtIndex:(NSInteger)index;
 - (void)selectSecondaryVideoSubtitleAtIndex:(NSInteger)index;
 - (void)disablePrimaryVideoSubtitle;
 - (void)disableSecondaryVideoSubtitle;
 - (void)syncVideoSubtitleState;
+#endif
 - (void)selectTitleAtIndex:(NSInteger)index;
 - (void)selectChapterAtIndex:(NSInteger)index;
 - (void)setAudioPassthrough:(BOOL)shouldPass;
+#if !TARGET_OS_IOS
 - (void)switchAspectRatio:(BOOL)toggleFullScreen;
 - (void)setCurrentAspectRatio:(NSInteger)currentAspectRatio;
+#endif
 
 - (void)playItemAtIndex:(NSUInteger)index;
 
+#if !TARGET_OS_IOS
 - (BOOL)updateViewpoint:(CGFloat)yaw pitch:(CGFloat)pitch roll:(CGFloat)roll fov:(CGFloat)fov absolute:(BOOL)absolute;
 - (NSInteger)currentMediaProjection;
+#endif
 
 - (void)recoverDisplayedMetadata;
 - (void)refreshCurrentMediaMetadata;
 - (void)recoverPlaybackState;
+#if !TARGET_OS_IOS
 - (void)disableSubtitlesIfNeeded;
-
+#endif
 - (BOOL)isPlayingOnExternalScreen;
 
 - (void)setPlayerHidden:(BOOL)hidden;
@@ -217,8 +240,9 @@ NS_SWIFT_NAME(PlaybackService)
 - (void)playMediaList:(VLCMediaList *)mediaList firstIndex:(NSInteger)index subtitlesFilePath:(nullable NSString *)subsFilePath completion:(void (^ __nullable)(BOOL success))completion;
 - (void)replacePlayingMedia:(VLCMedia *)media;
 - (void)addAudioToCurrentPlaybackFromURL:(NSURL *)audioURL;
+#if !TARGET_OS_IOS
 - (void)addSubtitlesToCurrentPlaybackFromURL:(NSURL *)subtitleURL;
-
+#endif
 - (void)setAmplification:(CGFloat)amplification forBand:(unsigned int)index;
 - (CGFloat)amplificationOfBand:(unsigned int)index;
 - (unsigned int)numberOfBands;

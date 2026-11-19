@@ -1,0 +1,384 @@
+diff --git a/contrib/src/ffmpeg/rules.mak b/contrib/src/ffmpeg/rules.mak
+index 09bea09..341ff76 100644
+--- a/contrib/src/ffmpeg/rules.mak
++++ b/contrib/src/ffmpeg/rules.mak
+@@ -154,6 +154,18 @@ FFMPEGCONF += --cpu=core2
+ endif
+ ifdef HAVE_IOS
+ FFMPEGCONF += --enable-pic --extra-ldflags="$(EXTRA_CFLAGS) -isysroot $(IOS_SDK)"
++# The fork only builds iOS here. Watch and other slices come from upstream.
++ifeq ($(filter 1,$(HAVE_WATCHOS) $(HAVE_TVOS) $(HAVE_XROS)),)
++FFMPEGCONF += --disable-everything --disable-hwaccels --disable-videotoolbox --disable-swscale
++FFMPEGCONF += --enable-decoder='aac,aac_fixed,aac_latm,ac3,ac3_fixed,adpcm_*,alac,als,amrnb,amrwb,ape,aptx,aptx_hd,atrac*,binkaudio_*,bmv_audio,cook,dca,dfpwm,dolby_e,dpcm,dst,dvaudio,eac3,flac,g723_1,g729,gsm,gsm_ms,iac,ilbc,libgsm,libgsm_ms,mace3,mace6,metasound,mlp,mp1*,mp2*,mp3*,mpc*,nellymoser,on2avc,opus,pcm_*,qcelp,qdm2,qdmc,ra_144,ra_288,ralf,s302m,sbc,shorten,sipr,smackaud,tak,truehd,truespeech,tta,vorbis,wavpack,wma*,xma*'
++FFMPEGCONF += --enable-parser='aac,aac_latm,ac3,adpcm_*,amr,ape,cook,dca,dvaudio,flac,g723_1,g729,gsm,mlp,mpegaudio,opus,sipr,vorbis,xma'
++FFMPEGCONF += --enable-encoder='aac,ac3,flac,libmp3lame,mp2,opus,pcm_*,vorbis'
++FFMPEGCONF += --enable-demuxer='aac,ac3,aiff,amr,ape,asf,au,avi,caf,concat,dts,dv,eac3,flac,flv,gsm,hls,iff,matroska,mmf,mov,mp3,mpc,mpc8,mpegps,mpegts,ogg,pcm_*,rm,rtp,sbc,sdp,shorten,tak,tta,voc,w64,wav,wv,xwma'
++FFMPEGCONF += --enable-muxer='adts,flac,matroska,mov,mp3,mp4,mpegts,ogg,wav,webm'
++FFMPEGCONF += --enable-protocol='file,pipe,crypto,data,tcp,tls,http,https,udp,rtp'
++FFMPEGCONF += --disable-libopenjpeg --disable-bsf=vp9_superframe --enable-swresample
++DEPS_ffmpeg := $(filter-out openjpeg $(DEPS_openjpeg),$(DEPS_ffmpeg))
++endif
+ ifdef HAVE_WATCHOS
+ FFMPEGCONF += --disable-everything
+ FFMPEGCONF += --enable-decoder='aac,aac_latm,aac_fixed,aadec,ac3,adpcm_*,aiff,alac,alsdec,amrnb,amrwb,ape,atrac1,atrac3,atrac3plus,atrac9,binkaudio_dct,binkaudio_rdft,bmv_audio,cook,dca,derf,dirac,dpcm,dts,dvaudio,eaac,eac3,flac,flv,g722,g723,g726,g729,gsm,metasound,mpc7,mpc8,mpegaudiodec_fixed,mp3,m4a,nellymoser,opus,pcm_*,qdmc,qdm2,ra144,ra288,ralf,rka,shorten,tta,tak,truespeech,vorbis,wavpack,wma,wmalossless,wmapro,wmavoice'
+diff --git a/extras/package/apple/build.conf b/extras/package/apple/build.conf
+index 8e53914..89f3f7a 100644
+--- a/extras/package/apple/build.conf
++++ b/extras/package/apple/build.conf
+@@ -34,7 +34,6 @@ export VLC_CONTRIB_OPTIONS_BASE=(
+     --enable-ad-clauses
+     --disable-disc
+     --disable-iconv
+-    --enable-zvbi
+     --disable-kate
+     --disable-caca
+     --disable-gettext
+@@ -49,10 +48,7 @@ export VLC_CONTRIB_OPTIONS_BASE=(
+     --disable-vncserver
+     --disable-chromaprint
+     --disable-mad
+-    --enable-fribidi
+     --enable-libxml2
+-    --enable-freetype2
+-    --enable-ass
+     --disable-fontconfig
+     --disable-vncclient
+     --disable-gnutls
+@@ -60,9 +56,7 @@ export VLC_CONTRIB_OPTIONS_BASE=(
+     --disable-luac
+     --disable-aribb24
+     --disable-aribb25
+-    --enable-vpx
+     --enable-libdsm
+-    --enable-libplacebo
+     --disable-sparkle
+     --disable-breakpad
+     --disable-ncurses
+@@ -82,6 +76,25 @@ export VLC_CONTRIB_OPTIONS_MACOSX=(
+ # Additional contrib bootstrap options for iOS
+ export VLC_CONTRIB_OPTIONS_IOS=(
+     --disable-aom
++    --disable-dav1d
++    --disable-vpx
++    --disable-theora
++    --disable-openapv
++    --disable-x264
++    --disable-x265
++    --disable-x262
++    --disable-rav1e
++    --disable-rnnoise
++    --disable-zvbi
++    --disable-ass
++    --disable-libplacebo
++    --disable-freetype2
++    --disable-fribidi
++    --disable-libaribcaption
++    --disable-glslang
++    --disable-harfbuzz
++    --disable-opencv4
++    --disable-shout
+ )
+ 
+ # Additional contrib bootstrap options for tvOS
+@@ -161,6 +174,11 @@ export VLC_CONFIG_OPTIONS_MACOSX=()
+ 
+ # Additional configure options for iOS
+ export VLC_CONFIG_OPTIONS_IOS=(
++    --disable-rnnoise
++    --disable-freetype
++    --disable-libass
++    --disable-swscale
++    --disable-opencv
+     --disable-upnp-server
+ )
+ 
+diff --git a/extras/package/apple/build.sh b/extras/package/apple/build.sh
+index 90e5893..17fdb49 100755
+--- a/extras/package/apple/build.sh
++++ b/extras/package/apple/build.sh
+@@ -878,6 +878,21 @@ for module in "${VLC_MODULE_REMOVAL_LIST[@]}"; do
+         -exec rm '{}' \;
+ done
+ 
++if [ "$VLC_HOST_OS" = "ios" ]; then
++    # Only audio codecs and still-image loaders may enter the static module table.
++    plugins="$VLC_INSTALL_DIR/lib/vlc/plugins"
++    for category in video_output video_filter video_chroma video_splitter spu text_renderer visualization; do
++        rm -rf "$plugins/$category"
++    done
++    find "$plugins/codec" -name '*.a' -print0 |
++    while IFS= read -r -d '' archive; do
++        case "${archive##*/}" in
++            libadpcm_plugin.a|libaes3_plugin.a|libaraw_plugin.a|libaudiotoolboxmidi_plugin.a|libavcodec_plugin.a|libfaad_plugin.a|libfdkaac_plugin.a|libflac_plugin.a|libfluidsynth_plugin.a|libg711_plugin.a|libjpeg_plugin.a|liblpcm_plugin.a|libmad_plugin.a|libmpg123_plugin.a|libopus_plugin.a|libpng_plugin.a|libspdif_plugin.a|libspeex_plugin.a|libsvgdec_plugin.a|libtremor_plugin.a|libtwolame_plugin.a|libuleaddvaudio_plugin.a|libvorbis_plugin.a|libxwd_plugin.a) ;;
++            *) rm "$archive" || exit 1 ;;
++        esac
++    done || abort_err "Failed to prune iOS codec modules"
++fi
++
+ echo ""
+ 
+ ##########################################################
+diff --git a/modules/codec/avcodec/avcodec.c b/modules/codec/avcodec/avcodec.c
+index f2a4c67..c728813 100644
+--- a/modules/codec/avcodec/avcodec.c
++++ b/modules/codec/avcodec/avcodec.c
+@@ -28,6 +28,10 @@
+ # include "config.h"
+ #endif
+ 
++#ifdef __APPLE__
++# include <TargetConditionals.h>
++#endif
++
+ #include <vlc_common.h>
+ #include <vlc_plugin.h>
+ #include <vlc_codec.h>
+@@ -44,6 +48,7 @@
+ /****************************************************************************
+  * Local prototypes
+  ****************************************************************************/
++#if !TARGET_OS_IOS
+ static const int  frame_skip_list[] = { -1, 0, 1, 2, 3, 4 };
+ static const char *const frame_skip_list_text[] =
+   { N_("None"), N_("Default"), N_("Non-ref"), N_("Bidir"), N_("Non-key"), N_("All") };
+@@ -55,6 +60,7 @@ static const char *const idct_skip_list_text[] =
+ static const int  nloopf_list[] = { 0, 1, 2, 3, 4 };
+ static const char *const nloopf_list_text[] =
+   { N_("None"), N_("Non-ref"), N_("Bidir"), N_("Non-key"), N_("All") };
++#endif
+ 
+ #ifdef ENABLE_SOUT
+ static const char *const enc_hq_list[] = { "rd", "bits", "simple" };
+@@ -81,10 +87,15 @@ vlc_module_begin ()
+     set_shortname( "FFmpeg")
+     set_subcategory( SUBCAT_INPUT_VCODEC )
+     /* decoder main module */
++#if TARGET_OS_IOS
++    set_description( N_("FFmpeg audio decoder") )
++#else
+     set_description( N_("FFmpeg audio/video decoder") )
++#endif
+     set_help( MODULE_DESCRIPTION )
+     set_section( N_("Decoding") , NULL )
+ 
++#if !TARGET_OS_IOS
+     add_shortcut("ffmpeg")
+     set_capability("video decoder", 70)
+     set_callbacks(InitVideoDec, EndVideoDec)
+@@ -95,10 +106,12 @@ vlc_module_begin ()
+     set_callbacks(InitVideoHwDec, EndVideoDec)
+ 
+     add_submodule()
++#endif
+     add_shortcut("ffmpeg")
+     set_capability("audio decoder", 70)
+     set_callbacks(InitAudioDec, EndAudioDec)
+ 
++#if !TARGET_OS_IOS
+     add_submodule()
+     add_shortcut("ffmpeg")
+     set_capability("spu decoder", 70)
+@@ -122,6 +135,7 @@ vlc_module_begin ()
+         change_safe ()
+         change_integer_list( nloopf_list, nloopf_list_text )
+ 
++#endif
+     add_integer( "avcodec-debug", 0, DEBUG_TEXT, DEBUG_LONGTEXT )
+     add_string( "avcodec-codec", NULL, CODEC_TEXT, CODEC_LONGTEXT )
+     add_obsolete_string( "avcodec-hw" ) /* removed since 4.0.0 */
+@@ -130,6 +144,7 @@ vlc_module_begin ()
+ 
+ 
+ #ifdef ENABLE_SOUT
++#if !TARGET_OS_IOS
+     /* encoder submodule */
+     add_submodule ()
+     add_shortcut( "ffmpeg" )
+@@ -143,6 +158,7 @@ vlc_module_begin ()
+     set_capability( "image encoder", 100 )
+     set_callback( InitVideoEnc )
+ 
++#endif
+     add_submodule()
+     add_shortcut( "ffmpeg" )
+     set_section( N_("Encoding") , NULL )
+diff --git a/modules/codec/avcodec/encoder.c b/modules/codec/avcodec/encoder.c
+index 8b326bf..c024ef0 100644
+--- a/modules/codec/avcodec/encoder.c
++++ b/modules/codec/avcodec/encoder.c
+@@ -27,6 +27,10 @@
+ /*****************************************************************************
+  * Preamble
+  *****************************************************************************/
++#ifdef __APPLE__
++# include <TargetConditionals.h>
++#endif
++
+ #ifdef HAVE_CONFIG_H
+ # include "config.h"
+ #endif
+@@ -309,6 +313,10 @@ static void add_av_option_float( encoder_t *p_enc, AVDictionary** pp_dict, const
+ int InitVideoEnc( vlc_object_t *p_this )
+ {
+     encoder_t *p_enc = (encoder_t *)p_this;
++#if TARGET_OS_IOS
++    if (p_enc->fmt_out.i_cat != AUDIO_ES)
++        return VLC_EGENERIC;
++#endif
+     encoder_sys_t *p_sys;
+     AVCodecContext *p_context;
+     AVC_MAYBE_CONST AVCodec *p_codec = NULL;
+diff --git a/modules/codec/avcodec/subtitle.c b/modules/codec/avcodec/subtitle.c
+index eee99e9..523291a 100644
+--- a/modules/codec/avcodec/subtitle.c
++++ b/modules/codec/avcodec/subtitle.c
+@@ -23,6 +23,11 @@
+ /*****************************************************************************
+  * Preamble
+  *****************************************************************************/
++#ifdef __APPLE__
++# include <TargetConditionals.h>
++#endif
++
++#if !TARGET_OS_IOS
+ #ifdef HAVE_CONFIG_H
+ # include "config.h"
+ #endif
+@@ -369,3 +374,4 @@ static subpicture_t *ConvertSubtitle(decoder_t *dec, AVSubtitle *ffsub, vlc_tick
+ 
+     return spu;
+ }
++#endif
+diff --git a/modules/codec/avcodec/video.c b/modules/codec/avcodec/video.c
+index 53f3bd0..1d44cbc 100644
+--- a/modules/codec/avcodec/video.c
++++ b/modules/codec/avcodec/video.c
+@@ -24,6 +24,11 @@
+ /*****************************************************************************
+  * Preamble
+  *****************************************************************************/
++#ifdef __APPLE__
++# include <TargetConditionals.h>
++#endif
++
++#if !TARGET_OS_IOS
+ #ifdef HAVE_CONFIG_H
+ # include "config.h"
+ #endif
+@@ -2190,3 +2195,4 @@ no_reuse:
+     p_sys->pix_fmt = swfmt;
+     return swfmt;
+ }
++#endif
+diff --git a/src/input/es_out.c b/src/input/es_out.c
+index 06af53f..1696303 100644
+--- a/src/input/es_out.c
++++ b/src/input/es_out.c
+@@ -31,6 +31,10 @@
+ 
+ #include <stdio.h>
+ #include <assert.h>
++#ifdef __APPLE__
++# include <TargetConditionals.h>
++#endif
++
+ #include <vlc_common.h>
+ #include <vlc_configuration.h>
+ 
+@@ -2698,6 +2702,11 @@ static void EsOutDestroyDecoder(es_out_sys_t *sys,
+ 
+ static void EsOutSelectEs(es_out_sys_t *p_sys, es_out_id_t *es, bool b_force, enum vlc_vout_order vout_order)
+ {
++#if TARGET_OS_IOS
++    /* Keep the track in the demuxer's inventory, but never decode or cast video. */
++    if (es->fmt.i_cat == VIDEO_ES || es->fmt.i_cat == SPU_ES)
++        return;
++#endif
+     input_thread_t *p_input = p_sys->p_input;
+     bool b_thumbnailing = p_sys->input_type == INPUT_TYPE_THUMBNAILING;
+ 
+diff --git a/src/player/input.c b/src/player/input.c
+index ea3c039..895334a 100644
+--- a/src/player/input.c
++++ b/src/player/input.c
+@@ -22,6 +22,10 @@
+ # include "config.h"
+ #endif
+ 
++#ifdef __APPLE__
++# include <TargetConditionals.h>
++#endif
++
+ #include <vlc_common.h>
+ #include <vlc_memstream.h>
+ #include <vlc_dialog.h>
+@@ -362,6 +366,18 @@ vlc_player_input_HandleStateEvent(struct vlc_player_input *input,
+         case END_S:
+             input->playing = false;
+             input->stopping_reason = VLC_PLAYER_MEDIA_STOPPING_EOS;
++#if TARGET_OS_IOS
++            if (input->started && input == input->player->input
++             && input->ml.has_video_tracks && !input->ml.has_audio_tracks)
++            {
++                /* A video-only item reaches EOF without a decoder. Don't
++                 * mistake rejection for completion and start the next item. */
++                vlc_player_SetNextMedia(input->player, NULL);
++                input->stopping_reason = VLC_PLAYER_MEDIA_STOPPING_ERROR;
++                input->error = VLC_PLAYER_ERROR_GENERIC;
++                vlc_player_SendEvent(input->player, on_error_changed, input->error);
++            }
++#endif
+             vlc_player_input_HandleState(input, VLC_PLAYER_STATE_STOPPING,
+                                          VLC_TICK_INVALID);
+             vlc_player_destructor_AddStoppingInput(input->player, input);
+diff --git a/src/preparser/preparser.c b/src/preparser/preparser.c
+index 12f4017..4d31896 100644
+--- a/src/preparser/preparser.c
++++ b/src/preparser/preparser.c
+@@ -23,6 +23,9 @@
+ #endif
+ 
+ #include <assert.h>
++#ifdef __APPLE__
++# include <TargetConditionals.h>
++#endif
+ 
+ #include <vlc_common.h>
+ #include <vlc_preparser.h>
+@@ -84,11 +87,16 @@ vlc_preparser_req_NewThumbnail(vlc_preparser_t *preparser, input_item_t *item,
+                                const struct vlc_thumbnailer_cbs *cbs,
+                                void *cbs_userdata)
+ {
++#if TARGET_OS_IOS
++    (void)preparser; (void)item; (void)thumb_arg; (void)cbs; (void)cbs_userdata;
++    return NULL;
++#else
+     assert(preparser != NULL);
+     assert(preparser->ops != NULL);
+     assert(preparser->ops->req_new_thumbnail != NULL);
+     return preparser->ops->req_new_thumbnail(preparser->sys, item, thumb_arg,
+                                              cbs, cbs_userdata);
++#endif
+ }
+ 
+ struct vlc_preparser_req *
+@@ -100,6 +108,11 @@ vlc_preparser_req_NewThumbnailToFiles(vlc_preparser_t *preparser,
+                                 const struct vlc_thumbnailer_to_files_cbs *cbs,
+                                 void *cbs_userdata)
+ {
++#if TARGET_OS_IOS
++    (void)preparser; (void)item; (void)thumb_arg; (void)outputs;
++    (void)output_count; (void)cbs; (void)cbs_userdata;
++    return NULL;
++#else
+     assert(preparser != NULL);
+     assert(preparser->ops != NULL);
+     assert(preparser->ops->req_new_thumbnail_to_files != NULL);
+@@ -107,6 +120,7 @@ vlc_preparser_req_NewThumbnailToFiles(vlc_preparser_t *preparser,
+                                                       thumb_arg, outputs,
+                                                       output_count, cbs,
+                                                       cbs_userdata);
++#endif
+ }
+ 
+ int

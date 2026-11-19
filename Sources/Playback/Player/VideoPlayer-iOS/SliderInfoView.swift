@@ -101,59 +101,6 @@ class SliderInfoView: UIView {
     }
 }
 
-class BrightnessControlView: SliderInfoView {
-#if os(iOS)
-    init() {
-        super.init(frame: .zero)
-
-        setupView()
-
-        if  !UIAccessibility.isVoiceOverRunning {
-            levelSlider.thumbImage = UIImage()
-        }
-        self.iconNames = ["brightnessLow", "brightnessLow", "brightnessMedium", "brightnessHigh"]
-        levelSlider.addTarget(self, action: #selector(self.onLuminosityChange), for: .valueChanged)
-
-        levelSlider.isAccessibilityElement = true
-        levelSlider.accessibilityLabel = NSLocalizedString("BRIGHTNESS_SLIDER", comment: "")
-        levelSlider.accessibilityHint = NSLocalizedString("BRIGHTNESS_HINT", comment: "")
-
-        // Avoid the temptation to put `adjustable` here; the system will add
-        // accessibility controls that do not work.
-        levelSlider.accessibilityTraits = []
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private var currentScreen: UIScreen? {
-        return window?.windowScene?.screen
-    }
-
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-
-        if let brightness = currentScreen?.brightness {
-            update(level: Float(brightness))
-        }
-    }
-
-    @objc func onLuminosityChange() {
-        currentScreen?.brightness = CGFloat(levelSlider.value)
-        update(level: levelSlider.value)
-    }
-
-    override func setupView() {
-        super.setupView()
-
-        NSLayoutConstraint.activate([
-            levelImageView.leadingAnchor.constraint(equalTo: leadingAnchor)
-        ])
-    }
-#endif
-}
-
 class VolumeControlView: SliderInfoView {
     private let volumeView: MPVolumeView?
     private(set) var isBeingTouched: Bool = false
