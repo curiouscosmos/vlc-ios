@@ -9,11 +9,15 @@
 		<key>NSExtensionAttributes</key>
 		<dict>
 			<key>NSExtensionActivationRule</key>
-			<dict>
-				<key>NSExtensionActivationSupportsFileWithMaxCount</key>
-				<integer>100</integer>
-
-			</dict>
+			<string>extensionItems.@count &gt; 0 AND
+				SUBQUERY(extensionItems, $item,
+					$item.attachments.@count &gt; 0 AND $item.attachments.@count &lt;= 100 AND
+					SUBQUERY($item.attachments, $attachment,
+						ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.audio" AND
+						NONE $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.movie" AND
+						NONE $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.video"
+					).@count == $item.attachments.@count
+				).@count == extensionItems.@count</string>
 		</dict>
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.share-services</string>

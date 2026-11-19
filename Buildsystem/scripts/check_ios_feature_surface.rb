@@ -59,8 +59,13 @@ errors << 'The iOS app advertises movie types' unless movie_types.empty?
   end
 end
 share = REXML::Document.new(File.read(File.join(root, 'Sources/ShareExtension/Info.plist')))
-movies = REXML::XPath.match(share, '//key[text()="NSExtensionActivationSupportsMovieWithMaxCount"]')
-errors << 'The share extension advertises movie import' unless movies.empty?
+activation = REXML::XPath.first(share, '//key[text()="NSExtensionActivationRule"]/following-sibling::*[1]')
+unless activation&.name == 'string' &&
+       activation.text.include?('ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.audio"') &&
+       %w[movie video].all? { |type| activation.text.include?("NONE $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO \"public.#{type}\"") } &&
+       activation.text.include?(').@count == $item.attachments.@count')
+  errors << 'The share extension must require an audio-only selection'
+end
 
 abort errors.join("\n") unless errors.empty?
 puts 'Both iOS targets exclude retired integrations, video controls, retired settings, SDKs and URL schemes.'

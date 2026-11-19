@@ -71,7 +71,7 @@ Shared schemes: `VLC-iOS`, `VLC-iOS-no-watch`, `VLC-iOS-Tests`, `VLC-iOS-UITests
 
 Identifiers: app `com.oshodiscourse`, widget `.widget`, share extension `.shareextension`, watch `.watchos`, app group
 `group.com.oshodiscourse`. iOS registers no legacy VLC, network, podcast or cloud-auth URL schemes; local Files
-opening and discourse universal links remain. `project.pbxproj` uses classic `PBXGroup`s; register files and target membership with
+opening and discourse universal links remain. The Share extension accepts audio-only selections. `project.pbxproj` uses classic `PBXGroup`s; register files and target membership with
 `ruby Buildsystem/scripts/add_to_xcodeproj.rb "Sources/Discourse" "Foo.swift" "VLC-iOS"` (or `--target VLC-iOSTests`).
 Never hand-edit pbxproj UUIDs; rebuild after every `pod` command.
 

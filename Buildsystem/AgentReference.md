@@ -440,7 +440,7 @@ Fork touch points (upstream files we intentionally edit):
 - `Sources/Playback/Control/VLCPlayerDisplayController.{h,m}`, `Sources/Playback/Queue/QueueViewController.swift`,
   audio player, `PlayerController`, `PlayerInfoView`, navigation bar and `UIStackView+Orientation.m` — audio-only
   presentation/queue callbacks, no external video display, PiP or 360-degree motion on iOS; shared audio controls stay.
-  `Sources/ShareExtension/Info.plist` — no movie activation; iOS Info.plist removes external scenes/cloud query schemes.
+  `Sources/ShareExtension/Info.plist` — Share requires every attachment to advertise audio and rejects movie or video representations and generic file-only selections; iOS Info.plist removes external scenes/cloud query schemes.
 - `Sources/Playback/OS Integration/VLCMetadata.m` — iOS metadata always identifies the main session as audio.
 - `Sources/Playback/Player/` — `PlayerViewController`, `AudioPlayerViewController`, `VideoPlayerViewController`,
   `AudioPlayerView`, mini-player, `MediaMoreOptionsActionSheet` + subviews, `ActionSheetCell`: white spinner, discourse heart, targeted player download updates, Share row, Clip editor integration, 168 pt Dynamic Type-scaled height and the scrub bar's captured seek intent with absolute audio seeks; restored-paused Clip eligibility and metadata-driven action refresh; CC action, portrait transcript artwork/metadata replacement and active clip-bracket caption selection.

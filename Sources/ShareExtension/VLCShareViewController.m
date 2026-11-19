@@ -185,9 +185,19 @@ static void *VLCShareProgressContext = &VLCShareProgressContext;
         }
     }
 
-    if (providers.count == 0) {
+    if (providers.count == 0 || providers.count > 100) {
         [self finishWithSuccess:NO];
         return;
+    }
+
+    NSString *audioType = @"public.audio";
+    for (NSItemProvider *provider in providers) {
+        if (![provider hasItemConformingToTypeIdentifier:audioType]
+            || [provider hasItemConformingToTypeIdentifier:@"public.movie"]
+            || [provider hasItemConformingToTypeIdentifier:@"public.video"]) {
+            [self finishWithSuccess:NO];
+            return;
+        }
     }
 
     dispatch_group_t importGroup = dispatch_group_create();
@@ -217,30 +227,8 @@ static void *VLCShareProgressContext = &VLCShareProgressContext;
             finishItem(url != nil && [self copyToDropFolder:url dropFolderURL:dropFolderURL]);
         };
 
-        if (![provider canLoadObjectOfClass:[NSURL class]]) {
-            [_progress addChild:[provider loadFileRepresentationForTypeIdentifier:@"public.data" completionHandler:importFile]
-                withPendingUnitCount:1];
-            continue;
-        }
-
-        [provider loadObjectOfClass:[NSURL class] completionHandler:^(id<NSItemProviderReading> object, NSError *itemError) {
-            NSURL *url = (NSURL *)object;
-            NSNumber *isDirectory;
-            [url getResourceValue:&isDirectory forKey:NSURLIsDirectoryKey error:nil];
-            if (!isDirectory.boolValue) {
-                [self->_progress addChild:[provider loadFileRepresentationForTypeIdentifier:@"public.data" completionHandler:importFile]
-                     withPendingUnitCount:1];
-                return;
-            }
-
-            NSProgress *folderProgress = [NSProgress progressWithTotalUnitCount:0 parent:self->_progress pendingUnitCount:1];
-            BOOL isSecurityScoped = [url startAccessingSecurityScopedResource];
-            BOOL imported = [self copyFolderToDropFolder:url dropFolderURL:dropFolderURL progress:folderProgress];
-            if (isSecurityScoped) {
-                [url stopAccessingSecurityScopedResource];
-            }
-            finishItem(imported);
-        }];
+        [_progress addChild:[provider loadFileRepresentationForTypeIdentifier:audioType completionHandler:importFile]
+             withPendingUnitCount:1];
     }
 
     dispatch_group_notify(importGroup, dispatch_get_main_queue(), ^{
@@ -265,59 +253,6 @@ static void *VLCShareProgressContext = &VLCShareProgressContext;
         return NO;
     }
 
-    return YES;
-}
-
-- (BOOL)copyFolderToDropFolder:(NSURL *)folderURL dropFolderURL:(NSURL *)dropFolderURL progress:(NSProgress *)progress
-{
-    NSFileManager *fileManager = NSFileManager.defaultManager;
-    NSURL *destination = [self availableURLForFileNamed:folderURL.lastPathComponent inFolder:dropFolderURL];
-    NSURL *partialURL = [dropFolderURL URLByAppendingPathComponent:[@"." stringByAppendingString:destination.lastPathComponent]];
-
-    [fileManager removeItemAtURL:partialURL error:nil];
-
-    NSMutableArray<NSString *> *directories = [NSMutableArray array];
-    NSMutableArray<NSString *> *files = [NSMutableArray array];
-    NSMutableArray<NSNumber *> *fileSizes = [NSMutableArray array];
-    unsigned long long totalSize = 0;
-
-    NSDirectoryEnumerator<NSString *> *enumerator = [fileManager enumeratorAtPath:folderURL.path];
-    for (NSString *relativePath in enumerator) {
-        NSDictionary<NSFileAttributeKey, id> *attributes = enumerator.fileAttributes;
-        if ([attributes.fileType isEqualToString:NSFileTypeDirectory]) {
-            [directories addObject:relativePath];
-        } else {
-            [files addObject:relativePath];
-            [fileSizes addObject:@(attributes.fileSize)];
-            totalSize += attributes.fileSize;
-        }
-    }
-    progress.totalUnitCount = MAX(totalSize, 1);
-
-    NSError *error;
-    BOOL success = [fileManager createDirectoryAtURL:partialURL withIntermediateDirectories:NO attributes:nil error:&error];
-    for (NSString *relativePath in directories) {
-        success = success && [fileManager createDirectoryAtURL:[partialURL URLByAppendingPathComponent:relativePath]
-                                   withIntermediateDirectories:YES
-                                                    attributes:nil
-                                                         error:&error];
-    }
-
-    NSUInteger fileCount = files.count;
-    for (NSUInteger index = 0; success && index < fileCount; index++) {
-        success = [fileManager copyItemAtURL:[folderURL URLByAppendingPathComponent:files[index]]
-                                       toURL:[partialURL URLByAppendingPathComponent:files[index]]
-                                       error:&error];
-        progress.completedUnitCount += fileSizes[index].unsignedLongLongValue;
-    }
-
-    if (!success || ![fileManager moveItemAtURL:partialURL toURL:destination error:&error]) {
-        APLog(@"%s: failed to import %@: %@", __func__, folderURL.lastPathComponent, error.localizedDescription);
-        [fileManager removeItemAtURL:partialURL error:nil];
-        return NO;
-    }
-
-    progress.completedUnitCount = progress.totalUnitCount;
     return YES;
 }
 
